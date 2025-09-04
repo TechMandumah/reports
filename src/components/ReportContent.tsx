@@ -113,7 +113,7 @@ export default function ReportContent({ activeReport }: ReportContentProps) {
     
     try {
       // Call the custom citation form API
-      const response = await fetch('/api/citation-reports/custom-form', {
+      const response = await fetch('/api/citation-reports/custom', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -160,20 +160,16 @@ export default function ReportContent({ activeReport }: ReportContentProps) {
   };
 
   const isCustomReport = activeReport === 'custom_report';
-  const isCitationReport = ['export_citation_entry', 'export_translations_citation_title', 'export_translations_citation_author', 'custom_citation_report', 'custom_citation_form'].includes(activeReport);
+  const isCitationReport = ['export_citation_titles', 'export_citation_authors', 'custom_citation_report'].includes(activeReport);
 
   // Render citation reports directly without the wrapper
   if (isCitationReport) {
     switch (activeReport) {
-      case 'export_citation_entry':
-        return <ExportCitationEntry />;
-      case 'export_translations_citation_title':
+      case 'export_citation_titles':
         return <CitationTitleTranslations />;
-      case 'export_translations_citation_author':
+      case 'export_citation_authors':
         return <CitationAuthorTranslations />;
       case 'custom_citation_report':
-        return <CustomCitationReport />;
-      case 'custom_citation_form':
         return <CustomCitationReportForm 
           onGenerate={handleGenerateCustomCitationReport}
           isGenerating={isGenerating}

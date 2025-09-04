@@ -37,11 +37,9 @@ export default function Sidebar({ activeReport, setActiveReport }: SidebarProps)
     {
       nameKey: 'sidebar.citationReports',
       items: [
-        { nameKey: 'sidebar.reports.citationEntry', id: "export_citation_entry" },
-        { nameKey: 'sidebar.reports.citationTitle', id: "export_translations_citation_title" },
-        { nameKey: 'sidebar.reports.citationAuthor', id: "export_translations_citation_author" },
-        // { nameKey: 'sidebar.reports.customCitationReport', id: "custom_citation_report" },
-        { nameKey: 'sidebar.reports.customCitationReport', id: "custom_citation_form" }
+        { nameKey: 'sidebar.reports.exportCitationTitles', id: "export_citation_titles" },
+        { nameKey: 'sidebar.reports.exportCitationAuthors', id: "export_citation_authors" },
+        { nameKey: 'sidebar.reports.customCitationReport', id: "custom_citation_report" }
       ]
     },
     {
@@ -116,11 +114,11 @@ export default function Sidebar({ activeReport, setActiveReport }: SidebarProps)
       </nav>
 
       {/* Sidebar Footer */}
-      <div className="p-4 border-t border-gray-200 bg-gray-50">
+      {/* <div className="p-4 border-t border-gray-200 bg-gray-50">
         <div className={`${isRTL ? 'text-center' : 'text-center'}`}>
           <p className="text-xs text-gray-500 mb-1">© 2025 Mandumah</p>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 }

@@ -21,94 +21,175 @@ export default function CitationAuthorTranslations() {
   const t = getTranslation(language);
   const [isGenerating, setIsGenerating] = useState(false);
   const [recordCount, setRecordCount] = useState(0);
-  const [inputMethod, setInputMethod] = useState<'manual' | 'file'>('manual');
   const [magazineNumbers, setMagazineNumbers] = useState('');
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [validationError, setValidationError] = useState('');
-  const [uploadStatus, setUploadStatus] = useState('');
   const [startYear, setStartYear] = useState('');
   const [endYear, setEndYear] = useState('');
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [inputMethod, setInputMethod] = useState<'manual' | 'file'>('manual');
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [fileNumbers, setFileNumbers] = useState<string[]>([]);
 
-  // File validation functions
-  const validateFileType = (file: File): boolean => {
-    return file.type === 'text/plain' || file.name.endsWith('.txt');
-  };
+  const validateMagazineNumbers = (input: string): { isValid: boolean; errors: string[] } => {
+    if (!input.trim()) {
+      return { isValid: true, errors: [] }; // Empty is allowed
+    }
 
-  const validateFileContent = async (file: File): Promise<{ isValid: boolean; error?: string }> => {
-    try {
-      const content = await file.text();
-      const lines = content.split('\n').filter(line => line.trim());
-      
-      if (lines.length === 0) {
-        return { isValid: false, error: 'File is empty or contains no valid data' };
+    const numbers = input.split(',').map(n => n.trim()).filter(n => n !== '');
+    const errors: string[] = [];
+
+    numbers.forEach((num, index) => {
+      // Check if it's a valid number
+      if (!/^\d+$/.test(num)) {
+        errors.push(`Issue #${index + 1}: "${num}" ${t.forms.issueNotValidNumber}`);
+        return;
       }
 
-      // Check if all lines contain valid magazine numbers (digits only)
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (trimmed && !/^\d+$/.test(trimmed)) {
-          return { isValid: false, error: `Invalid magazine number: "${trimmed}"` };
-        }
+      // Check if it's exactly 4 digits
+      if (num.length !== 4) {
+        errors.push(`Issue #${index + 1}: "${num}" ${t.forms.issueMustBe4Digits}`);
       }
+    });
 
-      return { isValid: true };
-    } catch (error) {
-      return { isValid: false, error: 'Error reading file' };
-    }
+    return { isValid: errors.length === 0, errors };
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    setValidationError('');
-    setUploadStatus('');
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
-    if (!file) {
-      setUploadedFile(null);
-      return;
-    }
-
-    // Validate file type
-    if (!validateFileType(file)) {
-      setValidationError('Please upload a .txt file');
-      return;
-    }
-
-    // Validate file size (max 1MB)
-    if (file.size > 1024 * 1024) {
-      setValidationError('File size must be less than 1MB');
-      return;
-    }
-
-    // Validate file content
-    const validation = await validateFileContent(file);
-    if (!validation.isValid) {
-      setValidationError(validation.error || 'Invalid file');
+    if (!file.type.includes('text') && !file.name.endsWith('.txt')) {
+      setValidationErrors([t.errors.uploadTextFile]);
       return;
     }
 
     setUploadedFile(file);
-    setUploadStatus('File uploaded successfully');
+    
+    try {
+      const text = await file.text();
+      const { numbers, errors } = parseAndValidateFileContent(text);
+      setFileNumbers(numbers);
+      
+      if (errors.length > 0) {
+        setValidationErrors(errors);
+      } else {
+        setValidationErrors([]);
+      }
+    } catch (error) {
+      setValidationErrors([t.errors.errorReadingFile]);
+    }
+  };
+
+  const parseAndValidateFileContent = (text: string): { numbers: string[]; errors: string[] } => {
+    const lines = text.split(/\r?\n/);
+    const numbers: string[] = [];
+    const errors: string[] = [];
+    
+    lines.forEach((line, lineIndex) => {
+      const lineNumber = lineIndex + 1;
+      const trimmedLine = line.trim();
+      
+      // Skip empty lines
+      if (trimmedLine === '') {
+        return;
+      }
+      
+      // Check if line contains comma-separated values
+      if (trimmedLine.includes(',')) {
+        const values = trimmedLine.split(',');
+        values.forEach((value, valueIndex) => {
+          const trimmedValue = value.trim();
+          if (trimmedValue === '') return;
+          
+          const validation = validateSingleNumber(trimmedValue, lineNumber, valueIndex + 1, true);
+          if (validation.isValid) {
+            numbers.push(trimmedValue);
+          } else {
+            errors.push(...validation.errors);
+          }
+        });
+      } else {
+        // Single value per line
+        const validation = validateSingleNumber(trimmedLine, lineNumber, 1, false);
+        if (validation.isValid) {
+          numbers.push(trimmedLine);
+        } else {
+          errors.push(...validation.errors);
+        }
+      }
+    });
+    
+    return { numbers, errors };
+  };
+
+  const validateSingleNumber = (value: string, lineNumber: number, position: number, isCommaSeparated: boolean): { isValid: boolean; errors: string[] } => {
+    const errors: string[] = [];
+    const positionText = isCommaSeparated ? `, position ${position}` : '';
+    
+    // Check for non-numeric characters
+    if (!/^\d+$/.test(value)) {
+      const invalidChars = value.match(/[^\d]/g)?.join('') || '';
+      errors.push(`Line ${lineNumber}${positionText}: "${value}" contains invalid characters (${invalidChars}). Only digits 0-9 are allowed.`);
+      return { isValid: false, errors };
+    }
+    
+    // Check if it's exactly 4 digits
+    if (value.length !== 4) {
+      if (value.length < 4) {
+        errors.push(`Line ${lineNumber}${positionText}: "${value}" has only ${value.length} digit(s). Must be exactly 4 digits (pad with leading zeros: ${value.padStart(4, '0')}).`);
+      } else {
+        errors.push(`Line ${lineNumber}${positionText}: "${value}" has ${value.length} digits. Must be exactly 4 digits. Consider breaking it into separate 4-digit numbers.`);
+      }
+      return { isValid: false, errors };
+    }
+    
+    return { isValid: true, errors: [] };
+  };
+
+  const validateFileNumbers = (numbers: string[]): { isValid: boolean; errors: string[] } => {
+    const errors: string[] = [];
+    
+    if (numbers.length === 0) {
+      errors.push(t.errors.noValidNumbers);
+      return { isValid: false, errors };
+    }
+    
+    return { isValid: errors.length === 0, errors };
+  };
+
+  const clearFormInputs = () => {
+    setMagazineNumbers('');
+    setStartYear('');
+    setEndYear('');
+    setValidationErrors([]);
+    setInputMethod('manual');
+    setUploadedFile(null);
+    setFileNumbers([]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsGenerating(true);
-    setValidationError('');
 
-    let magazineNumbersToSend = '';
-
-    if (inputMethod === 'file' && uploadedFile) {
-      try {
-        const content = await uploadedFile.text();
-        magazineNumbersToSend = content.trim();
-      } catch (error) {
-        setValidationError('Error reading file');
-        setIsGenerating(false);
-        return;
-      }
-    } else if (inputMethod === 'manual') {
-      magazineNumbersToSend = magazineNumbers;
+    // Validate magazine numbers based on input method
+    let validation;
+    let numbersToUse: string[] = [];
+    
+    if (inputMethod === 'manual') {
+      validation = validateMagazineNumbers(magazineNumbers);
+      numbersToUse = magazineNumbers.split(',').map((m: string) => m.trim()).filter((m: string) => m !== '');
+    } else {
+      validation = validateFileNumbers(fileNumbers);
+      numbersToUse = fileNumbers;
     }
+    
+    if (!validation.isValid) {
+      setValidationErrors(validation.errors);
+      setIsGenerating(false);
+      return;
+    }
+
+    // Clear validation errors if valid
+    setValidationErrors([]);
 
     try {
       const response = await fetch('/api/citation-reports/author-translations', {
@@ -117,7 +198,7 @@ export default function CitationAuthorTranslations() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          magazineNumbers: magazineNumbersToSend || null,
+          magazineNumbers: numbersToUse.length > 0 ? numbersToUse.join(',') : null,
           startYear: startYear || null,
           endYear: endYear || null,
         }),
@@ -138,6 +219,9 @@ export default function CitationAuthorTranslations() {
         // Get record count from response headers
         const count = response.headers.get('X-Record-Count');
         setRecordCount(count ? parseInt(count) : 0);
+        
+        // Clear form inputs after successful generation
+        clearFormInputs();
       } else {
         console.error('Failed to generate report');
       }
@@ -157,42 +241,54 @@ export default function CitationAuthorTranslations() {
       </div>
 
       <form onSubmit={handleSubmit} className="bg-white p-6 rounded-b-xl shadow-lg space-y-6">
-        {/* Magazine Numbers */}
+        {/* Magazine Numbers Input */}
         <div>
-          <label className="block text-sm font-bold text-gray-900 mb-3 flex items-center">
-            <svg className="w-5 h-5 mr-2 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <span>{t.forms.magazineNumbers}</span>
+          <label className="block text-sm font-bold text-gray-800 mb-3">
+            <div className="flex items-center space-x-2">
+              <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+              </svg>
+              <span>{t.steps.magazineNumbersInputMethod}</span>
+            </div>
           </label>
-
+          
           {/* Input Method Selection */}
           <div className="flex space-x-4 mb-4">
             <button
               type="button"
-              onClick={() => setInputMethod('manual')}
-              className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+              onClick={() => {
+                setInputMethod('manual');
+                setValidationErrors([]);
+                setUploadedFile(null);
+                setFileNumbers([]);
+              }}
+              className={`px-4 py-2 text-sm font-medium rounded-md ${
                 inputMethod === 'manual'
-                  ? 'bg-red-600 text-white shadow-md'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  ? 'bg-red-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
               {t.steps.manualEntry}
             </button>
             <button
               type="button"
-              onClick={() => setInputMethod('file')}
-              className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+              onClick={() => {
+                setInputMethod('file');
+                setValidationErrors([]);
+                setMagazineNumbers('');
+              }}
+              className={`px-4 py-2 text-sm font-medium rounded-md ${
                 inputMethod === 'file'
-                  ? 'bg-red-600 text-white shadow-md'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  ? 'bg-red-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
               {t.steps.uploadFile}
             </button>
           </div>
 
-          {inputMethod === 'manual' ? (
+          {/* Manual Entry */}
+          {inputMethod === 'manual' && (
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                 <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -202,45 +298,105 @@ export default function CitationAuthorTranslations() {
               <input
                 type="text"
                 value={magazineNumbers}
-                onChange={(e) => setMagazineNumbers(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 bg-gray-50 focus:bg-white text-gray-900 placeholder-gray-500"
+                onChange={(e) => {
+                  setMagazineNumbers(e.target.value);
+                  if (validationErrors.length > 0) {
+                    setValidationErrors([]);
+                  }
+                }}
+                className={`w-full pl-12 pr-4 py-4 border-2 rounded-xl shadow-sm focus:outline-none focus:ring-2 transition-all duration-200 bg-gray-50 focus:bg-white text-gray-900 placeholder-gray-500 ${
+                  validationErrors.length > 0 
+                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
+                    : 'border-gray-200 focus:ring-red-500 focus:border-red-500'
+                }`}
                 placeholder={t.steps.magazineNumbersPlaceholder}
               />
             </div>
-          ) : (
+          )}
+
+          {/* File Upload */}
+          {inputMethod === 'file' && (
             <div>
               <input
+                id="fileUpload"
                 type="file"
                 accept=".txt"
                 onChange={handleFileUpload}
-                className="block w-full text-sm text-gray-500 file:mr-4 file:py-3 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100 file:cursor-pointer cursor-pointer border-2 border-dashed border-gray-300 rounded-xl p-4 hover:border-red-400 transition-all duration-200"
+                className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 bg-gray-50 focus:bg-white text-gray-900"
               />
+              <p className="mt-2 text-sm text-gray-600">
+                {t.steps.uploadFileHelper}
+              </p>
+              
               {uploadedFile && (
-                <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <p className="text-sm text-green-700">
-                    📁 {uploadedFile.name} ({(uploadedFile.size / 1024).toFixed(1)} KB)
-                  </p>
+                <div className={`mt-3 p-3 border rounded-md ${
+                  validationErrors.length > 0 
+                    ? 'bg-yellow-50 border-yellow-200' 
+                    : 'bg-green-50 border-green-200'
+                }`}>
+                  <div className="flex items-center">
+                    <svg className={`w-4 h-4 mr-2 ${
+                      validationErrors.length > 0 ? 'text-yellow-500' : 'text-green-500'
+                    }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                        d={validationErrors.length > 0 
+                          ? "M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
+                          : "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        } />
+                    </svg>
+                    <span className={`text-sm ${
+                      validationErrors.length > 0 ? 'text-yellow-800' : 'text-green-800'
+                    }`}>
+                      {t.forms.fileUploaded} {uploadedFile.name} 
+                      {validationErrors.length === 0 && (
+                        <span> ({fileNumbers.length} {t.forms.validNumbersFound})</span>
+                      )}
+                      {validationErrors.length > 0 && (
+                        <span> ({fileNumbers.length} {t.forms.validNumbersFound}, {validationErrors.length} {t.forms.errors})</span>
+                      )}
+                    </span>
+                  </div>
+                  {fileNumbers.length > 0 && validationErrors.length === 0 && (
+                    <div className="mt-2 text-sm text-green-700">
+                      <strong>{t.forms.validNumbersFoundLabel}</strong> {fileNumbers.slice(0, 10).join(', ')}
+                      {fileNumbers.length > 10 && ` ... and ${fileNumbers.length - 10} more`}
+                    </div>
+                  )}
+                  {validationErrors.length > 0 && fileNumbers.length > 0 && (
+                    <div className="mt-2 text-sm text-green-700">
+                      <strong>{t.forms.validNumbersFoundLabel}</strong> {fileNumbers.slice(0, 5).join(', ')}
+                      {fileNumbers.length > 5 && ` ... and ${fileNumbers.length - 5} more`}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           )}
-
-          {/* Validation Error */}
-          {validationError && (
-            <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-700">❌ {validationError}</p>
-            </div>
-          )}
-
-          {/* Upload Status */}
-          {uploadStatus && (
-            <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-sm text-green-700">✅ {uploadStatus}</p>
+          
+          {/* Validation Errors */}
+          {validationErrors.length > 0 && (
+            <div className="mt-3 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-start">
+                <svg className="w-5 h-5 text-red-500 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                  <h4 className="text-sm font-medium text-red-800 mb-1">{t.forms.magazineNumberValidationErrors}</h4>
+                  <ul className="text-sm text-red-700 space-y-1">
+                    {validationErrors.map((error, index) => (
+                      <li key={index} className="flex items-start">
+                        <span className="mr-2">•</span>
+                        <span>{error}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
             </div>
           )}
 
           <p className="mt-2 text-sm text-gray-600 bg-blue-50 rounded-lg p-3 border border-blue-200">
-            💡 <strong>{t.steps.magazineNumbersHelper}</strong>
+            {t.steps.magazineNumbersHelper}
           </p>
         </div>
 

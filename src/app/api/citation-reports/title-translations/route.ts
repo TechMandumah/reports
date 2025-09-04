@@ -1,69 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server';
-import mysql from 'mysql2/promise';
 import * as xlsx from 'xlsx';
-
-// Citation database connection configuration
-const citationDbConfig = {
-  host: process.env.CITATION_DB_HOST || 'localhost',
-  user: process.env.CITATION_DB_USER || 'root',
-  password: process.env.CITATION_DB_PASSWORD || '',
-  database: process.env.CITATION_DB_NAME || 'koha_citation',
-  charset: 'utf8mb4',
-};
+import { getCitationConnection } from '@/lib/citation_db';
+import { extractAllTitles, formatMultipleValues } from '@/utils/marcParser';
 
 interface CitationTitleData {
   biblionumber: number;
-  originalTitle: string;
-  translatedTitle?: string;
-  alternativeTitle?: string;
+  url: string;
+  titles_245: string[];
+  titles_242: string[];
+  titles_246: string[];
+  allTitles: string;
   author: string;
+  authorId?: string;
   year: string;
   journal: string;
-  url: string;
-  authorId?: string;
-  additionalAuthorIds?: string[];
 }
 
-// Helper function to extract title data from MARC XML
+// Helper function to extract title data from MARC XML using enhanced parser
 function extractTitleDataFromMarcXml(marcxml: string): {
-  originalTitle: string;
-  translatedTitle?: string;
-  alternativeTitle?: string;
+  titles_245: string[];
+  titles_242: string[];
+  titles_246: string[];
+  allTitles: string;
   author: string;
   year: string;
   journal: string;
   authorId?: string;
-  additionalAuthorIds: string[];
 } {
   const result = {
-    originalTitle: '',
-    translatedTitle: undefined as string | undefined,
-    alternativeTitle: undefined as string | undefined,
+    titles_245: [] as string[],
+    titles_242: [] as string[],
+    titles_246: [] as string[],
+    allTitles: '',
     author: '',
     year: '',
     journal: '',
     authorId: undefined as string | undefined,
-    additionalAuthorIds: [] as string[],
   };
 
   try {
-    // Extract original title from field 245
-    const titleMatch = marcxml.match(/<datafield tag="245"[^>]*>[\s\S]*?<subfield code="a">([^<]+)<\/subfield>/);
-    if (titleMatch) {
-      result.originalTitle = titleMatch[1].trim();
-    }
-
-    // Extract translated title from field 242
-    const translatedTitleMatch = marcxml.match(/<datafield tag="242"[^>]*>[\s\S]*?<subfield code="a">([^<]+)<\/subfield>/);
-    if (translatedTitleMatch) {
-      result.translatedTitle = translatedTitleMatch[1].trim();
-    }
-
-    // Extract alternative title from field 246
-    const altTitleMatch = marcxml.match(/<datafield tag="246"[^>]*>[\s\S]*?<subfield code="a">([^<]+)<\/subfield>/);
-    if (altTitleMatch) {
-      result.alternativeTitle = altTitleMatch[1].trim();
-    }
+    // Extract all titles using enhanced parser
+    const titleData = extractAllTitles(marcxml);
+    result.titles_245 = titleData.titles_245;
+    result.titles_242 = titleData.titles_242;
+    result.titles_246 = titleData.titles_246;
+    result.allTitles = formatMultipleValues(titleData.allTitles);
 
     // Extract author from field 100
     const authorMatch = marcxml.match(/<datafield tag="100"[^>]*>[\s\S]*?<subfield code="a">([^<]+)<\/subfield>/);
@@ -77,18 +58,9 @@ function extractTitleDataFromMarcXml(marcxml: string): {
       result.authorId = authorIdMatch[1].trim();
     }
 
-    // Extract additional author IDs from field 700
-    const additionalAuthorMatches = marcxml.matchAll(/<datafield tag="700"[^>]*>([\s\S]*?)<\/datafield>/g);
-    for (const match of additionalAuthorMatches) {
-      const fieldContent = match[1];
-      const idMatch = fieldContent.match(/<subfield code="9">([^<]+)<\/subfield>/);
-      if (idMatch) {
-        result.additionalAuthorIds.push(idMatch[1].trim());
-      }
-    }
-
-    // Extract year from field 260
-    const yearMatch = marcxml.match(/<datafield tag="260"[^>]*>[\s\S]*?<subfield code="c">([^<]+)<\/subfield>/);
+    // Extract year from field 260 or 264
+    const yearMatch = marcxml.match(/<datafield tag="260"[^>]*>[\s\S]*?<subfield code="c">([^<]+)<\/subfield>/) ||
+                     marcxml.match(/<datafield tag="264"[^>]*>[\s\S]*?<subfield code="c">([^<]+)<\/subfield>/);
     if (yearMatch) {
       result.year = yearMatch[1].trim();
     }
@@ -98,6 +70,7 @@ function extractTitleDataFromMarcXml(marcxml: string): {
     if (journalMatch) {
       result.journal = journalMatch[1].trim();
     }
+
   } catch (error) {
     console.error('Error parsing MARC XML for titles:', error);
   }
@@ -107,10 +80,13 @@ function extractTitleDataFromMarcXml(marcxml: string): {
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('CitationTitleTranslations: Starting request processing');
     const { magazineNumbers, startYear, endYear } = await request.json();
+    console.log('CitationTitleTranslations: Request params:', { magazineNumbers, startYear, endYear });
 
     // Create database connection
-    const connection = await mysql.createConnection(citationDbConfig);
+    const connection = await getCitationConnection();
+    console.log('CitationTitleTranslations: Database connected successfully');
 
     let query = `
       SELECT 
@@ -118,22 +94,32 @@ export async function POST(request: NextRequest) {
         b.author as biblio_author,
         b.title as biblio_title,
         b.copyrightdate,
-        bi.marcxml
-      FROM biblio b
-      LEFT JOIN biblioitems bi ON b.biblionumber = bi.biblionumber
+        bi.marcxml,
+        bi.url
+      FROM biblioitems bi
+      INNER JOIN biblio b ON bi.biblionumber = b.biblionumber
       WHERE b.frameworkcode = 'CIT'
         AND bi.marcxml IS NOT NULL
     `;
 
     const queryParams: any[] = [];
 
-    // Add magazine numbers filter (using biblionumber or publishercode)
+    // Add magazine numbers filter - get all versions and builds under magazine
     if (magazineNumbers) {
       const numbers = magazineNumbers.split(/[,\s\n]+/).filter((num: string) => num.trim());
       if (numbers.length > 0) {
-        const placeholders = numbers.map(() => '?').join(',');
-        query += ` AND (b.biblionumber IN (${placeholders}) OR bi.publishercode IN (${placeholders}))`;
-        queryParams.push(...numbers, ...numbers);
+        // Build LIKE conditions for each magazine number to get all versions (e.g., 0005-*)
+        const likeConditions = numbers.map(() => 'bi.url LIKE ?').join(' OR ');
+        query += ` AND (${likeConditions})`;
+        
+        // Add parameters with wildcard pattern for each magazine number
+        const patterns: string[] = [];
+        for (const number of numbers) {
+          const pattern = `${number.padStart(4, '0')}-%`;
+          patterns.push(pattern);
+          queryParams.push(pattern);
+        }
+        console.log('CitationTitleTranslations: Magazine filter patterns:', patterns);
       }
     }
 
@@ -154,74 +140,122 @@ export async function POST(request: NextRequest) {
     const [rows] = await connection.execute(query, queryParams);
     const results = rows as any[];
 
+    console.log(`Found ${results.length} total records from database`);
+
     const titleData: CitationTitleData[] = results.map(row => {
       const marcData = row.marcxml ? extractTitleDataFromMarcXml(row.marcxml) : {
-        originalTitle: '',
+        titles_245: [],
+        titles_242: [],
+        titles_246: [],
+        allTitles: '',
         author: '',
         year: '',
         journal: '',
-        translatedTitle: undefined,
-        alternativeTitle: undefined,
-        authorId: undefined,
-        additionalAuthorIds: []
+        authorId: undefined
       };
 
       return {
         biblionumber: row.biblionumber,
-        originalTitle: marcData.originalTitle || row.biblio_title || '',
-        translatedTitle: marcData.translatedTitle,
-        alternativeTitle: marcData.alternativeTitle,
+        titles_245: marcData.titles_245,
+        titles_242: marcData.titles_242,
+        titles_246: marcData.titles_246,
+        allTitles: marcData.allTitles || (row.biblio_title ? row.biblio_title : ''),
         author: marcData.author || row.biblio_author || '',
         year: marcData.year || row.copyrightdate?.toString() || '',
         journal: marcData.journal || '',
-        url: `https://cataloging.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${row.biblionumber}`,
+        url: row.url || '',
         authorId: marcData.authorId,
-        additionalAuthorIds: marcData.additionalAuthorIds,
       };
     });
 
-    // Filter out entries without translated or alternative titles for the translation report
-    const translationData = titleData.filter(item => 
-      item.translatedTitle || item.alternativeTitle
-    );
+    console.log(`Processed ${titleData.length} records`);
 
-    await connection.end();
+    // For debugging, let's check the first few records
+    if (titleData.length > 0) {
+      console.log('Sample record:', JSON.stringify(titleData[0], null, 2));
+    }
+
+    // Filter out entries without any title data
+    const translationData = titleData.filter(item => {
+      const hasTitles = item.titles_245.length > 0 || item.titles_242.length > 0 || 
+                       item.titles_246.length > 0 || item.allTitles.trim().length > 0;
+      return hasTitles;
+    });
+
+    console.log(`Found ${translationData.length} records with translations after filtering`);
+
+    // If no records with translations found, include all records but mark the issue
+    let finalData = translationData;
+    let reportType = 'translations';
+    
+    if (translationData.length === 0 && titleData.length > 0) {
+      console.log('No translation records found, including all records for debugging');
+      finalData = titleData;
+      reportType = 'all-records-debug';
+    } else if (translationData.length === 0) {
+      console.log('No records found at all');
+      finalData = [];
+    }
+
+    await connection.release();
 
     // Create Excel workbook
     const workbook = xlsx.utils.book_new();
     
-    // Prepare data for Excel with hyperlinks
-    const excelData = translationData.map(item => {
-      const authorWithLink = item.authorId 
-        ? `=HYPERLINK("https://cataloging.mandumah.com/cgi-bin/koha/authorities/authorities.pl?authid=${item.authorId}", "${item.author}")` 
-        : item.author;
-
-      return {
-        'Biblio Number': `=HYPERLINK("${item.url}", "${item.biblionumber}")`,
-        'Original Title (245a)': item.originalTitle,
-        'Translated Title (242a)': item.translatedTitle || '',
-        'Alternative Title (246a)': item.alternativeTitle || '',
-        'Author': authorWithLink,
-        'Year': item.year,
-        'Journal': item.journal,
-      };
-    });
+    // Prepare data for Excel (without formula-based hyperlinks)
+    const excelData = finalData.map(item => ({
+      'Biblio Number': item.biblionumber,
+      'Title 245': formatMultipleValues(item.titles_245),
+      'Title 242': formatMultipleValues(item.titles_242),
+      'Title 246': formatMultipleValues(item.titles_246),
+      // 'Author': item.author,
+      'Year': item.year,
+      'Journal': item.journal,
+      'URL': item.url,
+    }));
 
     const worksheet = xlsx.utils.json_to_sheet(excelData);
+    
+    // Add hyperlinks using cell.l property (safer than formulas)
+    for (let row = 1; row <= finalData.length; row++) {
+      const item = finalData[row - 1];
+      
+      // Add hyperlink for Biblio Number to cataloging system
+      const biblioNumberCellRef = xlsx.utils.encode_cell({ r: row, c: 0 });
+      const biblioNumberCell = worksheet[biblioNumberCellRef];
+      if (biblioNumberCell && biblioNumberCell.v) {
+        const catalogingUrl = `https://cataloging.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${item.biblionumber}`;
+        biblioNumberCell.l = { Target: catalogingUrl, Tooltip: "Click to open in cataloging system" };
+      }
+
+      // Add hyperlink for Author if authorId exists
+      const authorCellRef = xlsx.utils.encode_cell({ r: row, c: 5 });
+      const authorCell = worksheet[authorCellRef];
+      if (authorCell && authorCell.v) {
+        if (item.authorId && item.authorId.trim()) {
+          const authorUrl = `https://cataloging.mandumah.com/cgi-bin/koha/authorities/authorities.pl?authid=${item.authorId}`;
+          authorCell.l = { Target: authorUrl, Tooltip: "Click to view author authority record" };
+        }
+      }
+
+      // URL field now contains PDF filename - no hyperlink needed
+    }
     
     // Auto-size columns
     const columnWidths = [
       { wch: 15 }, // Biblio Number
-      { wch: 50 }, // Original Title
-      { wch: 50 }, // Translated Title
-      { wch: 50 }, // Alternative Title
+      { wch: 40 }, // Title 245
+      { wch: 40 }, // Title 242
+      { wch: 40 }, // Title 246
+      { wch: 50 }, // All Titles
       { wch: 30 }, // Author
       { wch: 10 }, // Year
       { wch: 40 }, // Journal
+      { wch: 60 }, // URL
     ];
     worksheet['!cols'] = columnWidths;
 
-    xlsx.utils.book_append_sheet(workbook, worksheet, 'Citation Title Translations');
+    xlsx.utils.book_append_sheet(workbook, worksheet, reportType === 'translations' ? 'Citation Title Translations' : 'All Records (Debug)');
 
     // Generate Excel buffer
     const excelBuffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
@@ -232,7 +266,7 @@ export async function POST(request: NextRequest) {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'Content-Disposition': `attachment; filename="citation-title-translations-${new Date().toISOString().split('T')[0]}.xlsx"`,
-        'X-Record-Count': translationData.length.toString(),
+        'X-Record-Count': finalData.length.toString(),
       },
     });
 

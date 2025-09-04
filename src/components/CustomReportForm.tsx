@@ -42,6 +42,7 @@ export default function CustomReportForm({
   recordCount = 0,
   showSuccessMessage = false 
 }: CustomReportFormProps) {
+  console.log('⚠️ WRONG CustomReportForm component mounted - this should NOT appear for citation reports!');
   const { language, isRTL } = useLanguage();
   const t = getTranslation(language);
   const [currentStep, setCurrentStep] = useState(1);

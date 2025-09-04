@@ -1,6 +1,139 @@
 import { DOMParser } from 'xmldom';
 import { MarcField, ParsedMarcData } from '@/types/database';
 
+// Enhanced MARC parsing interfaces
+export interface MarcSubfield {
+  code: string;
+  value: string;
+}
+
+export interface EnhancedMarcField {
+  tag: string;
+  subfields: MarcSubfield[];
+}
+
+// Extract all instances of a specific MARC field with all subfields
+export function extractAllMarcFields(marcxml: string, fieldTag: string): EnhancedMarcField[] {
+  const fields: EnhancedMarcField[] = [];
+  
+  // Create regex pattern to match datafield tags
+  const fieldPattern = new RegExp(`<datafield tag="${fieldTag}"[^>]*>(.*?)</datafield>`, 'gs');
+  const fieldMatches = marcxml.matchAll(fieldPattern);
+  
+  for (const fieldMatch of fieldMatches) {
+    const fieldContent = fieldMatch[1];
+    const subfields: MarcSubfield[] = [];
+    
+    // Extract all subfields within this field
+    const subfieldPattern = /<subfield code="([^"]+)">([^<]*)<\/subfield>/g;
+    const subfieldMatches = fieldContent.matchAll(subfieldPattern);
+    
+    for (const subfieldMatch of subfieldMatches) {
+      subfields.push({
+        code: subfieldMatch[1],
+        value: subfieldMatch[2].trim()
+      });
+    }
+    
+    if (subfields.length > 0) {
+      fields.push({
+        tag: fieldTag,
+        subfields: subfields
+      });
+    }
+  }
+  
+  return fields;
+}
+
+// Extract all subfields of specific codes from a field tag
+export function extractSubfields(marcxml: string, fieldTag: string, subfieldCodes: string[]): string[] {
+  const fields = extractAllMarcFields(marcxml, fieldTag);
+  const values: string[] = [];
+  
+  fields.forEach(field => {
+    field.subfields.forEach(subfield => {
+      if (subfieldCodes.includes(subfield.code) && subfield.value.trim()) {
+        values.push(subfield.value.trim());
+      }
+    });
+  });
+  
+  return values;
+}
+
+// Extract titles from multiple MARC fields (245, 242, 246)
+export function extractAllTitles(marcxml: string): {
+  titles_245: string[];
+  titles_242: string[];
+  titles_246: string[];
+  allTitles: string[];
+} {
+  const titles_245 = extractSubfields(marcxml, '245', ['a', 'b', 'c']);
+  const titles_242 = extractSubfields(marcxml, '242', ['a', 'b', 'c']);
+  const titles_246 = extractSubfields(marcxml, '246', ['a', 'b', 'c']);
+  
+  return {
+    titles_245,
+    titles_242,
+    titles_246,
+    allTitles: [...titles_245, ...titles_242, ...titles_246]
+  };
+}
+
+// Extract authors and author IDs from multiple MARC fields (100, 700)
+export function extractAllAuthors(marcxml: string): {
+  mainAuthor: string;
+  mainAuthorId: string;
+  additionalAuthors: string[];
+  additionalAuthorIds: string[];
+  allAuthors: string[];
+  allAuthorIds: string[];
+} {
+  // Extract main author (100)
+  const mainAuthorFields = extractAllMarcFields(marcxml, '100');
+  let mainAuthor = '';
+  let mainAuthorId = '';
+  
+  if (mainAuthorFields.length > 0) {
+    const field = mainAuthorFields[0]; // Usually only one 100 field
+    const authorSubfield = field.subfields.find(sf => sf.code === 'a');
+    const idSubfield = field.subfields.find(sf => sf.code === '9');
+    
+    mainAuthor = authorSubfield?.value || '';
+    mainAuthorId = idSubfield?.value || '';
+  }
+  
+  // Extract additional authors (700)
+  const additionalAuthorFields = extractAllMarcFields(marcxml, '700');
+  const additionalAuthors: string[] = [];
+  const additionalAuthorIds: string[] = [];
+  
+  additionalAuthorFields.forEach(field => {
+    const authorSubfield = field.subfields.find(sf => sf.code === 'a');
+    const idSubfield = field.subfields.find(sf => sf.code === '9');
+    
+    if (authorSubfield?.value) {
+      additionalAuthors.push(authorSubfield.value);
+      additionalAuthorIds.push(idSubfield?.value || '');
+    }
+  });
+  
+  return {
+    mainAuthor,
+    mainAuthorId,
+    additionalAuthors,
+    additionalAuthorIds,
+    allAuthors: [mainAuthor, ...additionalAuthors].filter(a => a.trim()),
+    allAuthorIds: [mainAuthorId, ...additionalAuthorIds]
+  };
+}
+
+// Format multiple values as a readable string
+export function formatMultipleValues(values: string[], separator: string = '; '): string {
+  return values.filter(v => v.trim()).join(separator);
+}
+
 // MARC field definitions with extraction paths
 const MARC_FIELD_MAP: Record<string, { xpath: string; attribute?: string }> = {
   '000': { xpath: '//leader' },

@@ -1,0 +1,333 @@
+biblioitemnumber,biblionumber,volume,publishercode,volumedate,timestamp,illus,pages,notes,size,place,lccn,marc,url,marcxml
+3,3,NULL,508183,NULL,"2018-12-07 13:06:00",NULL,64,NULL,NULL,NULL,NULL,"00468nam a22001697a 450000100020000000200004100800200070370001000800039000100003900",0508-183-001-003.pdf,"<?xml version="1.0" encoding="UTF-8"?>
+<record
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.loc.gov/MARC21/slim http://www.loc.gov/standards/marcxml/schema/MARC21slim.xsd"
+    xmlns="http://www.loc.gov/MARC21/slim">
+
+  <leader>00386nam a22001457a 4500</leader>
+  <controlfield tag="001">6</controlfield>
+  <datafield tag="041" ind1=" " ind2=" ">
+    <subfield code="a">ara</subfield>
+  </datafield>
+  <datafield tag="073" ind1=" " ind2=" ">
+    <subfield code="a">508183</subfield>
+  </datafield>
+  <datafield tag="100" ind1=" " ind2=" ">
+    <subfield code="a">رمود، ربيع عبدالعظيم</subfield>
+  </datafield>
+  <datafield tag="245" ind1=" " ind2=" ">
+    <subfield code="a">جودة التعلم الإلكتروني </subfield>
+  </datafield>
+  <datafield tag="260" ind1=" " ind2=" ">
+    <subfield code="c">2012</subfield>
+  </datafield>
+  <datafield tag="336" ind1=" " ind2=" ">
+    <subfield code="a">Journal Article</subfield>
+  </datafield>
+  <datafield tag="773" ind1=" " ind2=" ">
+    <subfield code="s">مجلة التعلم الالكتروني بجامعة المنصورة</subfield>
+  </datafield>
+  <datafield tag="995" ind1=" " ind2=" ">
+    <subfield code="a">Citation</subfield>
+  </datafield>
+  <datafield tag="999" ind1=" " ind2=" ">
+    <subfield code="c">6</subfield>
+    <subfield code="d">6</subfield>
+  </datafield>
+</record>
+"
+4,4,NULL,508183,NULL,"2018-12-07 13:06:00",NULL,NULL,NULL,NULL,NULL,NULL,"00510nam a22001457a 450000100020000000200004100800200070370001000800039000100004300",0508-183-002-004.pdf,"<?xml version="1.0" encoding="UTF-8"?>
+<record
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.loc.gov/MARC21/slim http://www.loc.gov/standards/marcxml/schema/MARC21slim.xsd"
+    xmlns="http://www.loc.gov/MARC21/slim">
+
+  <leader>00468nam a22001457a 4500</leader>
+  <controlfield tag="001">7</controlfield>
+  <datafield tag="041" ind1=" " ind2=" ">
+    <subfield code="a">ara</subfield>
+  </datafield>
+  <datafield tag="073" ind1=" " ind2=" ">
+    <subfield code="a">633025</subfield>
+  </datafield>
+  <datafield tag="100" ind1=" " ind2=" ">
+    <subfield code="a">احمد، مازن عبدالهادى</subfield>
+  </datafield>
+  <datafield tag="245" ind1=" " ind2=" ">
+    <subfield code="a">استخدام اللعب كوسيلة لمعالجة بعض أنواع صعوبات التعلم لدى الأطفال بعمر 9 سنوات</subfield>
+  </datafield>
+  <datafield tag="260" ind1=" " ind2=" ">
+    <subfield code="c">2006</subfield>
+  </datafield>
+  <datafield tag="336" ind1=" " ind2=" ">
+    <subfield code="a">Journal Article</subfield>
+  </datafield>
+  <datafield tag="773" ind1=" " ind2=" ">
+    <subfield code="s">مجلة علوم التربية الرياضية</subfield>
+    <subfield code="v">15</subfield>
+    <subfield code="w">1</subfield>
+  </datafield>
+  <datafield tag="995" ind1=" " ind2=" ">
+    <subfield code="a">Citation</subfield>
+  </datafield>
+  <datafield tag="999" ind1=" " ind2=" ">
+    <subfield code="c">7</subfield>
+    <subfield code="d">7</subfield>
+  </datafield>
+</record>
+"
+5,5,NULL,617625,NULL,"2018-12-07 13:06:00",NULL,NULL,NULL,NULL,NULL,NULL,"00520nam a22001577a 450000100020000000200004100800200070370001000800039000100005000",0617-625-003-005.pdf,"<?xml version="1.0" encoding="UTF-8"?>
+<record
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.loc.gov/MARC21/slim http://www.loc.gov/standards/marcxml/schema/MARC21slim.xsd"
+    xmlns="http://www.loc.gov/MARC21/slim">
+
+  <leader>00468nam a22001697a 4500</leader>
+  <controlfield tag="001">3</controlfield>
+  <datafield tag="041" ind1=" " ind2=" ">
+    <subfield code="a">ara</subfield>
+  </datafield>
+  <datafield tag="073" ind1=" " ind2=" ">
+    <subfield code="a">508183</subfield>
+  </datafield>
+  <datafield tag="100" ind1=" " ind2=" ">
+    <subfield code="a">المشرف، مضوي مختار</subfield>
+  </datafield>
+  <datafield tag="245" ind1=" " ind2=" ">
+    <subfield code="a">أسس تصميم المقررات الإلكترونية بالمرحلة الثانوية</subfield>
+  </datafield>
+  <datafield tag="260" ind1=" " ind2=" ">
+    <subfield code="c">2012</subfield>
+  </datafield>
+  <datafield tag="300" ind1=" " ind2=" ">
+    <subfield code="a">64</subfield>
+  </datafield>
+  <datafield tag="336" ind1=" " ind2=" ">
+    <subfield code="a">Journal Article</subfield>
+  </datafield>
+  <datafield tag="700" ind1=" " ind2=" ">
+    <subfield code="a">حسن، هالة إبراهيم </subfield>
+  </datafield>
+  <datafield tag="773" ind1=" " ind2=" ">
+    <subfield code="s">مجلة جامعة الجزيرة </subfield>
+    <subfield code="v">9</subfield>
+    <subfield code="w">2</subfield>
+  </datafield>
+  <datafield tag="995" ind1=" " ind2=" ">
+    <subfield code="a">Citation</subfield>
+  </datafield>
+  <datafield tag="999" ind1=" " ind2=" ">
+    <subfield code="c">3</subfield>
+    <subfield code="d">3</subfield>
+  </datafield>
+</record>
+"
+6,6,NULL,508183,NULL,"2018-12-07 13:06:00",NULL,NULL,NULL,NULL,NULL,NULL,"00368nam a22001457a 450000100020000000200004100800200070370001000800039000100004300",0508-183-004-006.pdf,"<?xml version="1.0" encoding="UTF-8"?>
+<record
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.loc.gov/MARC21/slim http://www.loc.gov/standards/marcxml/schema/MARC21slim.xsd"
+    xmlns="http://www.loc.gov/MARC21/slim">
+
+  <leader>00501nam a22001457a 4500</leader>
+  <controlfield tag="001">4</controlfield>
+  <datafield tag="041" ind1=" " ind2=" ">
+    <subfield code="a">ara</subfield>
+  </datafield>
+  <datafield tag="073" ind1=" " ind2=" ">
+    <subfield code="a">508183</subfield>
+  </datafield>
+  <datafield tag="100" ind1=" " ind2=" ">
+    <subfield code="a">حسنين، مهدي سعيد محمود</subfield>
+  </datafield>
+  <datafield tag="245" ind1=" " ind2=" ">
+    <subfield code="a">إتجاهات الدارسين المفتوح نحو توظيف تكنولوجيا التعليم في برامج التعليم المفتوح</subfield>
+  </datafield>
+  <datafield tag="260" ind1=" " ind2=" ">
+    <subfield code="c">2011</subfield>
+  </datafield>
+  <datafield tag="336" ind1=" " ind2=" ">
+    <subfield code="a">Journal Article</subfield>
+  </datafield>
+  <datafield tag="773" ind1=" " ind2=" ">
+    <subfield code="s">مجلة كلية التربية بجامعة الخرطوم </subfield>
+    <subfield code="u">السودان</subfield>
+    <subfield code="w">5</subfield>
+    <subfield code="v">3</subfield>
+  </datafield>
+  <datafield tag="995" ind1=" " ind2=" ">
+    <subfield code="a">Citation</subfield>
+  </datafield>
+  <datafield tag="999" ind1=" " ind2=" ">
+    <subfield code="c">4</subfield>
+    <subfield code="d">4</subfield>
+  </datafield>
+</record>
+"
+7,7,NULL,633025,NULL,"2018-12-07 13:06:00",NULL,NULL,NULL,NULL,NULL,NULL,"00468nam a22001697a 450000100020000000200004100800200070370001000800039000100004300",0633-025-005-007.pdf,"<?xml version="1.0" encoding="UTF-8"?>"
+8,8,NULL,508183,NULL,"2018-12-07 13:06:00",NULL,64,NULL,NULL,NULL,NULL,"00468nam a22001697a 450000100020000000200004100800200070370001000800039000100003900",0005-012-393-001.pdf,"<?xml version="1.0" encoding="UTF-8"?>
+<record
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.loc.gov/MARC21/slim http://www.loc.gov/standards/marcxml/schema/MARC21slim.xsd"
+    xmlns="http://www.loc.gov/MARC21/slim">
+
+  <leader>00386nam a22001457a 4500</leader>
+  <controlfield tag="001">6</controlfield>
+  <datafield tag="041" ind1=" " ind2=" ">
+    <subfield code="a">ara</subfield>
+  </datafield>
+  <datafield tag="073" ind1=" " ind2=" ">
+    <subfield code="a">508183</subfield>
+  </datafield>
+  <datafield tag="100" ind1=" " ind2=" ">
+    <subfield code="a">رمود، ربيع عبدالعظيم</subfield>
+  </datafield>
+  <datafield tag="245" ind1=" " ind2=" ">
+    <subfield code="a">جودة التعلم الإلكتروني </subfield>
+  </datafield>
+  <datafield tag="260" ind1=" " ind2=" ">
+    <subfield code="c">2012</subfield>
+  </datafield>
+  <datafield tag="336" ind1=" " ind2=" ">
+    <subfield code="a">Journal Article</subfield>
+  </datafield>
+  <datafield tag="773" ind1=" " ind2=" ">
+    <subfield code="s">مجلة التعلم الالكتروني بجامعة المنصورة</subfield>
+  </datafield>
+  <datafield tag="995" ind1=" " ind2=" ">
+    <subfield code="a">Citation</subfield>
+  </datafield>
+  <datafield tag="999" ind1=" " ind2=" ">
+    <subfield code="c">6</subfield>
+    <subfield code="d">6</subfield>
+  </datafield>
+</record>
+"
+9,9,NULL,508183,NULL,"2018-12-07 13:06:00",NULL,NULL,NULL,NULL,NULL,NULL,"00510nam a22001457a 450000100020000000200004100800200070370001000800039000100004300",0005-012-393-002.pdf,"<?xml version="1.0" encoding="UTF-8"?>
+<record
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.loc.gov/MARC21/slim http://www.loc.gov/standards/marcxml/schema/MARC21slim.xsd"
+    xmlns="http://www.loc.gov/MARC21/slim">
+
+  <leader>00468nam a22001457a 4500</leader>
+  <controlfield tag="001">7</controlfield>
+  <datafield tag="041" ind1=" " ind2=" ">
+    <subfield code="a">ara</subfield>
+  </datafield>
+  <datafield tag="073" ind1=" " ind2=" ">
+    <subfield code="a">633025</subfield>
+  </datafield>
+  <datafield tag="100" ind1=" " ind2=" ">
+    <subfield code="a">احمد، مازن عبدالهادى</subfield>
+  </datafield>
+  <datafield tag="245" ind1=" " ind2=" ">
+    <subfield code="a">استخدام اللعب كوسيلة لمعالجة بعض أنواع صعوبات التعلم لدى الأطفال بعمر 9 سنوات</subfield>
+  </datafield>
+  <datafield tag="260" ind1=" " ind2=" ">
+    <subfield code="c">2006</subfield>
+  </datafield>
+  <datafield tag="336" ind1=" " ind2=" ">
+    <subfield code="a">Journal Article</subfield>
+  </datafield>
+  <datafield tag="773" ind1=" " ind2=" ">
+    <subfield code="s">مجلة علوم التربية الرياضية</subfield>
+    <subfield code="v">15</subfield>
+    <subfield code="w">1</subfield>
+  </datafield>
+  <datafield tag="995" ind1=" " ind2=" ">
+    <subfield code="a">Citation</subfield>
+  </datafield>
+  <datafield tag="999" ind1=" " ind2=" ">
+    <subfield code="c">7</subfield>
+    <subfield code="d">7</subfield>
+  </datafield>
+</record>
+"
+10,10,NULL,617625,NULL,"2018-12-07 13:06:00",NULL,NULL,NULL,NULL,NULL,NULL,"00520nam a22001577a 450000100020000000200004100800200070370001000800039000100005000",0005-012-393-003.pdf,"<?xml version="1.0" encoding="UTF-8"?>
+<record
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.loc.gov/MARC21/slim http://www.loc.gov/standards/marcxml/schema/MARC21slim.xsd"
+    xmlns="http://www.loc.gov/MARC21/slim">
+
+  <leader>00468nam a22001697a 4500</leader>
+  <controlfield tag="001">3</controlfield>
+  <datafield tag="041" ind1=" " ind2=" ">
+    <subfield code="a">ara</subfield>
+  </datafield>
+  <datafield tag="073" ind1=" " ind2=" ">
+    <subfield code="a">508183</subfield>
+  </datafield>
+  <datafield tag="100" ind1=" " ind2=" ">
+    <subfield code="a">المشرف، مضوي مختار</subfield>
+  </datafield>
+  <datafield tag="245" ind1=" " ind2=" ">
+    <subfield code="a">أسس تصميم المقررات الإلكترونية بالمرحلة الثانوية</subfield>
+  </datafield>
+  <datafield tag="260" ind1=" " ind2=" ">
+    <subfield code="c">2012</subfield>
+  </datafield>
+  <datafield tag="300" ind1=" " ind2=" ">
+    <subfield code="a">64</subfield>
+  </datafield>
+  <datafield tag="336" ind1=" " ind2=" ">
+    <subfield code="a">Journal Article</subfield>
+  </datafield>
+  <datafield tag="700" ind1=" " ind2=" ">
+    <subfield code="a">حسن، هالة إبراهيم </subfield>
+  </datafield>
+  <datafield tag="773" ind1=" " ind2=" ">
+    <subfield code="s">مجلة جامعة الجزيرة </subfield>
+    <subfield code="v">9</subfield>
+    <subfield code="w">2</subfield>
+  </datafield>
+  <datafield tag="995" ind1=" " ind2=" ">
+    <subfield code="a">Citation</subfield>
+  </datafield>
+  <datafield tag="999" ind1=" " ind2=" ">
+    <subfield code="c">3</subfield>
+    <subfield code="d">3</subfield>
+  </datafield>
+</record>
+"
+11,11,NULL,508183,NULL,"2018-12-07 13:06:00",NULL,NULL,NULL,NULL,NULL,NULL,"00368nam a22001457a 450000100020000000200004100800200070370001000800039000100004300",0005-012-393-004.pdf,"<?xml version="1.0" encoding="UTF-8"?>
+<record
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.loc.gov/MARC21/slim http://www.loc.gov/standards/marcxml/schema/MARC21slim.xsd"
+    xmlns="http://www.loc.gov/MARC21/slim">
+
+  <leader>00501nam a22001457a 4500</leader>
+  <controlfield tag="001">4</controlfield>
+  <datafield tag="041" ind1=" " ind2=" ">
+    <subfield code="a">ara</subfield>
+  </datafield>
+  <datafield tag="073" ind1=" " ind2=" ">
+    <subfield code="a">508183</subfield>
+  </datafield>
+  <datafield tag="100" ind1=" " ind2=" ">
+    <subfield code="a">حسنين، مهدي سعيد محمود</subfield>
+  </datafield>
+  <datafield tag="245" ind1=" " ind2=" ">
+    <subfield code="a">إتجاهات الدارسين المفتوح نحو توظيف تكنولوجيا التعليم في برامج التعليم المفتوح</subfield>
+  </datafield>
+  <datafield tag="260" ind1=" " ind2=" ">
+    <subfield code="c">2011</subfield>
+  </datafield>
+  <datafield tag="336" ind1=" " ind2=" ">
+    <subfield code="a">Journal Article</subfield>
+  </datafield>
+  <datafield tag="773" ind1=" " ind2=" ">
+    <subfield code="s">مجلة كلية التربية بجامعة الخرطوم </subfield>
+    <subfield code="u">السودان</subfield>
+    <subfield code="w">5</subfield>
+    <subfield code="v">3</subfield>
+  </datafield>
+  <datafield tag="995" ind1=" " ind2=" ">
+    <subfield code="a">Citation</subfield>
+  </datafield>
+  <datafield tag="999" ind1=" " ind2=" ">
+    <subfield code="c">4</subfield>
+    <subfield code="d">4</subfield>
+  </datafield>
+</record>
+"
+12,12,NULL,633025,NULL,"2018-12-07 13:06:00",NULL,NULL,NULL,NULL,NULL,NULL,"00468nam a22001697a 450000100020000000200004100800200070370001000800039000100004300",0006-012-393-005,"<?xml version="1.0" encoding="UTF-8"?>"

@@ -36,6 +36,7 @@ export default function CustomCitationReportForm({
   recordCount = 0,
   showSuccessMessage = false 
 }: CustomCitationReportFormProps) {
+  console.log('🔍 CustomCitationReportForm component mounted - this should appear in console!');
   const { language, isRTL } = useLanguage();
   const t = getTranslation(language);
   const [currentStep, setCurrentStep] = useState(1);
@@ -248,6 +249,7 @@ export default function CustomCitationReportForm({
 
   // Load preview data for step 3
   const loadPreviewData = async () => {
+    console.log('🔍 CustomCitationReportForm: Starting loadPreviewData...');
     setIsLoadingPreview(true);
     try {
       // Validate magazine numbers before loading preview
@@ -266,6 +268,7 @@ export default function CustomCitationReportForm({
       }
 
       if (!validation.isValid) {
+        console.log('🔍 CustomCitationReportForm: Validation failed:', validation.errors);
         setValidationErrors(validation.errors);
         setCurrentStep(1); // Go back to step 1 to fix errors
         return;
@@ -281,7 +284,10 @@ export default function CustomCitationReportForm({
         isPreview: true
       };
 
-      const response = await fetch('/api/citation-reports/custom-form', {
+      console.log('🔍 CustomCitationReportForm: About to call API with formData:', formData);
+      console.log('🔍 CustomCitationReportForm: API URL: /api/citation-reports/custom');
+
+      const response = await fetch('/api/citation-reports/custom', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -289,16 +295,21 @@ export default function CustomCitationReportForm({
         body: JSON.stringify(formData)
       });
 
+      console.log('🔍 CustomCitationReportForm: API response status:', response.status);
+      console.log('🔍 CustomCitationReportForm: API response ok:', response.ok);
+
       if (!response.ok) {
         const errorData = await response.json();
+        console.log('🔍 CustomCitationReportForm: API error response:', errorData);
         throw new Error(errorData.error || t.errors.failedLoadPreview);
       }
 
       const result = await response.json();
+      console.log('🔍 CustomCitationReportForm: API success response:', result);
       setPreviewData(result.data || []);
       setCurrentStep(3);
     } catch (error) {
-      console.error('Error loading preview:', error);
+      console.error('🔍 CustomCitationReportForm: Error in loadPreviewData:', error);
       alert(`${t.errors.errorLoadingPreview}: ${error instanceof Error ? error.message : t.errors.unexpectedError}`);
     } finally {
       setIsLoadingPreview(false);
@@ -696,22 +707,85 @@ export default function CustomCitationReportForm({
                           {/* Always show Biblio and URL data first */}
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             <a 
-                              href={row.link || '#'} 
+                              href={`https://cataloging.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${row['Biblio Number'] || row.biblionumber || ''}`} 
                               target="_blank" 
                               rel="noopener noreferrer"
                               className="text-blue-600 hover:text-blue-800 underline"
                             >
-                              {row.biblio || '-'}
+                              {row['Biblio Number'] || row.biblionumber || '-'}
                             </a>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {row.url || '-'}
+                            {row['PDF Filename'] || row.url || '-'}
                           </td>
-                          {selectedFields.map((fieldTag) => (
-                            <td key={fieldTag} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {row[fieldTag] || '-'}
-                            </td>
-                          ))}
+                          {selectedFields.map((fieldTag) => {
+                            // Map MARC tag to formatted field label
+                            const getFieldLabel = (tag: string) => {
+                              const fieldMap: { [key: string]: string } = {
+                                '001': 'Control Number (001)',
+                                '041': 'Language Code (041)',
+                                '073': 'Publisher Code (073)',
+                                '100': 'Main Author (100)',
+                                '242': 'Translated Title (242)',
+                                '245': 'Title (245)',
+                                '246': 'Alternative Title (246)',
+                                '260': 'Publication Year (260)',
+                                '300': 'Pages (300)',
+                                '336': 'Content Type (336)',
+                                '700': 'Additional Authors (700)',
+                                '773': 'Journal (773)',
+                                '995': 'Citation (995)',
+                                '999': 'Biblio Number'
+                              };
+                              return fieldMap[tag] || tag;
+                            };
+                            
+                            const fieldLabel = getFieldLabel(fieldTag);
+                            let value = row[fieldLabel] || '-';
+                            
+                            // Handle multiple values for some fields
+                            if (fieldTag === '100' && row['Main Author ID (100)']) {
+                              value = (
+                                <a 
+                                  href={`https://cataloging.mandumah.com/cgi-bin/koha/authorities/authorities.pl?authid=${row['Main Author ID (100)']}`}
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:text-blue-800 underline"
+                                >
+                                  {row[fieldLabel] || '-'}
+                                </a>
+                              );
+                            } else if (fieldTag === '700' && row['Additional Author IDs (700)']) {
+                              const authorIds = row['Additional Author IDs (700)'].split('; ');
+                              const authors = (row[fieldLabel] || '').split('; ');
+                              value = (
+                                <div>
+                                  {authors.map((author: string, idx: number) => (
+                                    <div key={idx}>
+                                      {authorIds[idx] ? (
+                                        <a 
+                                          href={`https://cataloging.mandumah.com/cgi-bin/koha/authorities/authorities.pl?authid=${authorIds[idx]}`}
+                                          target="_blank" 
+                                          rel="noopener noreferrer"
+                                          className="text-blue-600 hover:text-blue-800 underline"
+                                        >
+                                          {author || '-'}
+                                        </a>
+                                      ) : (
+                                        author || '-'
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            }
+                            
+                            return (
+                              <td key={fieldTag} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {value}
+                              </td>
+                            );
+                          })}
                         </tr>
                       ))}
                     </tbody>

@@ -1,77 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server';
-import mysql from 'mysql2/promise';
 import * as xlsx from 'xlsx';
-
-// Citation database connection configuration
-const citationDbConfig = {
-  host: process.env.CITATION_DB_HOST || 'localhost',
-  user: process.env.CITATION_DB_USER || 'root',
-  password: process.env.CITATION_DB_PASSWORD || '',
-  database: process.env.CITATION_DB_NAME || 'koha_citation',
-  charset: 'utf8mb4',
-};
+import { getCitationConnection } from '@/lib/citation_db';
+import { extractAllAuthors, formatMultipleValues } from '@/utils/marcParser';
 
 interface CitationAuthorData {
   biblionumber: number;
-  originalAuthor: string;
+  mainAuthor: string;
+  mainAuthorId: string;
   additionalAuthors: string[];
+  additionalAuthorIds: string[];
+  allAuthors: string;
   title: string;
   year: string;
   journal: string;
   url: string;
-  authorId?: string;
-  additionalAuthorIds?: string[];
 }
 
-// Helper function to extract author data from MARC XML
+// Helper function to extract author data from MARC XML using enhanced parser
 function extractAuthorDataFromMarcXml(marcxml: string): {
-  originalAuthor: string;
+  mainAuthor: string;
+  mainAuthorId: string;
   additionalAuthors: string[];
+  additionalAuthorIds: string[];
+  allAuthors: string;
   title: string;
   year: string;
   journal: string;
-  authorId?: string;
-  additionalAuthorIds: string[];
 } {
   const result = {
-    originalAuthor: '',
+    mainAuthor: '',
+    mainAuthorId: '',
     additionalAuthors: [] as string[],
+    additionalAuthorIds: [] as string[],
+    allAuthors: '',
     title: '',
     year: '',
     journal: '',
-    authorId: undefined as string | undefined,
-    additionalAuthorIds: [] as string[],
   };
 
   try {
-    // Extract main author from field 100
-    const authorMatch = marcxml.match(/<datafield tag="100"[^>]*>[\s\S]*?<subfield code="a">([^<]+)<\/subfield>/);
-    if (authorMatch) {
-      result.originalAuthor = authorMatch[1].trim();
-    }
-
-    // Extract main author ID from field 100 subfield 9
-    const authorIdMatch = marcxml.match(/<datafield tag="100"[^>]*>[\s\S]*?<subfield code="9">([^<]+)<\/subfield>/);
-    if (authorIdMatch) {
-      result.authorId = authorIdMatch[1].trim();
-    }
-
-    // Extract additional authors from field 700
-    const additionalAuthorMatches = marcxml.matchAll(/<datafield tag="700"[^>]*>([\s\S]*?)<\/datafield>/g);
-    for (const match of additionalAuthorMatches) {
-      const fieldContent = match[1];
-      const nameMatch = fieldContent.match(/<subfield code="a">([^<]+)<\/subfield>/);
-      const idMatch = fieldContent.match(/<subfield code="9">([^<]+)<\/subfield>/);
-      
-      if (nameMatch) {
-        result.additionalAuthors.push(nameMatch[1].trim());
-        if (idMatch) {
-          result.additionalAuthorIds.push(idMatch[1].trim());
-        } else {
-          result.additionalAuthorIds.push('');
-        }
-      }
-    }
+    // Extract all authors using enhanced parser
+    const authorData = extractAllAuthors(marcxml);
+    result.mainAuthor = authorData.mainAuthor;
+    result.mainAuthorId = authorData.mainAuthorId;
+    result.additionalAuthors = authorData.additionalAuthors;
+    result.additionalAuthorIds = authorData.additionalAuthorIds;
+    result.allAuthors = formatMultipleValues(authorData.allAuthors);
 
     // Extract title from field 245
     const titleMatch = marcxml.match(/<datafield tag="245"[^>]*>[\s\S]*?<subfield code="a">([^<]+)<\/subfield>/);
@@ -79,8 +53,9 @@ function extractAuthorDataFromMarcXml(marcxml: string): {
       result.title = titleMatch[1].trim();
     }
 
-    // Extract year from field 260
-    const yearMatch = marcxml.match(/<datafield tag="260"[^>]*>[\s\S]*?<subfield code="c">([^<]+)<\/subfield>/);
+    // Extract year from field 260 or 264
+    const yearMatch = marcxml.match(/<datafield tag="260"[^>]*>[\s\S]*?<subfield code="c">([^<]+)<\/subfield>/) ||
+                     marcxml.match(/<datafield tag="264"[^>]*>[\s\S]*?<subfield code="c">([^<]+)<\/subfield>/);
     if (yearMatch) {
       result.year = yearMatch[1].trim();
     }
@@ -102,7 +77,7 @@ export async function POST(request: NextRequest) {
     const { magazineNumbers, startYear, endYear } = await request.json();
 
     // Create database connection
-    const connection = await mysql.createConnection(citationDbConfig);
+    const connection = await getCitationConnection();
 
     let query = `
       SELECT 
@@ -110,22 +85,32 @@ export async function POST(request: NextRequest) {
         b.author as biblio_author,
         b.title as biblio_title,
         b.copyrightdate,
-        bi.marcxml
-      FROM biblio b
-      LEFT JOIN biblioitems bi ON b.biblionumber = bi.biblionumber
+        bi.marcxml,
+        bi.url
+      FROM biblioitems bi
+      INNER JOIN biblio b ON bi.biblionumber = b.biblionumber
       WHERE b.frameworkcode = 'CIT'
         AND bi.marcxml IS NOT NULL
     `;
 
     const queryParams: any[] = [];
 
-    // Add magazine numbers filter (using biblionumber or publishercode)
+    // Add magazine numbers filter - get all versions and builds under magazine
     if (magazineNumbers) {
       const numbers = magazineNumbers.split(/[,\s\n]+/).filter((num: string) => num.trim());
       if (numbers.length > 0) {
-        const placeholders = numbers.map(() => '?').join(',');
-        query += ` AND (b.biblionumber IN (${placeholders}) OR bi.publishercode IN (${placeholders}))`;
-        queryParams.push(...numbers, ...numbers);
+        // Build LIKE conditions for each magazine number to get all versions (e.g., 0005-*)
+        const likeConditions = numbers.map(() => 'bi.url LIKE ?').join(' OR ');
+        query += ` AND (${likeConditions})`;
+        
+        // Add parameters with wildcard pattern for each magazine number
+        const patterns: string[] = [];
+        for (const number of numbers) {
+          const pattern = `${number.padStart(4, '0')}-%`;
+          patterns.push(pattern);
+          queryParams.push(pattern);
+        }
+        console.log('CitationAuthorTranslations: Magazine filter patterns:', patterns);
       }
     }
 
@@ -148,67 +133,94 @@ export async function POST(request: NextRequest) {
 
     const authorData: CitationAuthorData[] = results.map(row => {
       const marcData = row.marcxml ? extractAuthorDataFromMarcXml(row.marcxml) : {
-        originalAuthor: '',
+        mainAuthor: '',
+        mainAuthorId: '',
         additionalAuthors: [],
+        additionalAuthorIds: [],
+        allAuthors: '',
         title: '',
         year: '',
-        journal: '',
-        authorId: undefined,
-        additionalAuthorIds: []
+        journal: ''
       };
 
       return {
         biblionumber: row.biblionumber,
-        originalAuthor: marcData.originalAuthor || row.biblio_author || '',
+        mainAuthor: marcData.mainAuthor || row.biblio_author || '',
+        mainAuthorId: marcData.mainAuthorId,
         additionalAuthors: marcData.additionalAuthors,
+        additionalAuthorIds: marcData.additionalAuthorIds,
+        allAuthors: marcData.allAuthors || (row.biblio_author ? row.biblio_author : ''),
         title: marcData.title || row.biblio_title || '',
         year: marcData.year || row.copyrightdate?.toString() || '',
         journal: marcData.journal || '',
-        url: `https://cataloging.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${row.biblionumber}`,
-        authorId: marcData.authorId,
-        additionalAuthorIds: marcData.additionalAuthorIds,
+        url: row.url || '',
       };
     });
 
-    await connection.end();
+    await connection.release();
 
     // Create Excel workbook
     const workbook = xlsx.utils.book_new();
     
-    // Prepare data for Excel with hyperlinks
-    const excelData = authorData.map(item => {
-      const mainAuthorWithLink = item.authorId 
-        ? `=HYPERLINK("https://cataloging.mandumah.com/cgi-bin/koha/authorities/authorities.pl?authid=${item.authorId}", "${item.originalAuthor}")` 
-        : item.originalAuthor;
-
-      // Format additional authors with their links
-      const additionalAuthorsFormatted = item.additionalAuthors.map((author, index) => {
-        const authorId = item.additionalAuthorIds?.[index];
-        return authorId 
-          ? `=HYPERLINK("https://cataloging.mandumah.com/cgi-bin/koha/authorities/authorities.pl?authid=${authorId}", "${author}")` 
-          : author;
-      }).join('; ');
-
-      return {
-        'Biblio Number': `=HYPERLINK("${item.url}", "${item.biblionumber}")`,
-        'Main Author (100a)': mainAuthorWithLink,
-        'Additional Authors (700a)': additionalAuthorsFormatted,
-        'Title': item.title,
-        'Year': item.year,
-        'Journal': item.journal,
-      };
-    });
+    // Prepare data for Excel (without formula-based hyperlinks)
+    const excelData = authorData.map(item => ({
+      'Biblio Number': item.biblionumber,
+      'Main Author (100a)': item.mainAuthor,
+      'Main Author ID': item.mainAuthorId,
+      'Additional Authors (700a)': formatMultipleValues(item.additionalAuthors),
+      'Additional Author IDs': formatMultipleValues(item.additionalAuthorIds),
+      'All Authors': item.allAuthors,
+      'Title': item.title,
+      'Year': item.year,
+      'Journal': item.journal,
+      'URL': item.url,
+    }));
 
     const worksheet = xlsx.utils.json_to_sheet(excelData);
+    
+    // Add hyperlinks using cell.l property (safer than formulas)
+    for (let row = 1; row <= authorData.length; row++) {
+      const item = authorData[row - 1];
+      
+      // Add hyperlink for Biblio Number to cataloging system
+      const biblioNumberCellRef = xlsx.utils.encode_cell({ r: row, c: 0 });
+      const biblioNumberCell = worksheet[biblioNumberCellRef];
+      if (biblioNumberCell && biblioNumberCell.v) {
+        const catalogingUrl = `https://cataloging.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${item.biblionumber}`;
+        biblioNumberCell.l = { Target: catalogingUrl, Tooltip: "Click to open in cataloging system" };
+      }
+
+      // Add hyperlink for Main Author if mainAuthorId exists
+      const mainAuthorCellRef = xlsx.utils.encode_cell({ r: row, c: 1 });
+      const mainAuthorCell = worksheet[mainAuthorCellRef];
+      if (mainAuthorCell && mainAuthorCell.v && item.mainAuthorId && item.mainAuthorId.trim()) {
+        const authorUrl = `https://cataloging.mandumah.com/cgi-bin/koha/authorities/authorities.pl?authid=${item.mainAuthorId}`;
+        mainAuthorCell.l = { Target: authorUrl, Tooltip: "Click to view author authority record" };
+      }
+
+      // Add hyperlink for Main Author ID if exists
+      const mainAuthorIdCellRef = xlsx.utils.encode_cell({ r: row, c: 2 });
+      const mainAuthorIdCell = worksheet[mainAuthorIdCellRef];
+      if (mainAuthorIdCell && mainAuthorIdCell.v && item.mainAuthorId && item.mainAuthorId.trim()) {
+        const authorUrl = `https://cataloging.mandumah.com/cgi-bin/koha/authorities/authorities.pl?authid=${item.mainAuthorId}`;
+        mainAuthorIdCell.l = { Target: authorUrl, Tooltip: "Click to view author authority record" };
+      }
+
+      // URL field now contains PDF filename - no hyperlink needed
+    }
     
     // Auto-size columns
     const columnWidths = [
       { wch: 15 }, // Biblio Number
       { wch: 30 }, // Main Author
+      { wch: 15 }, // Main Author ID
       { wch: 40 }, // Additional Authors
+      { wch: 40 }, // Additional Author IDs
+      { wch: 50 }, // All Authors
       { wch: 50 }, // Title
       { wch: 10 }, // Year
       { wch: 40 }, // Journal
+      { wch: 60 }, // URL
     ];
     worksheet['!cols'] = columnWidths;
 

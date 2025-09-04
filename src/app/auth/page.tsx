@@ -97,15 +97,15 @@ export default function AuthPage() {
         localStorage.setItem('loginAttempts', currentAttempts.toString());
         setAttemptCount(currentAttempts);
         
-        if (currentAttempts >= 3) {
+        if (currentAttempts >= 19) {
           const blockUntil = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
           localStorage.setItem('authBlocked', JSON.stringify({ until: blockUntil.toISOString() }));
           setBlockedUntil(blockUntil);
           setIsBlocked(true);
           setError(t.auth.accountBlocked.replace('{minutes}', '15'));
         } else {
-          const remaining = 3 - currentAttempts;
-          setError(t.auth.attemptsRemaining.replace('{count}', remaining.toString()));
+          const remaining = 20 - currentAttempts;
+          setError(t.auth.attemptsRemaining + remaining.toString());
         }
       }
     } catch (error) {

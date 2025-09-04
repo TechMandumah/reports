@@ -70,6 +70,8 @@ export interface Translations {
       citationTitle: string;
       citationAuthor: string;
       convertUrl: string;
+      exportCitationTitles: string;
+      exportCitationAuthors: string;
     };
   };
 
@@ -282,7 +284,7 @@ export const translations: Record<Language, Translations> = {
       authorizedOnly: 'Authorized personnel only',
       invalidCredentials: 'Invalid email or password',
       accountBlocked: 'Too many failed attempts. Account blocked for 15 minutes.',
-      attemptsRemaining: 'attempts remaining.',
+      attemptsRemaining: 'attempts remaining: ',
       sessionExpired: 'Your session has expired. Please log in again.',
     },
     dashboard: {
@@ -303,7 +305,7 @@ export const translations: Record<Language, Translations> = {
         authorData: 'Export Author Data for Review',
         translationsTitlesAuthors: 'Export Translations of Titles, Authors & Universities',
         abstractField: 'Export Abstract Field',
-        citationEntry: 'Export Citation Entry (Different Database)',
+        citationEntry: 'Export Citation Entry',
         translationsCitationTitle: 'Export Translations of Citation Title (Different Database)',
         translationsCitationAuthor: 'Export Translations of Citation Author (Different Database)',
         convertUrlToBiblio: 'Convert URL to Biblio',
@@ -313,6 +315,8 @@ export const translations: Record<Language, Translations> = {
         citationTitle: 'Citation Title Translations',
         citationAuthor: 'Citation Author Translations', 
         convertUrl: 'Convert URL to Biblio',
+        exportCitationTitles: 'Export Citation Titles',
+        exportCitationAuthors: 'Export Citation Authors',
       },
     },
     reportContent: {
@@ -544,6 +548,8 @@ export const translations: Record<Language, Translations> = {
         citationTitle: 'ترجمات عناوين الاستشهاد',
         citationAuthor: 'ترجمات مؤلفي الاستشهاد',
         convertUrl: 'تحويل الرابط إلى ببليو',
+        exportCitationTitles: 'تصدير عناوين الاستشهاد',
+        exportCitationAuthors: 'تصدير مؤلفي الاستشهاد',
       },
     },
     reportContent: {

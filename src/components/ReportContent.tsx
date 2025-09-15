@@ -26,7 +26,7 @@ const getTranslatedReportName = (reportId: string, t: Translations, isRTL: boole
     'export_translations_citation_title': t.sidebar.reports.translationsCitationTitle,
     'export_translations_citation_author': t.sidebar.reports.translationsCitationAuthor,
     'custom_citation_report': isRTL ? 'تقرير الاستشهاد المخصص' : 'Custom Citation Report',
-    'custom_citation_form': isRTL ? 'نموذج الاستشهاد المخصص' : 'Custom Citation Form',
+    // 'custom_citation_form': isRTL ? 'نموذج الاستشهاد المخصص' : 'Custom Citation Form',
     'custom_report': t.sidebar.reports.customReport,
     'convert_url_to_biblio': t.sidebar.reports.convertUrlToBiblio
   };

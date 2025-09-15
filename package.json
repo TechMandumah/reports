@@ -10,7 +10,8 @@
   "dependencies": {
     "@types/xlsx": "^0.0.35",
     "@types/xmldom": "^0.1.34",
-    "mysql2": "^3.14.3",
+    "dotenv": "^17.2.2",
+    "mysql2": "^3.14.5",
     "next": "15.5.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",

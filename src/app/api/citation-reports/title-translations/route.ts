@@ -79,13 +79,14 @@ function extractTitleDataFromMarcXml(marcxml: string): {
 }
 
 export async function POST(request: NextRequest) {
+  let connection;
   try {
     console.log('CitationTitleTranslations: Starting request processing');
     const { magazineNumbers, startYear, endYear } = await request.json();
     console.log('CitationTitleTranslations: Request params:', { magazineNumbers, startYear, endYear });
 
-    // Create database connection
-    const connection = await getCitationConnection();
+    // Create database connection with timeout
+    connection = await getCitationConnection();
     console.log('CitationTitleTranslations: Database connected successfully');
 
     let query = `
@@ -100,6 +101,7 @@ export async function POST(request: NextRequest) {
       INNER JOIN biblio b ON bi.biblionumber = b.biblionumber
       WHERE b.frameworkcode = 'CIT'
         AND bi.marcxml IS NOT NULL
+        AND bi.marcxml != ''
     `;
 
     const queryParams: any[] = [];
@@ -137,73 +139,114 @@ export async function POST(request: NextRequest) {
 
     query += ' ORDER BY b.biblionumber';
 
+    console.log('CitationTitleTranslations: Executing query with params:', queryParams);
+    const startTime = Date.now();
+
     const [rows] = await connection.execute(query, queryParams);
     const results = rows as any[];
 
-    console.log(`Found ${results.length} total records from database`);
+    const queryTime = Date.now() - startTime;
+    console.log(`CitationTitleTranslations: Query completed in ${queryTime}ms, ${results.length} rows returned`);
 
-    const titleData: CitationTitleData[] = results.map(row => {
-      const marcData = row.marcxml ? extractTitleDataFromMarcXml(row.marcxml) : {
-        titles_245: [],
-        titles_242: [],
-        titles_246: [],
-        allTitles: '',
-        author: '',
-        year: '',
-        journal: '',
-        authorId: undefined
-      };
+    // Process results with better error handling
+    const titleData: CitationTitleData[] = [];
+    const processingErrors: string[] = [];
 
-      return {
-        biblionumber: row.biblionumber,
-        titles_245: marcData.titles_245,
-        titles_242: marcData.titles_242,
-        titles_246: marcData.titles_246,
-        allTitles: marcData.allTitles || (row.biblio_title ? row.biblio_title : ''),
-        author: marcData.author || row.biblio_author || '',
-        year: marcData.year || row.copyrightdate?.toString() || '',
-        journal: marcData.journal || '',
-        url: row.url || '',
-        authorId: marcData.authorId,
-      };
-    });
+    for (let i = 0; i < results.length; i++) {
+      const row = results[i];
+      try {
+        const marcData = row.marcxml ? extractTitleDataFromMarcXml(row.marcxml) : {
+          titles_245: [],
+          titles_242: [],
+          titles_246: [],
+          allTitles: '',
+          author: '',
+          year: '',
+          journal: '',
+          authorId: undefined
+        };
 
-    console.log(`Processed ${titleData.length} records`);
+        titleData.push({
+          biblionumber: row.biblionumber,
+          titles_245: marcData.titles_245,
+          titles_242: marcData.titles_242,
+          titles_246: marcData.titles_246,
+          allTitles: marcData.allTitles || (row.biblio_title ? row.biblio_title : ''),
+          author: marcData.author || row.biblio_author || '',
+          year: marcData.year || row.copyrightdate?.toString() || '',
+          journal: marcData.journal || '',
+          url: row.url || '',
+          authorId: marcData.authorId,
+        });
+
+        // Log progress for large datasets
+        if (i > 0 && i % 1000 === 0) {
+          console.log(`CitationTitleTranslations: Processed ${i}/${results.length} records`);
+        }
+      } catch (error) {
+        console.error(`CitationTitleTranslations: Error processing row ${row.biblionumber}:`, error);
+        processingErrors.push(`Row ${row.biblionumber}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        
+        // Continue with basic data if MARC parsing fails
+        titleData.push({
+          biblionumber: row.biblionumber,
+          titles_245: [],
+          titles_242: [],
+          titles_246: [],
+          allTitles: row.biblio_title || '',
+          author: row.biblio_author || '',
+          year: row.copyrightdate?.toString() || '',
+          journal: '',
+          url: row.url || '',
+          authorId: undefined,
+        });
+      }
+    }
+
+    console.log(`CitationTitleTranslations: Processing completed. ${titleData.length} records processed with ${processingErrors.length} errors`);
+
+    if (processingErrors.length > 0) {
+      console.warn('CitationTitleTranslations: Processing errors:', processingErrors.slice(0, 10)); // Log first 10 errors
+    }
+
+    await connection.release();
+    connection = null;
+
+    console.log(`CitationTitleTranslations: Processed ${titleData.length} records`);
 
     // For debugging, let's check the first few records
     if (titleData.length > 0) {
-      console.log('Sample record:', JSON.stringify(titleData[0], null, 2));
+      console.log('CitationTitleTranslations: Sample record:', JSON.stringify(titleData[0], null, 2));
     }
 
     // Filter out entries without any title data
-    const translationData = titleData.filter(item => {
+    const translationData = titleData.filter((item: CitationTitleData) => {
       const hasTitles = item.titles_245.length > 0 || item.titles_242.length > 0 || 
                        item.titles_246.length > 0 || item.allTitles.trim().length > 0;
       return hasTitles;
     });
 
-    console.log(`Found ${translationData.length} records with translations after filtering`);
+    console.log(`CitationTitleTranslations: Found ${translationData.length} records with translations after filtering`);
 
     // If no records with translations found, include all records but mark the issue
     let finalData = translationData;
     let reportType = 'translations';
     
     if (translationData.length === 0 && titleData.length > 0) {
-      console.log('No translation records found, including all records for debugging');
+      console.log('CitationTitleTranslations: No translation records found, including all records for debugging');
       finalData = titleData;
       reportType = 'all-records-debug';
     } else if (translationData.length === 0) {
-      console.log('No records found at all');
+      console.log('CitationTitleTranslations: No records found at all');
       finalData = [];
     }
 
-    await connection.release();
-
     // Create Excel workbook
+    console.log('CitationTitleTranslations: Creating Excel workbook...');
     const workbook = xlsx.utils.book_new();
     
     // Prepare data for Excel (without formula-based hyperlinks)
-    const excelData = finalData.map(item => ({
+    const excelData = finalData.map((item: CitationTitleData) => ({
       'Biblio Number': item.biblionumber,
       'Title 245': formatMultipleValues(item.titles_245),
       'Title 242': formatMultipleValues(item.titles_242),
@@ -247,7 +290,6 @@ export async function POST(request: NextRequest) {
       { wch: 40 }, // Title 245
       { wch: 40 }, // Title 242
       { wch: 40 }, // Title 246
-      { wch: 50 }, // All Titles
       { wch: 30 }, // Author
       { wch: 10 }, // Year
       { wch: 40 }, // Journal
@@ -255,10 +297,13 @@ export async function POST(request: NextRequest) {
     ];
     worksheet['!cols'] = columnWidths;
 
-    xlsx.utils.book_append_sheet(workbook, worksheet, reportType === 'translations' ? 'Citation Title Translations' : 'All Records (Debug)');
+    xlsx.utils.book_append_sheet(workbook, worksheet, 'Citation Title Translations');
 
     // Generate Excel buffer
+    console.log('CitationTitleTranslations: Generating Excel buffer...');
     const excelBuffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    console.log(`CitationTitleTranslations: Report generation completed successfully. ${finalData.length} records, ${excelBuffer.length} bytes`);
 
     // Return Excel file
     return new NextResponse(excelBuffer, {
@@ -267,13 +312,30 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'Content-Disposition': `attachment; filename="citation-title-translations-${new Date().toISOString().split('T')[0]}.xlsx"`,
         'X-Record-Count': finalData.length.toString(),
+        'X-Processing-Errors': processingErrors.length.toString(),
+        'X-Report-Type': reportType,
       },
     });
 
   } catch (error) {
-    console.error('Error generating citation title translations report:', error);
+    console.error('CitationTitleTranslations: Error generating report:', error);
+    console.error('CitationTitleTranslations: Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    
+    // Ensure connection is released
+    if (connection) {
+      try {
+        await connection.release();
+      } catch (releaseError) {
+        console.error('CitationTitleTranslations: Error releasing connection:', releaseError);
+      }
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to generate report' },
+      { 
+        error: 'Failed to generate citation title translations report',
+        details: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      },
       { status: 500 }
     );
   }

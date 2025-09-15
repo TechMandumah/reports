@@ -154,6 +154,7 @@ function extractFromMarcXml(marcxml: string): {
 }
 
 export async function POST(request: NextRequest) {
+  let connection;
   try {
     console.log('CustomCitationReport: Starting request processing');
     const { magazineNumbers, startYear, endYear, selectedFields, isPreview } = await request.json();
@@ -167,8 +168,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create database connection
-    const connection = await getCitationConnection();
+    // Create database connection with timeout
+    connection = await getCitationConnection();
     console.log('CustomCitationReport: Database connected successfully');
 
     let query = `

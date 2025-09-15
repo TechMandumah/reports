@@ -1,10 +1,5 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
-  /* config options here */
-  turbopack: {
-    root: __dirname,
-  },
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   // Increase API timeout for long-running citation reports
   experimental: {
     serverComponentsExternalPackages: ['mysql2'],

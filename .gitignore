@@ -10,6 +10,9 @@
 !.yarn/releases
 !.yarn/versions
 
+#auth file
+src/app/api/auth/route.ts
+
 # testing
 /coverage
 
@@ -39,3 +42,5 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+

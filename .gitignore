@@ -77,3 +77,4 @@ logs
 
 #sens
 src/lib
+src/app/api/auth/route.ts

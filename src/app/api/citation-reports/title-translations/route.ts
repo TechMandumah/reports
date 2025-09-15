@@ -209,8 +209,8 @@ export async function POST(request: NextRequest) {
       'Title 242': formatMultipleValues(item.titles_242),
       'Title 246': formatMultipleValues(item.titles_246),
       // 'Author': item.author,
-      'Year': item.year,
-      'Journal': item.journal,
+      // 'Year': item.year,
+      // 'Journal': item.journal,
       'URL': item.url,
     }));
 

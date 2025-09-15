@@ -1,17 +1,18 @@
 import mysql from 'mysql2/promise';
 
 // Citation Database configuration
+
 const citationDbConfig = {
-  host: '127.0.0.1',
-  port: 3306,
-  user: 'root',
-  password: '',
-  database: 'koha_citation',
-//   host: 'citation.mandumah.com',
-//   port: 3306,
-//   user: 'salam',
-//   password: 'a67tzKi',
-//   database: 'koha',
+  host: process.env.DB_HOST_CIT || '127.0.0.1',
+  port: parseInt(process.env.DB_PORT_CIT || '3306'),
+  user: process.env.DB_USER_CIT || 'root',
+  password: process.env.DB_PASS_CIT || '',
+  database: process.env.DB_NAME_CIT ||  'koha_citation',
+  // host: 'citation.mandumah.com',
+  // port: 3306,
+  // user: 'salam',
+  // password: 'a67tzKi',
+  // database: 'koha',
   connectionLimit: 10,
   queueLimit: 0,
 };

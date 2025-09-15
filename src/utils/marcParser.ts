@@ -163,6 +163,12 @@ const MARC_FIELD_MAP: Record<string, { xpath: string; attribute?: string }> = {
 // Simple XPath-like evaluation for XML nodes
 function evaluateXPath(doc: Document, xpath: string): string | null {
   try {
+    // Check if doc is valid
+    if (!doc || !doc.getElementsByTagName) {
+      console.warn('Invalid document passed to evaluateXPath');
+      return null;
+    }
+
     // Handle leader queries
     if (xpath.includes('leader')) {
       const leaders = doc.getElementsByTagName('leader');
@@ -220,9 +226,28 @@ function evaluateXPath(doc: Document, xpath: string): string | null {
 // Parse MARC XML metadata
 export function parseMarcXML(marcXml: string): ParsedMarcData {
   try {
+    // Check if marcXml is valid
+    if (!marcXml || marcXml.trim() === '') {
+      console.warn('Empty or invalid MARC XML provided');
+      return {};
+    }
+
     const parser = new DOMParser();
     const doc = parser.parseFromString(marcXml, 'text/xml');
     
+    // Check for parsing errors
+    const parseError = doc.getElementsByTagName('parsererror');
+    if (parseError.length > 0) {
+      console.warn('XML parsing error:', parseError[0].textContent);
+      return {};
+    }
+
+    // Check if doc is valid
+    if (!doc || !doc.getElementsByTagName) {
+      console.warn('Invalid document created from MARC XML');
+      return {};
+    }
+
     const result: ParsedMarcData = {};
     
     // Extract each MARC field
@@ -432,69 +457,116 @@ export function extractAllMarcFieldInstances(marcXml: string): Record<string, st
 
 // Extract main author (field 100) with author ID from subfield 9
 export function extractMainAuthorWithId(marcXml: string): { author: string; authorId: string | null } {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(marcXml, 'text/xml');
-  
-  const dataFields = doc.getElementsByTagName('datafield');
-  for (let i = 0; i < dataFields.length; i++) {
-    const field = dataFields[i];
-    if (field.getAttribute('tag') === '100') {
-      let author = '';
-      let authorId: string | null = null;
-      
-      const subfields = field.getElementsByTagName('subfield');
-      for (let j = 0; j < subfields.length; j++) {
-        const subfield = subfields[j];
-        const code = subfield.getAttribute('code');
-        const value = subfield.textContent || '';
-        
-        if (code === 'a') {
-          author = value;
-        } else if (code === '9') {
-          authorId = value;
-        }
-      }
-      
-      return { author, authorId };
+  try {
+    // Check if marcXml is valid
+    if (!marcXml || marcXml.trim() === '') {
+      return { author: '', authorId: null };
     }
-  }
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(marcXml, 'text/xml');
+    
+    // Check for parsing errors
+    const parseError = doc.getElementsByTagName('parsererror');
+    if (parseError.length > 0) {
+      console.warn('XML parsing error in extractMainAuthorWithId:', parseError[0].textContent);
+      return { author: '', authorId: null };
+    }
+
+    // Check if doc is valid
+    if (!doc || !doc.getElementsByTagName) {
+      console.warn('Invalid document created in extractMainAuthorWithId');
+      return { author: '', authorId: null };
+    }
   
-  return { author: '', authorId: null };
+    const dataFields = doc.getElementsByTagName('datafield');
+    for (let i = 0; i < dataFields.length; i++) {
+      const field = dataFields[i];
+      if (field.getAttribute('tag') === '100') {
+        let author = '';
+        let authorId: string | null = null;
+        
+        const subfields = field.getElementsByTagName('subfield');
+        for (let j = 0; j < subfields.length; j++) {
+          const subfield = subfields[j];
+          const code = subfield.getAttribute('code');
+          const value = subfield.textContent || '';
+          
+          if (code === 'a') {
+            author = value;
+          } else if (code === '9') {
+            authorId = value;
+          }
+        }
+        
+        return { author, authorId };
+      }
+    }
+    
+    return { author: '', authorId: null };
+  } catch (error) {
+    console.error('Error in extractMainAuthorWithId:', error);
+    return { author: '', authorId: null };
+  }
 }
 
 // Extract all additional authors (field 700) with author IDs from subfield 9
 export function extractAdditionalAuthorsWithIds(marcXml: string): Array<{ author: string; authorId: string | null }> {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(marcXml, 'text/xml');
-  const authors: Array<{ author: string; authorId: string | null }> = [];
+  try {
+    // Check if marcXml is valid
+    if (!marcXml || marcXml.trim() === '') {
+      return [];
+    }
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(marcXml, 'text/xml');
+    
+    // Check for parsing errors
+    const parseError = doc.getElementsByTagName('parsererror');
+    if (parseError.length > 0) {
+      console.warn('XML parsing error in extractAdditionalAuthorsWithIds:', parseError[0].textContent);
+      return [];
+    }
+
+    // Check if doc is valid
+    if (!doc || !doc.getElementsByTagName) {
+      console.warn('Invalid document created in extractAdditionalAuthorsWithIds');
+      return [];
+    }
+
+    const authors: Array<{ author: string; authorId: string | null }> = [];
   
-  const dataFields = doc.getElementsByTagName('datafield');
-  for (let i = 0; i < dataFields.length; i++) {
-    const field = dataFields[i];
-    if (field.getAttribute('tag') === '700') {
-      let author = '';
-      let authorId: string | null = null;
-      
-      const subfields = field.getElementsByTagName('subfield');
-      for (let j = 0; j < subfields.length; j++) {
-        const subfield = subfields[j];
-        const code = subfield.getAttribute('code');
-        const value = subfield.textContent || '';
+    const dataFields = doc.getElementsByTagName('datafield');
+    for (let i = 0; i < dataFields.length; i++) {
+      const field = dataFields[i];
+      if (field.getAttribute('tag') === '700') {
+        let author = '';
+        let authorId: string | null = null;
         
-        if (code === 'a') {
-          author = value;
-        } else if (code === '9') {
-          authorId = value;
+        const subfields = field.getElementsByTagName('subfield');
+        for (let j = 0; j < subfields.length; j++) {
+          const subfield = subfields[j];
+          const code = subfield.getAttribute('code');
+          const value = subfield.textContent || '';
+          
+          if (code === 'a') {
+            author = value;
+          } else if (code === '9') {
+            authorId = value;
+          }
+        }
+        
+        if (author) {
+          authors.push({ author, authorId });
         }
       }
-      
-      if (author) {
-        authors.push({ author, authorId });
-      }
     }
+    
+    return authors;
+  } catch (error) {
+    console.error('Error in extractAdditionalAuthorsWithIds:', error);
+    return [];
   }
-  
-  return authors;
 }
 
 // Get all available MARC fields from XML

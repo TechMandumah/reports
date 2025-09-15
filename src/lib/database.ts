@@ -1,13 +1,12 @@
 import mysql from 'mysql2/promise';
 
 // Database configuration
-// Database connection configuration
 const dbConfig = {
-  host: '127.0.0.1',
-  port: 3306,
-  user: 'root',
-  password: '',
-  database: 'koha',
+  host: process.env.DB_HOST_BIB || '127.0.0.1',
+  port: parseInt(process.env.DB_PORT_BIB || '3306'),
+  user: process.env.DB_USER_BIB || 'root',
+  password: process.env.DB_PASS_BIB || '',
+  database: process.env.DB_NAME_BIB ||  'koha',
   // host: '192.168.1.202',
   // port: 3306,
   // user: 'salam',

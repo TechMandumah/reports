@@ -1,13 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { exportToExcel, reportConfigurations } from '@/utils/excelExport';
+import { exportToExcel } from '@/utils/excelExport';
 import CustomReportForm from './CustomReportForm';
 import PredefinedReportForm from './PredefinedReportForm';
-import ExportCitationEntry from './CitationReports/ExportCitationEntry';
 import CitationTitleTranslations from './CitationReports/CitationTitleTranslations';
 import CitationAuthorTranslations from './CitationReports/CitationAuthorTranslations';
-import CustomCitationReport from './CitationReports/CustomCitationReport';
 import CustomCitationReportForm from './CitationReports/CustomCitationReportForm';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation, Translations } from '@/utils/localization';
@@ -28,7 +26,7 @@ const getTranslatedReportName = (reportId: string, t: Translations, isRTL: boole
     'export_translations_citation_title': t.sidebar.reports.translationsCitationTitle,
     'export_translations_citation_author': t.sidebar.reports.translationsCitationAuthor,
     'custom_citation_report': isRTL ? 'تقرير الاستشهاد المخصص' : 'Custom Citation Report',
-    'custom_citation_form': isRTL ? 'نموذج الاستشهاد المخصص' : 'Custom Citation Form',
+    // 'custom_citation_form': isRTL ? 'نموذج الاستشهاد المخصص' : 'Custom Citation Form',
     'custom_report': t.sidebar.reports.customReport,
     'convert_url_to_biblio': t.sidebar.reports.convertUrlToBiblio
   };

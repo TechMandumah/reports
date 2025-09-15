@@ -169,10 +169,10 @@ export async function POST(request: NextRequest) {
       'Main Author ID': item.mainAuthorId,
       'Additional Authors (700a)': formatMultipleValues(item.additionalAuthors),
       'Additional Author IDs': formatMultipleValues(item.additionalAuthorIds),
-      'All Authors': item.allAuthors,
-      'Title': item.title,
-      'Year': item.year,
-      'Journal': item.journal,
+      // 'All Authors': item.allAuthors,
+      // 'Title': item.title,
+      // 'Year': item.year,
+      // 'Journal': item.journal,
       'URL': item.url,
     }));
 

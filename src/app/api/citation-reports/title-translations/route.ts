@@ -108,8 +108,21 @@ export async function POST(request: NextRequest) {
 
     // Add magazine numbers filter - get all versions and builds under magazine
     if (magazineNumbers) {
-      const numbers = magazineNumbers.split(/[,\s\n]+/).filter((num: string) => num.trim());
+      console.log('CitationTitleTranslations: Processing magazine numbers filter...');
+      
+      // Handle both string and array formats
+      let numbers: string[] = [];
+      if (Array.isArray(magazineNumbers)) {
+        numbers = magazineNumbers.filter((num: string) => num && num.trim());
+        console.log('CitationTitleTranslations: Magazine numbers (array format):', numbers);
+      } else if (typeof magazineNumbers === 'string') {
+        numbers = magazineNumbers.split(/[,\s\n]+/).filter((num: string) => num.trim());
+        console.log('CitationTitleTranslations: Magazine numbers (string format):', numbers);
+      }
+      
       if (numbers.length > 0) {
+        console.log(`CitationTitleTranslations: Processing ${numbers.length} magazine numbers:`, numbers);
+        
         // Build LIKE conditions for each magazine number to get all versions (e.g., 0005-*)
         const likeConditions = numbers.map(() => 'bi.url LIKE ?').join(' OR ');
         query += ` AND (${likeConditions})`;
@@ -117,12 +130,16 @@ export async function POST(request: NextRequest) {
         // Add parameters with wildcard pattern for each magazine number
         const patterns: string[] = [];
         for (const number of numbers) {
-          const pattern = `${number.padStart(4, '0')}-%`;
+          const pattern = `${number.toString().padStart(4, '0')}-%`;
           patterns.push(pattern);
           queryParams.push(pattern);
         }
         console.log('CitationTitleTranslations: Magazine filter patterns:', patterns);
+      } else {
+        console.log('CitationTitleTranslations: No valid magazine numbers found after filtering');
       }
+    } else {
+      console.log('CitationTitleTranslations: No magazine numbers filter provided - will return all records');
     }
 
     // Add year range filter

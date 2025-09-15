@@ -155,22 +155,39 @@ function extractFromMarcXml(marcxml: string): {
 
 export async function POST(request: NextRequest) {
   let connection;
+  const requestId = `custom-cit-${Date.now()}`;
+  
   try {
-    console.log('CustomCitationReport: Starting request processing');
+    console.log(`🚀 [${requestId}] CustomCitationReport: Starting request processing`);
+    console.log(`📝 [${requestId}] Request timestamp:`, new Date().toISOString());
+    console.log(`🌍 [${requestId}] Environment:`, process.env.NODE_ENV);
+    
     const { magazineNumbers, startYear, endYear, selectedFields, isPreview } = await request.json();
-    console.log('CustomCitationReport: Request params:', { magazineNumbers, startYear, endYear, selectedFields, isPreview });
+    console.log(`📋 [${requestId}] CustomCitationReport: Request params:`, { 
+      magazineNumbers, 
+      startYear, 
+      endYear, 
+      selectedFields, 
+      isPreview,
+      magazineNumbersType: typeof magazineNumbers,
+      magazineNumbersIsArray: Array.isArray(magazineNumbers)
+    });
 
     // Validate selected fields
     if (!selectedFields || selectedFields.length === 0) {
+      console.error(`❌ [${requestId}] No fields selected`);
       return NextResponse.json(
-        { error: 'No fields selected' },
+        { error: 'No fields selected', requestId },
         { status: 400 }
       );
     }
 
     // Create database connection with timeout
+    console.log(`🔗 [${requestId}] Getting citation database connection...`);
+    const connectionStart = Date.now();
     connection = await getCitationConnection();
-    console.log('CustomCitationReport: Database connected successfully');
+    const connectionTime = Date.now() - connectionStart;
+    console.log(`✅ [${requestId}] Citation database connection established in ${connectionTime}ms`);
 
     let query = `
       SELECT 
@@ -203,26 +220,33 @@ export async function POST(request: NextRequest) {
       INNER JOIN biblio b ON bi.biblionumber = b.biblionumber
       WHERE b.frameworkcode = 'CIT'
         AND bi.marcxml IS NOT NULL
+        AND bi.marcxml != ''
     `;
 
-    console.log('CustomCitationReport: Generated SQL query:', query);
+    console.log(`📝 [${requestId}] CustomCitationReport: Generated base SQL query`);
 
     const queryParams: any[] = [];
 
     // Add magazine numbers filter - get all versions and builds under magazine
     if (magazineNumbers) {
+      console.log(`🔍 [${requestId}] Processing magazine numbers filter...`);
       let numbers: string[] = [];
       
       // Handle different types of magazineNumbers input
-      if (typeof magazineNumbers === 'string') {
-        numbers = magazineNumbers.split(/[,\s\n]+/).filter((num: string) => num.trim());
-      } else if (Array.isArray(magazineNumbers)) {
+      if (Array.isArray(magazineNumbers)) {
         numbers = magazineNumbers.filter((num: any) => num && num.toString().trim()).map(num => num.toString());
+        console.log(`📊 [${requestId}] Magazine numbers (array format):`, numbers);
+      } else if (typeof magazineNumbers === 'string') {
+        numbers = magazineNumbers.split(/[,\s\n]+/).filter((num: string) => num.trim());
+        console.log(`📊 [${requestId}] Magazine numbers (string format):`, numbers);
       } else {
         numbers = [magazineNumbers.toString()].filter((num: string) => num.trim());
+        console.log(`📊 [${requestId}] Magazine numbers (other format):`, numbers);
       }
       
       if (numbers.length > 0) {
+        console.log(`📊 [${requestId}] Processing ${numbers.length} magazine numbers:`, numbers);
+        
         // Build LIKE conditions for each magazine number to get all versions (e.g., 0005-*)
         const likeConditions = numbers.map(() => 'bi.url LIKE ?').join(' OR ');
         query += ` AND (${likeConditions})`;
@@ -234,43 +258,64 @@ export async function POST(request: NextRequest) {
           patterns.push(pattern);
           queryParams.push(pattern);
         }
-        console.log('CustomCitationReport: Magazine filter patterns:', patterns);
+        console.log(`🔍 [${requestId}] Magazine filter patterns:`, patterns);
+      } else {
+        console.log(`⚠️ [${requestId}] No valid magazine numbers found after filtering`);
       }
+    } else {
+      console.log(`ℹ️ [${requestId}] No magazine numbers filter provided - will return all records`);
     }
 
     // Add year range filter
     if (startYear && endYear) {
+      console.log(`📅 [${requestId}] Adding year range filter: ${startYear} - ${endYear}`);
       query += ' AND b.copyrightdate BETWEEN ? AND ?';
       queryParams.push(parseInt(startYear), parseInt(endYear));
     } else if (startYear) {
+      console.log(`📅 [${requestId}] Adding start year filter: >= ${startYear}`);
       query += ' AND b.copyrightdate >= ?';
       queryParams.push(parseInt(startYear));
     } else if (endYear) {
+      console.log(`📅 [${requestId}] Adding end year filter: <= ${endYear}`);
       query += ' AND b.copyrightdate <= ?';
       queryParams.push(parseInt(endYear));
+    } else {
+      console.log(`ℹ️ [${requestId}] No year filter provided`);
     }
 
     query += ' ORDER BY b.biblionumber';
 
+    console.log(`🔍 [${requestId}] Final query:`, query.substring(0, 300) + '...');
+    console.log(`📋 [${requestId}] Query parameters:`, queryParams);
+    console.log(`⏱️ [${requestId}] Executing query at:`, new Date().toISOString());
+    const queryStart = Date.now();
+
     const [rows] = await connection.execute(query, queryParams);
     const results = rows as any[];
     
-    console.log(`CustomCitationReport: Found ${results.length} total records from database`);
-    console.log('CustomCitationReport: Query executed:', query);
-    console.log('CustomCitationReport: Query parameters:', queryParams);
+    const queryTime = Date.now() - queryStart;
+    console.log(`✅ [${requestId}] Query completed successfully:`, {
+      executionTime: `${queryTime}ms`,
+      rowsReturned: results.length,
+      timestamp: new Date().toISOString(),
+      averageTimePerRow: results.length > 0 ? `${(queryTime / results.length).toFixed(2)}ms` : 'N/A'
+    });
     
     if (results.length > 0) {
-      console.log('CustomCitationReport: Sample record:', {
+      console.log(`📊 [${requestId}] Sample record structure:`, {
         biblionumber: results[0].biblionumber,
-        url: results[0].url,
+        hasAuthor: !!results[0].biblio_author,
+        hasTitle: !!results[0].biblio_title,
         hasMarcxml: !!results[0].marcxml,
-        marcxmlLength: results[0].marcxml?.length || 0
+        marcxmlLength: results[0].marcxml?.length || 0,
+        hasUrl: !!results[0].url,
+        copyrightdate: results[0].copyrightdate
       });
-      console.log('CustomCitationReport: First few biblionumbers:', results.slice(0, 5).map(r => r.biblionumber));
+      console.log(`📝 [${requestId}] First few biblionumbers:`, results.slice(0, 5).map(r => r.biblionumber));
     } else {
-      console.log('CustomCitationReport: No records found! This might be the issue.');
-      console.log('CustomCitationReport: Final query was:', query);
-      console.log('CustomCitationReport: With parameters:', queryParams);
+      console.warn(`⚠️ [${requestId}] No records found! This might be the issue.`);
+      console.warn(`🔍 [${requestId}] Final query was:`, query);
+      console.warn(`📋 [${requestId}] With parameters:`, queryParams);
     }
 
     const citationData: CustomCitationData[] = results.map(row => {
@@ -589,11 +634,18 @@ export async function POST(request: NextRequest) {
 
     // If this is a preview request, return JSON data with same format as Excel
     if (isPreview) {
+      console.log(`📊 [${requestId}] Returning preview data: ${Math.min(5, citationData.length)} records`);
+      
+      await connection.release();
+      connection = null;
+      
       return NextResponse.json({
         success: true,
         data: formattedData.slice(0, 5), // Limit preview to 5 records
         count: citationData.length,
-        totalRecords: citationData.length
+        totalRecords: citationData.length,
+        requestId: requestId,
+        timestamp: new Date().toISOString()
       });
     }
 
@@ -673,7 +725,24 @@ export async function POST(request: NextRequest) {
     xlsx.utils.book_append_sheet(workbook, worksheet, 'Custom Citation Report');
 
     // Generate Excel buffer
+    console.log(`📊 [${requestId}] Generating Excel buffer for ${citationData.length} records...`);
+    const bufferStart = Date.now();
     const excelBuffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    const bufferTime = Date.now() - bufferStart;
+    
+    console.log(`✅ [${requestId}] Excel buffer generated:`, {
+      bufferGenerationTime: `${bufferTime}ms`,
+      bufferSize: `${excelBuffer.length} bytes`,
+      bufferSizeMB: `${(excelBuffer.length / 1024 / 1024).toFixed(2)} MB`,
+      recordCount: citationData.length,
+      timestamp: new Date().toISOString()
+    });
+
+    // Release connection before returning file
+    console.log(`🔗 [${requestId}] Releasing database connection...`);
+    await connection.release();
+    connection = null;
+    console.log(`✅ [${requestId}] Database connection released successfully`);
 
     // Return Excel file
     return new NextResponse(excelBuffer, {
@@ -682,13 +751,39 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'Content-Disposition': `attachment; filename="custom-citation-report-${new Date().toISOString().split('T')[0]}.xlsx"`,
         'X-Record-Count': citationData.length.toString(),
+        'X-Request-ID': requestId,
       },
     });
 
   } catch (error) {
-    console.error('Error generating custom citation report:', error);
+    console.error(`❌ [${requestId}] Error generating custom citation report:`, error);
+    console.error(`❌ [${requestId}] Error details:`, {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : 'No stack trace',
+      timestamp: new Date().toISOString(),
+      requestId: requestId,
+      errorType: typeof error,
+      connectionActive: !!connection
+    });
+    
+    // Ensure connection is released
+    if (connection) {
+      try {
+        console.log(`🔗 [${requestId}] Releasing connection due to error...`);
+        await connection.release();
+        console.log(`✅ [${requestId}] Connection released after error`);
+      } catch (releaseError) {
+        console.error(`❌ [${requestId}] Error releasing connection:`, releaseError);
+      }
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to generate report' },
+      { 
+        error: 'Failed to generate custom citation report',
+        details: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString(),
+        requestId: requestId
+      },
       { status: 500 }
     );
   }

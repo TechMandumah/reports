@@ -120,9 +120,20 @@ export async function POST(request: NextRequest) {
     // Add magazine numbers filter - get all versions and builds under magazine
     if (magazineNumbers) {
       console.log(`🔍 [${requestId}] Processing magazine numbers filter...`);
-      const numbers = magazineNumbers.split(/[,\s\n]+/).filter((num: string) => num.trim());
+      
+      // Handle both string and array formats
+      let numbers: string[] = [];
+      if (Array.isArray(magazineNumbers)) {
+        numbers = magazineNumbers.filter((num: string) => num && num.trim());
+        console.log(`📊 [${requestId}] Magazine numbers (array format):`, numbers);
+      } else if (typeof magazineNumbers === 'string') {
+        numbers = magazineNumbers.split(/[,\s\n]+/).filter((num: string) => num.trim());
+        console.log(`📊 [${requestId}] Magazine numbers (string format):`, numbers);
+      }
+      
       if (numbers.length > 0) {
-        console.log(`📊 [${requestId}] Magazine numbers found:`, numbers);
+        console.log(`📊 [${requestId}] Processing ${numbers.length} magazine numbers:`, numbers);
+        
         // Build LIKE conditions for each magazine number to get all versions (e.g., 0005-*)
         const likeConditions = numbers.map(() => 'bi.url LIKE ?').join(' OR ');
         query += ` AND (${likeConditions})`;
@@ -130,16 +141,19 @@ export async function POST(request: NextRequest) {
         // Add parameters with wildcard pattern for each magazine number
         const patterns: string[] = [];
         for (const number of numbers) {
-          const pattern = `${number.padStart(4, '0')}-%`;
+          const pattern = `${number.toString().padStart(4, '0')}-%`;
           patterns.push(pattern);
           queryParams.push(pattern);
         }
         console.log(`🔍 [${requestId}] Magazine filter patterns:`, patterns);
+        
+        // Let's also test if any URLs match our patterns
+        console.log(`🔍 [${requestId}] Testing pattern matching with sample data...`);
       } else {
         console.log(`⚠️ [${requestId}] No valid magazine numbers found after filtering`);
       }
     } else {
-      console.log(`ℹ️ [${requestId}] No magazine numbers filter provided`);
+      console.log(`ℹ️ [${requestId}] No magazine numbers filter provided - will return all records`);
     }
 
     // Add year range filter

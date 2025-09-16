@@ -6,6 +6,24 @@ interface CustomCitationData {
   [key: string]: any;
 }
 
+// Base URL for citation PDFs
+// const CITATION_PDF_BASE_URL = 'https://citation-db.mandumah.com/pdfs/';
+
+// Helper function to construct full PDF URL
+function constructPdfUrl(filename: string): string {
+  if (!filename || filename.trim() === '') {
+    return '';
+  }
+  
+  // If it's already a full URL, return as is
+  if (filename.startsWith('http://') || filename.startsWith('https://')) {
+    return filename;
+  }
+  
+  // Construct full URL with base path
+  return `${filename}`;
+}
+
 // Helper function to extract data from MARC XML with author IDs
 function extractFromMarcXml(marcxml: string): {
   author: string;
@@ -352,6 +370,7 @@ export async function POST(request: NextRequest) {
       const completeData: CustomCitationData = {
         biblionumber: row.biblionumber,
         url: row.url || '',
+        pdfUrl: constructPdfUrl(row.url || ''),
         frameworkcode: row.frameworkcode || '',
         author: marcData.author || row.biblio_author || '',
         authorId: marcData.authorId || '',
@@ -491,6 +510,7 @@ export async function POST(request: NextRequest) {
     const fieldLabels: { [key: string]: string } = {
       biblionumber: 'Biblio Number',
       url: 'PDF Filename',
+      pdfUrl: 'PDF URL',
       controlNumber: 'Control Number (001)',
       languageCode: 'Language Code (041)',
       publisherCode: 'Publisher Code (073)',
@@ -717,6 +737,16 @@ export async function POST(request: NextRequest) {
                 : "Click to view additional author authority record";
               cell.l = { Target: firstAuthorUrl, Tooltip: tooltip };
             }
+          }
+        }
+
+        // Add hyperlinks for PDF URL if exists
+        const pdfUrlColIndex = columnNames.indexOf('PDF URL');
+        if (pdfUrlColIndex >= 0) {
+          const cellRef = xlsx.utils.encode_cell({ r: row, c: pdfUrlColIndex });
+          const cell = worksheet[cellRef];
+          if (cell && cell.v && cell.v.toString().trim()) {
+            cell.l = { Target: cell.v.toString(), Tooltip: "Click to open PDF document" };
           }
         }
       }

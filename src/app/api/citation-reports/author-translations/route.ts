@@ -14,6 +14,25 @@ interface CitationAuthorData {
   year: string;
   journal: string;
   url: string;
+  pdfUrl: string; // Full PDF URL with base path
+}
+
+// Base URL for citation PDFs
+// const CITATION_PDF_BASE_URL = 'https://citation-db.mandumah.com/pdfs/';
+
+// Helper function to construct full PDF URL
+function constructPdfUrl(filename: string): string {
+  if (!filename || filename.trim() === '') {
+    return '';
+  }
+  
+  // If it's already a full URL, return as is
+  if (filename.startsWith('http://') || filename.startsWith('https://')) {
+    return filename;
+  }
+  
+  // Construct full URL with base path
+  return `${filename}`;
 }
 
 // Helper function to extract author data from MARC XML using enhanced parser
@@ -235,6 +254,7 @@ export async function POST(request: NextRequest) {
           year: marcData.year || row.copyrightdate?.toString() || '',
           journal: marcData.journal || '',
           url: row.url || '',
+          pdfUrl: constructPdfUrl(row.url || ''),
         });
 
         // Log progress for large datasets
@@ -268,6 +288,7 @@ export async function POST(request: NextRequest) {
           year: row.copyrightdate?.toString() || '',
           journal: '',
           url: row.url || '',
+          pdfUrl: constructPdfUrl(row.url || ''),
         });
       }
     }
@@ -311,7 +332,7 @@ export async function POST(request: NextRequest) {
       // 'Title': item.title,
       // 'Year': item.year,
       // 'Journal': item.journal,
-      'URL': item.url,
+      'PDF URL': item.pdfUrl,
     }));
 
     console.log(`📋 [${requestId}] Creating worksheet with ${excelData.length} rows...`);
@@ -346,6 +367,13 @@ export async function POST(request: NextRequest) {
         mainAuthorIdCell.l = { Target: authorUrl, Tooltip: "Click to view author authority record" };
       }
 
+      // Add hyperlink for PDF URL if exists
+      const pdfUrlCellRef = xlsx.utils.encode_cell({ r: row, c: 5 });
+      const pdfUrlCell = worksheet[pdfUrlCellRef];
+      if (pdfUrlCell && pdfUrlCell.v && item.pdfUrl && item.pdfUrl.trim()) {
+        pdfUrlCell.l = { Target: item.pdfUrl, Tooltip: "Click to open PDF document" };
+      }
+
       // Log progress for hyperlinks
       if (row % 1000 === 0 || row <= 5 || row > authorData.length - 5) {
         console.log(`🔗 [${requestId}] Added hyperlinks for row ${row}/${authorData.length}`);
@@ -360,11 +388,7 @@ export async function POST(request: NextRequest) {
       { wch: 15 }, // Main Author ID
       { wch: 40 }, // Additional Authors
       { wch: 40 }, // Additional Author IDs
-      { wch: 50 }, // All Authors
-      { wch: 50 }, // Title
-      { wch: 10 }, // Year
-      { wch: 40 }, // Journal
-      { wch: 60 }, // URL
+      { wch: 60 }, // PDF URL
     ];
     worksheet['!cols'] = columnWidths;
 

@@ -6,6 +6,7 @@ import { extractAllTitles, formatMultipleValues } from '@/utils/marcParser';
 interface CitationTitleData {
   biblionumber: number;
   url: string;
+  pdfUrl: string; // Full PDF URL with base path
   titles_245: string[];
   titles_242: string[];
   titles_246: string[];
@@ -14,6 +15,24 @@ interface CitationTitleData {
   authorId?: string;
   year: string;
   journal: string;
+}
+
+// Base URL for citation PDFs
+// const CITATION_PDF_BASE_URL = 'https://citation-db.mandumah.com/pdfs/';
+
+// Helper function to construct full PDF URL
+function constructPdfUrl(filename: string): string {
+  if (!filename || filename.trim() === '') {
+    return '';
+  }
+  
+  // If it's already a full URL, return as is
+  if (filename.startsWith('http://') || filename.startsWith('https://')) {
+    return filename;
+  }
+  
+  // Construct full URL with base path
+  return `${filename}`;
 }
 
 // Helper function to extract title data from MARC XML using enhanced parser
@@ -193,6 +212,7 @@ export async function POST(request: NextRequest) {
           year: marcData.year || row.copyrightdate?.toString() || '',
           journal: marcData.journal || '',
           url: row.url || '',
+          pdfUrl: constructPdfUrl(row.url || ''),
           authorId: marcData.authorId,
         });
 
@@ -215,6 +235,7 @@ export async function POST(request: NextRequest) {
           year: row.copyrightdate?.toString() || '',
           journal: '',
           url: row.url || '',
+          pdfUrl: constructPdfUrl(row.url || ''),
           authorId: undefined,
         });
       }
@@ -271,7 +292,7 @@ export async function POST(request: NextRequest) {
       // 'Author': item.author,
       // 'Year': item.year,
       // 'Journal': item.journal,
-      'URL': item.url,
+      'PDF URL': item.pdfUrl,
     }));
 
     const worksheet = xlsx.utils.json_to_sheet(excelData);
@@ -288,17 +309,12 @@ export async function POST(request: NextRequest) {
         biblioNumberCell.l = { Target: catalogingUrl, Tooltip: "Click to open in cataloging system" };
       }
 
-      // Add hyperlink for Author if authorId exists
-      const authorCellRef = xlsx.utils.encode_cell({ r: row, c: 5 });
-      const authorCell = worksheet[authorCellRef];
-      if (authorCell && authorCell.v) {
-        if (item.authorId && item.authorId.trim()) {
-          const authorUrl = `https://cataloging.mandumah.com/cgi-bin/koha/authorities/authorities.pl?authid=${item.authorId}`;
-          authorCell.l = { Target: authorUrl, Tooltip: "Click to view author authority record" };
-        }
+      // Add hyperlink for PDF URL if exists
+      const pdfUrlCellRef = xlsx.utils.encode_cell({ r: row, c: 4 });
+      const pdfUrlCell = worksheet[pdfUrlCellRef];
+      if (pdfUrlCell && pdfUrlCell.v && item.pdfUrl && item.pdfUrl.trim()) {
+        pdfUrlCell.l = { Target: item.pdfUrl, Tooltip: "Click to open PDF document" };
       }
-
-      // URL field now contains PDF filename - no hyperlink needed
     }
     
     // Auto-size columns
@@ -307,10 +323,7 @@ export async function POST(request: NextRequest) {
       { wch: 40 }, // Title 245
       { wch: 40 }, // Title 242
       { wch: 40 }, // Title 246
-      { wch: 30 }, // Author
-      { wch: 10 }, // Year
-      { wch: 40 }, // Journal
-      { wch: 60 }, // URL
+      { wch: 60 }, // PDF URL
     ];
     worksheet['!cols'] = columnWidths;
 

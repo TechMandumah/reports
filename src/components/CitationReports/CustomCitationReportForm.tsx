@@ -716,7 +716,7 @@ export default function CustomCitationReportForm({
                             </a>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {row['PDF Filename'] || row.url || '-'}
+                            {row['PDF Filename V2'] || row.url || '-'}
                           </td>
                           {selectedFields.map((fieldTag) => {
                             // Map MARC tag to formatted field label

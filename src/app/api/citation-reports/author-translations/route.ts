@@ -115,7 +115,9 @@ export async function POST(request: NextRequest) {
     const debugQuery = `
       SELECT 
         SUBSTRING_INDEX(bi.url, '-', 1) as magazine_prefix,
-        COUNT(*) as count
+        COUNT(*) as count,
+        MIN(bi.url) as sample_url,
+        MAX(bi.url) as last_url
       FROM biblioitems bi
       INNER JOIN biblio b ON bi.biblionumber = b.biblionumber
       WHERE b.frameworkcode = 'CIT'
@@ -128,6 +130,21 @@ export async function POST(request: NextRequest) {
     
     const [debugRows] = await connection.execute(debugQuery);
     console.log(`📊 [${requestId}] CitationAuthorTranslations: Available magazine prefixes:`, debugRows);
+
+    // Also check for NULL/empty URL records
+    const nullUrlQuery = `
+      SELECT 
+        COUNT(*) as total_records,
+        COUNT(bi.url) as records_with_url,
+        COUNT(CASE WHEN bi.url = '' THEN 1 END) as empty_url_records,
+        COUNT(CASE WHEN bi.url IS NULL THEN 1 END) as null_url_records
+      FROM biblioitems bi
+      INNER JOIN biblio b ON bi.biblionumber = b.biblionumber
+      WHERE b.frameworkcode = 'CIT'
+    `;
+    
+    const [urlStats] = await connection.execute(nullUrlQuery);
+    console.log(`📊 [${requestId}] CitationAuthorTranslations: URL field statistics:`, urlStats);
 
     let query = `
       SELECT 

@@ -93,31 +93,41 @@ function extractAuthorDataFromMarcXml(marcxml: string): {
 
 export async function POST(request: NextRequest) {
   let connection;
-  const requestId = `auth-trans-${Date.now()}`;
+  
+  // Generate unique request ID for tracking
+  const requestId = `author-trans-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const requestStart = Date.now();
   
   try {
-    console.log(`🚀 [${requestId}] CitationAuthorTranslations: Starting report generation`);
-    console.log(`📝 [${requestId}] Request timestamp:`, new Date().toISOString());
-    console.log(`🌍 [${requestId}] Environment:`, process.env.NODE_ENV);
-    
+    console.log(`🚀 [${requestId}] CitationAuthorTranslations: Starting request processing`);
     const { magazineNumbers, startYear, endYear } = await request.json();
-
-    console.log(`📋 [${requestId}] CitationAuthorTranslations: Request params:`, {
-      magazineNumbers,
-      startYear,
-      endYear,
-      timestamp: new Date().toISOString(),
-      hasMAgazineNumbers: !!magazineNumbers,
-      magazineNumbersLength: magazineNumbers?.length || 0,
-      dateRange: startYear && endYear ? `${startYear}-${endYear}` : 'No date filter'
-    });
+    console.log(`📋 [${requestId}] CitationAuthorTranslations: Request params:`, { magazineNumbers, startYear, endYear });
 
     // Create database connection with timeout
-    console.log(`🔗 [${requestId}] Getting citation database connection...`);
+    console.log(`🔗 [${requestId}] CitationAuthorTranslations: Creating database connection...`);
     const connectionStart = Date.now();
     connection = await getCitationConnection();
     const connectionTime = Date.now() - connectionStart;
-    console.log(`✅ [${requestId}] Citation database connection established in ${connectionTime}ms`);
+    console.log(`✅ [${requestId}] CitationAuthorTranslations: Database connected successfully in ${connectionTime}ms`);
+
+    // First, let's debug what magazines are actually available in the database
+    console.log(`🔍 [${requestId}] CitationAuthorTranslations: Checking available magazine patterns in database...`);
+    const debugQuery = `
+      SELECT 
+        SUBSTRING_INDEX(bi.url, '-', 1) as magazine_prefix,
+        COUNT(*) as count
+      FROM biblioitems bi
+      INNER JOIN biblio b ON bi.biblionumber = b.biblionumber
+      WHERE b.frameworkcode = 'CIT'
+        AND bi.url IS NOT NULL
+        AND bi.url != ''
+      GROUP BY SUBSTRING_INDEX(bi.url, '-', 1)
+      ORDER BY magazine_prefix
+      LIMIT 10
+    `;
+    
+    const [debugRows] = await connection.execute(debugQuery);
+    console.log(`📊 [${requestId}] CitationAuthorTranslations: Available magazine prefixes:`, debugRows);
 
     let query = `
       SELECT 
@@ -167,6 +177,23 @@ export async function POST(request: NextRequest) {
         console.log(`🔍 [${requestId}] Magazine filter patterns:`, patterns);
         
         // Let's also test if any URLs match our patterns
+        const testQuery = `
+          SELECT COUNT(*) as matching_count, bi.url
+          FROM biblioitems bi
+          INNER JOIN biblio b ON bi.biblionumber = b.biblionumber
+          WHERE b.frameworkcode = 'CIT'
+            AND (${likeConditions})
+          GROUP BY bi.url
+          LIMIT 5
+        `;
+        
+        try {
+          const [testRows] = await connection.execute(testQuery, patterns);
+          console.log(`🧪 [${requestId}] Test query results for patterns:`, testRows);
+        } catch (testError) {
+          console.warn(`⚠️ [${requestId}] Test query failed:`, testError);
+        }
+        
         console.log(`🔍 [${requestId}] Testing pattern matching with sample data...`);
       } else {
         console.log(`⚠️ [${requestId}] No valid magazine numbers found after filtering`);

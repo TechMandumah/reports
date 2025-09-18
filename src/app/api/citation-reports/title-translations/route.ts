@@ -99,14 +99,41 @@ function extractTitleDataFromMarcXml(marcxml: string): {
 
 export async function POST(request: NextRequest) {
   let connection;
+  
+  // Generate unique request ID for tracking
+  const requestId = `title-trans-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const requestStart = Date.now();
+  
   try {
-    console.log('CitationTitleTranslations: Starting request processing');
+    console.log(`🚀 [${requestId}] CitationTitleTranslations: Starting request processing`);
     const { magazineNumbers, startYear, endYear } = await request.json();
-    console.log('CitationTitleTranslations: Request params:', { magazineNumbers, startYear, endYear });
+    console.log(`📋 [${requestId}] CitationTitleTranslations: Request params:`, { magazineNumbers, startYear, endYear });
 
     // Create database connection with timeout
+    console.log(`🔗 [${requestId}] CitationTitleTranslations: Creating database connection...`);
+    const connectionStart = Date.now();
     connection = await getCitationConnection();
-    console.log('CitationTitleTranslations: Database connected successfully');
+    const connectionTime = Date.now() - connectionStart;
+    console.log(`✅ [${requestId}] CitationTitleTranslations: Database connected successfully in ${connectionTime}ms`);
+
+    // First, let's debug what magazines are actually available in the database
+    console.log(`🔍 [${requestId}] CitationTitleTranslations: Checking available magazine patterns in database...`);
+    const debugQuery = `
+      SELECT 
+        SUBSTRING_INDEX(bi.url, '-', 1) as magazine_prefix,
+        COUNT(*) as count
+      FROM biblioitems bi
+      INNER JOIN biblio b ON bi.biblionumber = b.biblionumber
+      WHERE b.frameworkcode = 'CIT'
+        AND bi.url IS NOT NULL
+        AND bi.url != ''
+      GROUP BY SUBSTRING_INDEX(bi.url, '-', 1)
+      ORDER BY magazine_prefix
+      LIMIT 10
+    `;
+    
+    const [debugRows] = await connection.execute(debugQuery);
+    console.log(`📊 [${requestId}] CitationTitleTranslations: Available magazine prefixes:`, debugRows);
 
     let query = `
       SELECT 
@@ -127,20 +154,20 @@ export async function POST(request: NextRequest) {
 
     // Add magazine numbers filter - get all versions and builds under magazine
     if (magazineNumbers) {
-      console.log('CitationTitleTranslations: Processing magazine numbers filter...');
+      console.log(`🔍 [${requestId}] CitationTitleTranslations: Processing magazine numbers filter...`);
       
       // Handle both string and array formats
       let numbers: string[] = [];
       if (Array.isArray(magazineNumbers)) {
-        numbers = magazineNumbers.filter((num: string) => num && num.trim());
-        console.log('CitationTitleTranslations: Magazine numbers (array format):', numbers);
+        numbers = magazineNumbers.filter((num: any) => num && num.toString().trim()).map(num => num.toString());
+        console.log(`📝 [${requestId}] CitationTitleTranslations: Magazine numbers (array format):`, numbers);
       } else if (typeof magazineNumbers === 'string') {
         numbers = magazineNumbers.split(/[,\s\n]+/).filter((num: string) => num.trim());
-        console.log('CitationTitleTranslations: Magazine numbers (string format):', numbers);
+        console.log(`📝 [${requestId}] CitationTitleTranslations: Magazine numbers (string format):`, numbers);
       }
       
       if (numbers.length > 0) {
-        console.log(`CitationTitleTranslations: Processing ${numbers.length} magazine numbers:`, numbers);
+        console.log(`🎯 [${requestId}] CitationTitleTranslations: Processing ${numbers.length} magazine numbers:`, numbers);
         
         // Build LIKE conditions for each magazine number to get all versions (e.g., 0005-*)
         const likeConditions = numbers.map(() => 'bi.url LIKE ?').join(' OR ');
@@ -153,12 +180,30 @@ export async function POST(request: NextRequest) {
           patterns.push(pattern);
           queryParams.push(pattern);
         }
-        console.log('CitationTitleTranslations: Magazine filter patterns:', patterns);
+        console.log(`🔎 [${requestId}] CitationTitleTranslations: Magazine filter patterns:`, patterns);
+        
+        // Let's also test if any URLs match our patterns
+        const testQuery = `
+          SELECT COUNT(*) as matching_count, bi.url
+          FROM biblioitems bi
+          INNER JOIN biblio b ON bi.biblionumber = b.biblionumber
+          WHERE b.frameworkcode = 'CIT'
+            AND (${likeConditions})
+          GROUP BY bi.url
+          LIMIT 5
+        `;
+        
+        try {
+          const [testRows] = await connection.execute(testQuery, patterns);
+          console.log(`🧪 [${requestId}] CitationTitleTranslations: Test query results for patterns:`, testRows);
+        } catch (testError) {
+          console.warn(`⚠️ [${requestId}] CitationTitleTranslations: Test query failed:`, testError);
+        }
       } else {
-        console.log('CitationTitleTranslations: No valid magazine numbers found after filtering');
+        console.log(`❌ [${requestId}] CitationTitleTranslations: No valid magazine numbers found after filtering`);
       }
     } else {
-      console.log('CitationTitleTranslations: No magazine numbers filter provided - will return all records');
+      console.log(`📄 [${requestId}] CitationTitleTranslations: No magazine numbers filter provided - will return all records`);
     }
 
     // Add year range filter
@@ -175,14 +220,24 @@ export async function POST(request: NextRequest) {
 
     query += ' ORDER BY b.biblionumber';
 
-    console.log('CitationTitleTranslations: Executing query with params:', queryParams);
+    console.log(`🚀 [${requestId}] CitationTitleTranslations: Executing main query...`);
+    console.log(`📝 [${requestId}] CitationTitleTranslations: Final query:`, query);
+    console.log(`📋 [${requestId}] CitationTitleTranslations: Query params:`, queryParams);
     const startTime = Date.now();
 
     const [rows] = await connection.execute(query, queryParams);
     const results = rows as any[];
 
     const queryTime = Date.now() - startTime;
-    console.log(`CitationTitleTranslations: Query completed in ${queryTime}ms, ${results.length} rows returned`);
+    console.log(`✅ [${requestId}] CitationTitleTranslations: Query completed in ${queryTime}ms, ${results.length} rows returned`);
+    
+    // Log sample results for debugging
+    if (results.length > 0) {
+      console.log(`📄 [${requestId}] CitationTitleTranslations: Sample result URLs:`, 
+        results.slice(0, 3).map(row => ({ biblionumber: row.biblionumber, url: row.url })));
+    } else {
+      console.log(`❌ [${requestId}] CitationTitleTranslations: No results returned - potential filtering issue`);
+    }
 
     // Process results with better error handling
     const titleData: CitationTitleData[] = [];

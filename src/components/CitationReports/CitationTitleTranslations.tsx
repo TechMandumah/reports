@@ -193,6 +193,15 @@ export default function CitationTitleTranslations() {
     setValidationErrors([]);
 
     try {
+      console.log('🚀 Citation Title Translations: Starting report generation');
+      console.log('📋 Request data:', {
+        magazineNumbers: numbersToUse.length > 0 ? numbersToUse.join(',') : null,
+        startYear: startYear || null,
+        endYear: endYear || null,
+        originalMagazineNumbers: magazineNumbers,
+        numbersToUse: numbersToUse
+      });
+
       const response = await fetch('/api/citation-reports/title-translations', {
         method: 'POST',
         headers: {
@@ -224,10 +233,41 @@ export default function CitationTitleTranslations() {
         // Clear form inputs after successful generation
         clearFormInputs();
       } else {
-        console.error('Failed to generate report');
+        // Enhanced error handling - get the actual error response
+        let errorMessage = 'Failed to generate report';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.details || errorMessage;
+          console.error('API Error Details:', errorData);
+        } catch (jsonError) {
+          // If response is not JSON, get the text
+          try {
+            const errorText = await response.text();
+            console.error('API Error Text:', errorText);
+            errorMessage = errorText || errorMessage;
+          } catch (textError) {
+            console.error('Could not read error response');
+          }
+        }
+        
+        console.error('Failed to generate report:', errorMessage);
+        console.error('Response status:', response.status);
+        console.error('Response headers:', Object.fromEntries(response.headers.entries()));
+        
+        // Show error to user
+        alert(`Failed to generate report: ${errorMessage}`);
       }
     } catch (error) {
       console.error('Error generating report:', error);
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : 'No stack trace',
+        error: error
+      });
+      
+      // Show error to user
+      const errorMessage = error instanceof Error ? error.message : 'Network or connection error';
+      alert(`Error generating report: ${errorMessage}`);
     } finally {
       setIsGenerating(false);
     }

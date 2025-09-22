@@ -159,7 +159,6 @@ EXTRACTVALUE( marcxml, '//datafield[@tag="242"]/subfield[@code="a"]')AS '242'
 
  FROM koha.biblioitems a 
  WHERE  EXTRACTVALUE( marcxml, '//datafield[@tag="073"]/subfield[@code="a"]') IN(
-#4840 batch
 1433060,
 1433079,
 1433098,

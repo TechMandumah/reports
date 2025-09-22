@@ -10,14 +10,14 @@ const citationDbConfig = {
   user: process.env.DB_USER_CIT || 'root',
   password: process.env.DB_PASS_CIT || '',
   database: process.env.DB_NAME_CIT || 'koha_citation',
-  connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '20'),
-  queueLimit: 0,
-  acquireTimeout: parseInt(process.env.DB_ACQUIRE_TIMEOUT || '60000'),
-  idleTimeout: parseInt(process.env.DB_IDLE_TIMEOUT || '300000'),
-  reconnect: true,
-  connectTimeout: parseInt(process.env.DB_CONNECT_TIMEOUT || '60000'),
-  multipleStatements: false,
-  timezone: '+00:00'
+  // connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '20'),
+  // queueLimit: 0,
+  // acquireTimeout: parseInt(process.env.DB_ACQUIRE_TIMEOUT || '60000'),
+  // idleTimeout: parseInt(process.env.DB_IDLE_TIMEOUT || '300000'),
+  // reconnect: true,
+  // connectTimeout: parseInt(process.env.DB_CONNECT_TIMEOUT || '60000'),
+  // multipleStatements: false,
+  // timezone: '+00:00'
 };
 
 async function testCitationDB() {
@@ -29,12 +29,12 @@ async function testCitationDB() {
     port: citationDbConfig.port,
     database: citationDbConfig.database,
     user: citationDbConfig.user,
-    connectionLimit: citationDbConfig.connectionLimit,
-    timeouts: {
-      connect: citationDbConfig.connectTimeout,
-      acquire: citationDbConfig.acquireTimeout,
-      idle: citationDbConfig.idleTimeout
-    }
+    // connectionLimit: citationDbConfig.connectionLimit,
+    // timeouts: {
+    //   connect: citationDbConfig.connectTimeout,
+    //   acquire: citationDbConfig.acquireTimeout,
+    //   idle: citationDbConfig.idleTimeout
+    // }
   });
   
   let connection;

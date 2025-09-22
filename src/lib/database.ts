@@ -12,8 +12,8 @@ const dbConfig = {
   // user: 'salam',
   // password: 'a67tzKi',
   // database: 'koha_koha',
-  connectionLimit: 10,
-  queueLimit: 0,
+  // connectionLimit: 10,
+  // queueLimit: 0,
   // Removed deprecated acquireTimeout and timeout options
 };
 

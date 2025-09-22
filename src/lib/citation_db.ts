@@ -12,16 +12,16 @@ const citationDbConfig = {
   // port: 3306,
   // user: 'salam',
   // password: 'a67tzKi',
-  // database: 'koha',
-  connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '20'),
-  queueLimit: 0,
-  // Timeout configurations for production
-  acquireTimeout: parseInt(process.env.DB_ACQUIRE_TIMEOUT || '60000'), // 60 seconds to acquire connection
-  idleTimeout: parseInt(process.env.DB_IDLE_TIMEOUT || '300000'), // 5 minutes idle timeout
-  reconnect: true,
-  connectTimeout: parseInt(process.env.DB_CONNECT_TIMEOUT || '60000'), // 60 seconds to connect
-  multipleStatements: false,
-  timezone: '+00:00'
+  // // database: 'koha',
+  // connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '20'),
+  // queueLimit: 0,
+  // // Timeout configurations for production
+  // acquireTimeout: parseInt(process.env.DB_ACQUIRE_TIMEOUT || '60000'), // 60 seconds to acquire connection
+  // idleTimeout: parseInt(process.env.DB_IDLE_TIMEOUT || '300000'), // 5 minutes idle timeout
+  // reconnect: true,
+  // connectTimeout: parseInt(process.env.DB_CONNECT_TIMEOUT || '60000'), // 60 seconds to connect
+  // multipleStatements: false,
+  // timezone: '+00:00'
 };
 
 // Create connection pool for better performance
@@ -40,10 +40,10 @@ export async function testCitationConnection(): Promise<boolean> {
     port: parseInt(process.env.DB_PORT_CIT || '3306'),
     user: process.env.DB_USER_CIT || 'root',
     database: process.env.DB_NAME_CIT || 'koha_citation',
-    connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '20'),
-    connectTimeout: parseInt(process.env.DB_CONNECT_TIMEOUT || '60000'),
-    acquireTimeout: parseInt(process.env.DB_ACQUIRE_TIMEOUT || '60000'),
-    idleTimeout: parseInt(process.env.DB_IDLE_TIMEOUT || '300000')
+    // connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '20'),
+    // connectTimeout: parseInt(process.env.DB_CONNECT_TIMEOUT || '60000'),
+    // acquireTimeout: parseInt(process.env.DB_ACQUIRE_TIMEOUT || '60000'),
+    // idleTimeout: parseInt(process.env.DB_IDLE_TIMEOUT || '300000')
   });
   
   try {

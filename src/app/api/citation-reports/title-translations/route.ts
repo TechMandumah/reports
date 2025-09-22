@@ -153,18 +153,25 @@ export async function POST(request: NextRequest) {
     console.log(`📊 [${requestId}] CitationTitleTranslations: URL field statistics:`, urlStats);
 
     let query = `
-      SELECT 
-        b.biblionumber,
-        b.author as biblio_author,
-        b.title as biblio_title,
-        b.copyrightdate,
-        bi.marcxml,
-        bi.url
-      FROM biblioitems bi
-      INNER JOIN biblio b ON bi.biblionumber = b.biblionumber
-      WHERE b.frameworkcode = 'CIT'
-        AND bi.marcxml IS NOT NULL
-        AND bi.marcxml != ''
+      SELECT a.biblionumber,
+EXTRACTVALUE( marcxml, '//datafield[@tag="245"]/subfield[@code="a"]')AS '245',
+EXTRACTVALUE( marcxml, '//datafield[@tag="242"]/subfield[@code="a"]')AS '242'
+
+ FROM koha.biblioitems a 
+ WHERE  EXTRACTVALUE( marcxml, '//datafield[@tag="073"]/subfield[@code="a"]') IN(
+#4840 batch
+1433060,
+1433079,
+1433098,
+1433122,
+1433136,
+1433154,
+1433168,
+1433221,
+1433228
+
+)
+AND  EXTRACTVALUE( marcxml, '//datafield[@tag="336"]/subfield[@code="a"]') IN('Journal Article','Proceedings Paper') ;
     `;
 
     const queryParams: any[] = [];

@@ -664,7 +664,7 @@ export default function PredefinedReportForm({
               />
             </div>
             <p className="mt-2 text-sm text-gray-600 bg-blue-50 rounded-lg p-3 border border-blue-200">
-              💡 <strong>{t.forms.authorTip}</strong>
+              💡 <strong>{t.forms.authordTip}</strong>
             </p>
           </div>
         )} */}

@@ -120,31 +120,51 @@ function filterRecordsByAbstractType(records: ReportQueryResult[], marcMetadataM
   
   return records.filter(record => {
     const marcXml = marcMetadataMap.get(record.biblionumber) || '';
-    if (!marcXml) return false;
     
-    const subfields520 = extractMarcSubfields(marcXml, '520');
+    // If no MARC XML is available, fall back to basic abstract field check
+    if (!marcXml || !marcXml.trim().startsWith('<?xml')) {
+      switch (abstractFilter) {
+        case 'mandumah_abstract':
+          // If we can't parse MARC, assume records with abstracts might be Mandumah-generated
+          return record.abstract && record.abstract.trim() !== '';
+        case 'missing_english':
+        case 'other_language':
+          // For these cases without MARC data, we can't make accurate determinations
+          return record.abstract && record.abstract.trim() !== '';
+        default:
+          return true;
+      }
+    }
     
-    switch (abstractFilter) {
-      case 'missing_english':
-        // Subfield 'a' available, but 'b' and 'f' empty
-        return subfields520.a && (!subfields520.b || subfields520.b.trim() === '') && (!subfields520.f || subfields520.f.trim() === '');
+    try {
+      const subfields520 = extractMarcSubfields(marcXml, '520');
       
-      case 'other_language':
-        // Subfield 'd' available, all others empty
-        return subfields520.d && 
-               (!subfields520.a || subfields520.a.trim() === '') && 
-               (!subfields520.b || subfields520.b.trim() === '') && 
-               (!subfields520.e || subfields520.e.trim() === '') && 
-               (!subfields520.f || subfields520.f.trim() === '');
-      
-      case 'mandumah_abstract':
-        // Subfields 'a' and 'e' empty in field 520 - this means Mandumah generated the abstract
-        return (!subfields520.a || subfields520.a.trim() === '') && 
-               (!subfields520.e || subfields520.e.trim() === '') &&
-               (record.abstract && record.abstract.trim() !== ''); // But there is still an abstract
-      
-      default:
-        return true;
+      switch (abstractFilter) {
+        case 'missing_english':
+          // Subfield 'a' available, but 'b' and 'f' empty
+          return subfields520.a && (!subfields520.b || subfields520.b.trim() === '') && (!subfields520.f || subfields520.f.trim() === '');
+        
+        case 'other_language':
+          // Subfield 'd' available, all others empty
+          return subfields520.d && 
+                 (!subfields520.a || subfields520.a.trim() === '') && 
+                 (!subfields520.b || subfields520.b.trim() === '') && 
+                 (!subfields520.e || subfields520.e.trim() === '') && 
+                 (!subfields520.f || subfields520.f.trim() === '');
+        
+        case 'mandumah_abstract':
+          // Subfields 'a' and 'e' empty in field 520 - this means Mandumah generated the abstract
+          return (!subfields520.a || subfields520.a.trim() === '') && 
+                 (!subfields520.e || subfields520.e.trim() === '') &&
+                 (record.abstract && record.abstract.trim() !== ''); // But there is still an abstract
+        
+        default:
+          return true;
+      }
+    } catch (error) {
+      console.error(`Error extracting MARC subfields for biblio ${record.biblionumber}:`, error);
+      // Fall back to basic abstract check on error
+      return record.abstract && record.abstract.trim() !== '';
     }
   });
 }
@@ -224,19 +244,47 @@ export async function generatePredefinedReport(reportType: string, filters: Quer
   if (biblioRecords.length === 0) {
     return [];
   }
-  
-  // Get MARC metadata for all records
+
+  // Determine if MARC metadata is needed for this report type
+  const needsMarcData = [
+    'export_research_titles',
+    'export_translations_titles_authors', 
+    'export_translations_citation_title',
+    'export_translations_citation_author',
+    'export_abstract_field'
+  ].includes(reportType);
+
+  // Get MARC metadata only if needed
   const biblionumbers = biblioRecords.map(record => record.biblionumber);
-  const marcMetadata = await getMarcMetadata(biblionumbers);
+  let marcMetadata = new Map<number, string>();
   
+  if (needsMarcData) {
+    try {
+      marcMetadata = await getMarcMetadata(biblionumbers);
+    } catch (error) {
+      console.error('Error fetching MARC metadata:', error);
+      // Continue with empty MARC data - will use database fields as fallback
+    }
+  }
+
   // Get database configuration for this report type
   const dbConfig = REPORT_DB_CONFIG[reportType as keyof typeof REPORT_DB_CONFIG] || REPORT_DB_CONFIG.default;
-  
+
   // Transform records into report format
   const reportData: ReportQueryResult[] = biblioRecords.map(record => {
     const marcXml = marcMetadata.get(record.biblionumber) || '';
-    const parsedMarc = parseMarcXML(marcXml);
+    let parsedMarc: any = {};
     
+    // Only parse MARC if we have valid XML data
+    if (marcXml && marcXml.trim().startsWith('<?xml')) {
+      try {
+        parsedMarc = parseMarcXML(marcXml);
+      } catch (error) {
+        console.error(`Error parsing MARC for biblio ${record.biblionumber}:`, error);
+        parsedMarc = {}; // Use empty object as fallback
+      }
+    }
+
     // Base result with common fields
     const result: ReportQueryResult = {
       ...record,

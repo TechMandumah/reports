@@ -220,6 +220,8 @@ export async function getMarcMetadata(biblionumbers: number[]): Promise<Map<numb
   }
   
   const placeholders = biblionumbers.map(() => '?').join(',');
+  //Console log in the browser
+  console.log('Fetching MARC metadata for biblionumbers:', biblionumbers);
   const query = `
     SELECT biblionumber, metadata
     FROM biblio_metadata

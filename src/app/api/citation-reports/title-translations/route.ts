@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
   
   try {
     console.log(`🚀 [${requestId}] CitationTitleTranslations: Starting request processing`);
-    const { magazineNumbers, startYear, endYear } = await request.json();
+    const { magazineNumbers, startYear, endYear, biblioNumbers } = await request.json();
     console.log(`📋 [${requestId}] CitationTitleTranslations: Request params:`, { magazineNumbers, startYear, endYear });
 
     // Create database connection with timeout
@@ -153,24 +153,18 @@ export async function POST(request: NextRequest) {
     console.log(`📊 [${requestId}] CitationTitleTranslations: URL field statistics:`, urlStats);
 
     let query = `
-      SELECT a.biblionumber,
-EXTRACTVALUE( marcxml, '//datafield[@tag="245"]/subfield[@code="a"]')AS '245',
-EXTRACTVALUE( marcxml, '//datafield[@tag="242"]/subfield[@code="a"]')AS '242'
-
- FROM koha.biblioitems a 
- WHERE  EXTRACTVALUE( marcxml, '//datafield[@tag="073"]/subfield[@code="a"]') IN(
-1433060,
-1433079,
-1433098,
-1433122,
-1433136,
-1433154,
-1433168,
-1433221,
-1433228
-
-)
-AND  EXTRACTVALUE( marcxml, '//datafield[@tag="336"]/subfield[@code="a"]') IN('Journal Article','Proceedings Paper') ;
+      SELECT 
+        b.biblionumber,
+        b.author as biblio_author,
+        b.title as biblio_title,
+        b.copyrightdate,
+        bi.marcxml,
+        bi.url
+      FROM biblioitems bi
+      INNER JOIN biblio b ON bi.biblionumber = b.biblionumber
+      WHERE b.frameworkcode = 'CIT'
+        AND bi.marcxml IS NOT NULL
+        AND bi.marcxml != ''
     `;
 
     const queryParams: any[] = [];
@@ -239,6 +233,17 @@ AND  EXTRACTVALUE( marcxml, '//datafield[@tag="336"]/subfield[@code="a"]') IN('J
     } else if (endYear) {
       query += ' AND b.copyrightdate <= ?';
       queryParams.push(parseInt(endYear));
+    }
+
+    // Add biblio numbers filter
+    if (biblioNumbers && Array.isArray(biblioNumbers) && biblioNumbers.length > 0) {
+      console.log(`📚 [${requestId}] CitationTitleTranslations: Adding biblio numbers filter for ${biblioNumbers.length} biblio numbers`);
+      const placeholders = biblioNumbers.map(() => '?').join(',');
+      query += ` AND b.biblionumber IN (${placeholders})`;
+      // Convert biblio numbers to integers
+      const biblioNumsAsInts = biblioNumbers.map(num => parseInt(num.replace(/^0+/, '') || '0'));
+      queryParams.push(...biblioNumsAsInts);
+      console.log(`📚 [${requestId}] CitationTitleTranslations: Biblio numbers applied:`, biblioNumsAsInts.slice(0, 10), biblioNumsAsInts.length > 10 ? `... and ${biblioNumsAsInts.length - 10} more` : '');
     }
 
     query += ' ORDER BY b.biblionumber';

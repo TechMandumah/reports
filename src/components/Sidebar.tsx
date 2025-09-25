@@ -29,7 +29,7 @@ export default function Sidebar({ activeReport, setActiveReport }: SidebarProps)
       items: [
         { nameKey: 'sidebar.reports.researchTitles', id: "export_research_titles" },
         { nameKey: 'sidebar.reports.researchAuthors', id: "export_research_authors" },
-        { nameKey: 'sidebar.reports.translationsTitlesAuthors', id: "export_translations_titles_authors" },
+        // { nameKey: 'sidebar.reports.translationsTitlesAuthors', id: "export_translations_titles_authors" },
         { nameKey: 'sidebar.reports.abstractField', id: "export_abstract_field" },
         { nameKey: 'sidebar.reports.customReport', id: "custom_report" }
       ]

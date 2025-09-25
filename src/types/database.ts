@@ -106,4 +106,7 @@ export interface QueryFilters {
   authorName?: string;
   selectedFields?: string[];
   isPreview?: boolean;
+  abstractFilter?: string;
+  biblioNumbers?: string[];
+  authorTypeFilter?: string[];
 }

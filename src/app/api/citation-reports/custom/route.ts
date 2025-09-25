@@ -180,15 +180,18 @@ export async function POST(request: NextRequest) {
     console.log(`📝 [${requestId}] Request timestamp:`, new Date().toISOString());
     console.log(`🌍 [${requestId}] Environment:`, process.env.NODE_ENV);
     
-    const { magazineNumbers, startYear, endYear, selectedFields, isPreview } = await request.json();
+    const { magazineNumbers, startYear, endYear, selectedFields, isPreview, biblioNumbers } = await request.json();
     console.log(`📋 [${requestId}] CustomCitationReport: Request params:`, { 
       magazineNumbers, 
       startYear, 
       endYear, 
       selectedFields, 
       isPreview,
+      biblioNumbers,
       magazineNumbersType: typeof magazineNumbers,
-      magazineNumbersIsArray: Array.isArray(magazineNumbers)
+      magazineNumbersIsArray: Array.isArray(magazineNumbers),
+      biblioNumbersType: typeof biblioNumbers,
+      biblioNumbersIsArray: Array.isArray(biblioNumbers)
     });
 
     // Validate selected fields
@@ -299,6 +302,17 @@ export async function POST(request: NextRequest) {
       queryParams.push(parseInt(endYear));
     } else {
       console.log(`ℹ️ [${requestId}] No year filter provided`);
+    }
+
+    // Add biblio numbers filter
+    if (biblioNumbers && Array.isArray(biblioNumbers) && biblioNumbers.length > 0) {
+      console.log(`📚 [${requestId}] CustomCitationReport: Adding biblio numbers filter for ${biblioNumbers.length} biblio numbers`);
+      const placeholders = biblioNumbers.map(() => '?').join(',');
+      query += ` AND b.biblionumber IN (${placeholders})`;
+      // Convert biblio numbers to integers
+      const biblioNumsAsInts = biblioNumbers.map(num => parseInt(num.replace(/^0+/, '') || '0'));
+      queryParams.push(...biblioNumsAsInts);
+      console.log(`📚 [${requestId}] CustomCitationReport: Biblio numbers applied:`, biblioNumsAsInts.slice(0, 10), biblioNumsAsInts.length > 10 ? `... and ${biblioNumsAsInts.length - 10} more` : '');
     }
 
     query += ' ORDER BY b.biblionumber';
@@ -706,7 +720,7 @@ export async function POST(request: NextRequest) {
           const cellRef = xlsx.utils.encode_cell({ r: row, c: biblioColIndex });
           const cell = worksheet[cellRef];
           if (cell && cell.v) {
-            const catalogingUrl = `https://cataloging.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${cell.v}`;
+            const catalogingUrl = `https://cataloging.mandumah.com/cgi-bin/koha/catalogue/detail.pl?biblionumber=${cell.v}`;
             cell.l = { Target: catalogingUrl, Tooltip: "Click to open in cataloging system" };
           }
         }

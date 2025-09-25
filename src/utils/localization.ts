@@ -22,6 +22,39 @@ export interface Translations {
     no: string;
   };
 
+  // Input options
+  inputOptions: {
+    abstractType: string;
+    fullText: string;
+    citationFormat: string;
+    authorTip: string;
+    uploadTextFileWithBiblioNumbers: string;
+    uploadBiblioHelper: string;
+    manual: string;
+    file: string;
+    biblio: string;
+    uploadedFile: string;
+    validNumbersFound: string;
+    validNumbers: string;
+    errors: string;
+    validNumbersFoundLabel: string;
+    andMore: string;
+    more: string;
+  };
+
+  // Abstract Filter
+  abstractFilter: {
+    filterByAbstractType: string;
+    withoutAbstract: string;
+    withoutAbstractDesc: string;
+    missingEnglish: string;
+    missingEnglishDesc: string;
+    otherLanguage: string;
+    otherLanguageDesc: string;
+    mandumahAbstract: string;
+    mandumahAbstractDesc: string;
+  };
+
   // Authentication
   auth: {
     title: string;
@@ -151,6 +184,8 @@ export interface Translations {
     authorNameOptional: string;
     authorPlaceholder: string;
     authorTip: string;
+    uploadTextFileWithBiblioNumbers: string;
+    uploadBiblioHelper: string;
   };
 
   // Steps
@@ -191,7 +226,19 @@ export interface Translations {
       magazineNumbersHelper: string;
       uploadFileHelper: string;
       magazineNumbers: string;
-    };  // Table Headers
+    };
+
+  // Author Type Filter
+  authorTypeFilter: {
+    filterByAuthorType: string;
+    mainAuthor100: string;
+    additionalAuthors700: string;
+    mainAuthorDesc: string;
+    additionalAuthorsDesc: string;
+    authorTypeFilterTip: string;
+  };
+
+  // Table Headers
   table: {
     url: string;
     biblio: string;
@@ -392,6 +439,8 @@ export const translations: Record<Language, Translations> = {
       authorNameOptional: 'Author Name (Optional)',
       authorPlaceholder: 'e.g., أحمد محمد, Smith, John',
       authorTip: 'Tip: Enter partial author name to search. The system will find all authors containing the entered text.',
+      uploadTextFileWithBiblioNumbers: 'Upload Text File with Biblio Numbers',
+      uploadBiblioHelper: 'Upload a .txt file containing biblio numbers, one per line or comma-separated',
     },
     steps: {
       step1: 'Step 1',
@@ -431,6 +480,47 @@ export const translations: Record<Language, Translations> = {
       uploadFileHelper: 'Upload a text file (.txt) containing magazine numbers separated by commas or new lines. Each number must be exactly 4 digits.',
       magazineNumbers: 'Magazine Numbers',
     },
+
+    inputOptions: {
+      abstractType: 'Abstract Type',
+      fullText: 'Full Text',
+      citationFormat: 'Citation Format',
+      authorTip: 'Tip: Enter part of the author\'s name to search. The system will find all authors containing the entered text.',
+      uploadTextFileWithBiblioNumbers: 'Upload Text File with Biblio Numbers',
+      uploadBiblioHelper: 'Upload a .txt file containing biblio numbers, one per line or comma-separated',
+      manual: 'Manual Entry',
+      file: 'Upload File',
+      biblio: 'Upload Biblio Numbers',
+      uploadedFile: 'Uploaded File',
+      validNumbersFound: 'valid numbers found',
+      validNumbers: 'valid numbers',
+      errors: 'errors',
+      validNumbersFoundLabel: 'Valid Numbers Found',
+      andMore: '... and',
+      more: 'more',
+    },
+
+    abstractFilter: {
+      filterByAbstractType: 'Filter by Abstract Type',
+      withoutAbstract: 'Without Abstract (520)',
+      withoutAbstractDesc: 'Records with no field 520',
+      missingEnglish: 'Missing English',
+      missingEnglishDesc: 'Subfield \'a\' available, but \'b\' and \'f\' empty',
+      otherLanguage: 'Other Language',
+      otherLanguageDesc: 'Subfield \'d\' available, all others empty',
+      mandumahAbstract: 'Mandumah Abstract',
+      mandumahAbstractDesc: 'Subfields \'a\' and \'e\' empty in field 520',
+    },
+
+    authorTypeFilter: {
+      filterByAuthorType: 'Filter by Author Type',
+      mainAuthor100: 'Main Author (100)',
+      additionalAuthors700: 'Additional Authors (700)',
+      mainAuthorDesc: 'Export only main author field and related columns',
+      additionalAuthorsDesc: 'Export only additional author fields and related columns',
+      authorTypeFilterTip: 'Select author types to export only specific author fields, or leave unselected to export all author types as usual.',
+    },
+
     table: {
       url: 'URL',
       biblio: 'Biblio',
@@ -625,6 +715,8 @@ export const translations: Record<Language, Translations> = {
       authorNameOptional: 'اسم المؤلف (اختياري)',
       authorPlaceholder: 'مثال: أحمد محمد، Smith، John',
       authorTip: 'نصيحة: أدخل جزء من اسم المؤلف للبحث. سيجد النظام جميع المؤلفين الذين يحتوون على النص المدخل.',
+      uploadTextFileWithBiblioNumbers: 'رفع ملف نصي يحتوي على أرقام الببليو',
+      uploadBiblioHelper: 'رفع ملف .txt يحتوي على أرقام الببليوجرافيا، واحد في كل سطر أو مفصول بفواصل',
     },
     steps: {
       step1: 'الخطوة 1',
@@ -664,6 +756,47 @@ export const translations: Record<Language, Translations> = {
       uploadFileHelper: 'ارفع ملف نصي (.txt) يحتوي على أرقام المجلات مفصولة بفواصل أو أسطر جديدة. يجب أن يكون كل رقم 4 أرقام بالضبط.',
       magazineNumbers: 'أرقام المجلات',
     },
+
+    inputOptions: {
+      abstractType: 'نوع الملخص',
+      fullText: 'النص الكامل',
+      citationFormat: 'تنسيق الاستشهاد',
+      authorTip: 'نصيحة: أدخل جزءًا من اسم المؤلف للبحث. سيجد النظام جميع المؤلفين الذين يحتوون على النص المدخل.',
+      uploadTextFileWithBiblioNumbers: 'رفع ملف نصي يحتوي على أرقام الببليو',
+      uploadBiblioHelper: 'رفع ملف .txt يحتوي على أرقام الببليوجرافيا، واحد في كل سطر أو مفصول بفواصل',
+      manual: 'الإدخال اليدوي',
+      file: 'رفع ملف',
+      biblio: 'رفع أرقام الببليو',
+      uploadedFile: 'الملف المرفوع',
+      validNumbersFound: 'أرقام صحيحة موجودة',
+      validNumbers: 'أرقام صحيحة',
+      errors: 'أخطاء',
+      validNumbersFoundLabel: 'الأرقام الصحيحة الموجودة',
+      andMore: '... و',
+      more: 'رقم آخر',
+    },
+
+    abstractFilter: {
+      filterByAbstractType: 'فلترة حسب نوع الملخص',
+      withoutAbstract: 'بدون ملخص (520)',
+      withoutAbstractDesc: 'السجلات التي لا تحتوي على الحقل 520',
+      missingEnglish: 'مفقود باللغة الإنجليزية',
+      missingEnglishDesc: 'الحقل الفرعي \'a\' متوفر، ولكن \'b\' و \'f\' فارغان',
+      otherLanguage: 'لغة أخرى',
+      otherLanguageDesc: 'الحقل الفرعي \'d\' متوفر، وجميع الآخرين فارغان',
+      mandumahAbstract: 'ملخص المنظومة',
+      mandumahAbstractDesc: 'الحقلان الفرعيان \'a\' و \'e\' فارغان في الحقل 520',
+    },
+
+    authorTypeFilter: {
+      filterByAuthorType: 'فلترة حسب نوع المؤلف',
+      mainAuthor100: 'المؤلف الرئيسي (100)',
+      additionalAuthors700: 'المؤلفون الإضافيون (700)',
+      mainAuthorDesc: 'تصدير حقل المؤلف الرئيسي والأعمدة المرتبطة فقط',
+      additionalAuthorsDesc: 'تصدير حقول المؤلفين الإضافيين والأعمدة المرتبطة فقط',
+      authorTypeFilterTip: 'اختر أنواع المؤلفين لتصدير حقول مؤلفين محددة فقط، أو اتركها غير محددة لتصدير جميع أنواع المؤلفين كالمعتاد.',
+    },
+
     table: {
       url: 'الرابط',
       biblio: 'الببليو',

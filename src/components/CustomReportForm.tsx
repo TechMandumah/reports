@@ -51,9 +51,11 @@ export default function CustomReportForm({
   const [endYear, setEndYear] = useState('');
   const [selectedFields, setSelectedFields] = useState<string[]>([]);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  const [inputMethod, setInputMethod] = useState<'manual' | 'file'>('manual');
+  const [inputMethod, setInputMethod] = useState<'manual' | 'file' | 'biblio'>('manual');
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [fileNumbers, setFileNumbers] = useState<string[]>([]);
+  const [biblioUploadedFile, setBiblioUploadedFile] = useState<File | null>(null);
+  const [biblioNumbers, setBiblioNumbers] = useState<string[]>([]);
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
 
@@ -193,6 +195,94 @@ export default function CustomReportForm({
     return { isValid: errors.length === 0, errors };
   };
 
+  const handleBiblioFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.includes('text') && !file.name.endsWith('.txt')) {
+      setValidationErrors(['Please upload a .txt file']);
+      return;
+    }
+
+    setBiblioUploadedFile(file);
+    
+    try {
+      const text = await file.text();
+      const { numbers, errors } = parseAndValidateBiblioFileContent(text);
+      setBiblioNumbers(numbers);
+      
+      if (errors.length > 0) {
+        setValidationErrors(errors);
+      } else {
+        setValidationErrors([]);
+      }
+    } catch (error) {
+      setValidationErrors(['Error reading file']);
+    }
+  };
+
+  const parseAndValidateBiblioFileContent = (text: string): { numbers: string[]; errors: string[] } => {
+    const lines = text.split(/\r?\n/);
+    const numbers: string[] = [];
+    const errors: string[] = [];
+    
+    lines.forEach((line, lineIndex) => {
+      const lineNumber = lineIndex + 1;
+      const trimmedLine = line.trim();
+      
+      // Skip empty lines
+      if (trimmedLine === '') {
+        return;
+      }
+      
+      // Check if line contains comma-separated values
+      if (trimmedLine.includes(',')) {
+        const values = trimmedLine.split(',');
+        values.forEach((value, valueIndex) => {
+          const trimmedValue = value.trim();
+          if (trimmedValue === '') return;
+          
+          const validation = validateSingleBiblioNumber(trimmedValue, lineNumber, valueIndex + 1, true);
+          if (validation.isValid) {
+            numbers.push(trimmedValue);
+          } else {
+            errors.push(...validation.errors);
+          }
+        });
+      } else {
+        // Single value per line
+        const validation = validateSingleBiblioNumber(trimmedLine, lineNumber, 1, false);
+        if (validation.isValid) {
+          numbers.push(trimmedLine);
+        } else {
+          errors.push(...validation.errors);
+        }
+      }
+    });
+    
+    return { numbers, errors };
+  };
+
+  const validateSingleBiblioNumber = (value: string, lineNumber: number, position: number, isCommaSeparated: boolean): { isValid: boolean; errors: string[] } => {
+    const errors: string[] = [];
+    const positionText = isCommaSeparated ? `, position ${position}` : '';
+    
+    // Check for non-numeric characters
+    if (!/^\d+$/.test(value)) {
+      const invalidChars = value.match(/[^\d]/g)?.join('') || '';
+      errors.push(`Line ${lineNumber}${positionText}: "${value}" contains invalid characters (${invalidChars}). Only digits 0-9 are allowed for biblio numbers.`);
+      return { isValid: false, errors };
+    }
+    
+    // Biblio numbers can be any length (unlike magazine numbers which must be 4 digits)
+    if (value.length === 0) {
+      errors.push(`Line ${lineNumber}${positionText}: Empty biblio number found.`);
+      return { isValid: false, errors };
+    }
+    
+    return { isValid: true, errors: [] };
+  };
+
   const clearFormInputs = () => {
     setMagazineNumbers('');
     setStartYear('');
@@ -202,6 +292,8 @@ export default function CustomReportForm({
     setInputMethod('manual');
     setUploadedFile(null);
     setFileNumbers([]);
+    setBiblioUploadedFile(null);
+    setBiblioNumbers([]);
     setPreviewData([]);
     setCurrentStep(1);
   };
@@ -211,8 +303,13 @@ export default function CustomReportForm({
     
     if (inputMethod === 'manual') {
       validation = validateMagazineNumbers(magazineNumbers);
-    } else {
+    } else if (inputMethod === 'file') {
       validation = validateFileNumbers(fileNumbers);
+    } else if (inputMethod === 'biblio') {
+      // Biblio numbers are already validated when uploaded
+      validation = { isValid: biblioNumbers.length > 0, errors: biblioNumbers.length === 0 ? ['Please upload a biblio numbers file'] : [] };
+    } else {
+      validation = { isValid: true, errors: [] };
     }
     
     if (!validation.isValid) {
@@ -260,6 +357,7 @@ export default function CustomReportForm({
       // Validate magazine numbers before loading preview
       let validation;
       let numbersToUse: string[] = [];
+      let biblioNumbersToUse: string[] = [];
 
       if (inputMethod === 'file' && fileNumbers.length > 0) {
         validation = validateMagazineNumbers(fileNumbers.join(', '));
@@ -267,6 +365,9 @@ export default function CustomReportForm({
       } else if (inputMethod === 'manual' && magazineNumbers.trim()) {
         validation = validateMagazineNumbers(magazineNumbers);
         numbersToUse = magazineNumbers.split(',').map(n => n.trim()).filter(n => n !== '');
+      } else if (inputMethod === 'biblio' && biblioNumbers.length > 0) {
+        validation = { isValid: true, errors: [] };
+        biblioNumbersToUse = biblioNumbers;
       } else {
         validation = { isValid: true, errors: [] };
         numbersToUse = [];
@@ -282,6 +383,7 @@ export default function CustomReportForm({
 
       const formData = {
         magazineNumbers: numbersToUse,
+        biblioNumbers: biblioNumbersToUse,
         startYear: startYear || undefined,
         endYear: endYear || undefined,
         selectedFields,
@@ -319,13 +421,19 @@ export default function CustomReportForm({
     // Validate magazine numbers before exporting
     let validation;
     let numbersToUse: string[] = [];
+    let biblioNumbersToUse: string[] = [];
     
     if (inputMethod === 'manual') {
       validation = validateMagazineNumbers(magazineNumbers);
       numbersToUse = magazineNumbers.split(',').map((m: string) => m.trim()).filter((m: string) => m !== '');
-    } else {
+    } else if (inputMethod === 'file') {
       validation = validateFileNumbers(fileNumbers);
       numbersToUse = fileNumbers;
+    } else if (inputMethod === 'biblio') {
+      validation = { isValid: true, errors: [] };
+      biblioNumbersToUse = biblioNumbers;
+    } else {
+      validation = { isValid: true, errors: [] };
     }
     
     if (!validation.isValid) {
@@ -341,6 +449,7 @@ export default function CustomReportForm({
     const formData = {
       reportType: 'custom_report',
       magazineNumbers: numbersToUse,
+      biblioNumbers: biblioNumbersToUse,
       startYear: startYear ? parseInt(startYear) : undefined,
       endYear: endYear ? parseInt(endYear) : undefined,
       selectedFields,
@@ -406,6 +515,8 @@ export default function CustomReportForm({
                     setValidationErrors([]);
                     setUploadedFile(null);
                     setFileNumbers([]);
+                    setBiblioUploadedFile(null);
+                    setBiblioNumbers([]);
                   }}
                   className={`px-4 py-2 text-sm font-medium rounded-md ${
                     inputMethod === 'manual'
@@ -422,6 +533,8 @@ export default function CustomReportForm({
                     setInputMethod('file');
                     setValidationErrors([]);
                     setMagazineNumbers('');
+                    setBiblioUploadedFile(null);
+                    setBiblioNumbers([]);
                   }}
                   className={`px-4 py-2 text-sm font-medium rounded-md ${
                     inputMethod === 'file'
@@ -430,6 +543,24 @@ export default function CustomReportForm({
                   }`}
                 >
                   {t.steps.uploadFile}
+                </button>
+                <div className="px-0"></div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInputMethod('biblio');
+                    setValidationErrors([]);
+                    setMagazineNumbers('');
+                    setUploadedFile(null);
+                    setFileNumbers([]);
+                  }}
+                  className={`px-4 py-2 text-sm font-medium rounded-md ${
+                    inputMethod === 'biblio'
+                      ? 'bg-red-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {t.inputOptions.biblio}
                 </button>
               </div>
 
@@ -515,6 +646,68 @@ export default function CustomReportForm({
                         <div className="mt-2 text-sm text-green-700">
                           <strong>{t.forms.validNumbersFoundLabel}:</strong> {fileNumbers.slice(0, 5).join(', ')}
                           {fileNumbers.length > 5 && ` ... and ${fileNumbers.length - 5} more`}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Biblio Upload */}
+              {inputMethod === 'biblio' && (
+                <div>
+                  <label htmlFor="biblioFileUpload" className="block text-sm font-medium text-gray-700 mb-2">
+                    {t.inputOptions.uploadTextFileWithBiblioNumbers}
+                  </label>
+                  <input
+                    id="biblioFileUpload"
+                    type="file"
+                    accept=".txt,text/plain"
+                    onChange={handleBiblioFileUpload}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black"
+                  />
+                  <p className="mt-1 text-sm text-gray-500">
+                    {t.inputOptions.uploadBiblioHelper}
+                  </p>
+                  
+                  {biblioUploadedFile && (
+                    <div className={`mt-3 p-3 border rounded-md ${
+                      validationErrors.length > 0 
+                        ? 'bg-yellow-50 border-yellow-200' 
+                        : 'bg-green-50 border-green-200'
+                    }`}>
+                      <div className="flex items-center">
+                        <svg className={`w-4 h-4 mr-2 ${
+                          validationErrors.length > 0 ? 'text-yellow-500' : 'text-green-500'
+                        }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                            d={validationErrors.length > 0 
+                              ? "M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
+                              : "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                            } />
+                        </svg>
+                        <span className={`text-sm ${
+                          validationErrors.length > 0 ? 'text-yellow-800' : 'text-green-800'
+                        }`}>
+                          {t.inputOptions.uploadedFile}: {biblioUploadedFile.name}
+                          {validationErrors.length === 0 && (
+                            <span> ({biblioNumbers.length} {t.inputOptions.validNumbersFound})</span>
+                          )}
+                          {validationErrors.length > 0 && (
+                            <span> ({biblioNumbers.length} {t.inputOptions.validNumbers}, {validationErrors.length} {t.inputOptions.errors})</span>
+                          )}
+                        </span>
+                      </div>
+                      {biblioNumbers.length > 0 && validationErrors.length === 0 && (
+                        <div className="mt-2 text-sm text-green-700">
+                          <strong>{t.inputOptions.validNumbersFoundLabel}:</strong> {biblioNumbers.slice(0, 10).join(', ')}
+                          {biblioNumbers.length > 10 && ` ${t.inputOptions.andMore} ${biblioNumbers.length - 10} ${t.inputOptions.more}`}
+                        </div>
+                      )}
+                      {validationErrors.length > 0 && biblioNumbers.length > 0 && (
+                        <div className="mt-2 text-sm text-green-700">
+                          <strong>{t.inputOptions.validNumbersFoundLabel}:</strong> {biblioNumbers.slice(0, 5).join(', ')}
+                          {biblioNumbers.length > 5 && ` ${t.inputOptions.andMore} ${biblioNumbers.length - 5} ${t.inputOptions.more}`}
                         </div>
                       )}
                     </div>
@@ -884,7 +1077,11 @@ export default function CustomReportForm({
               {t.steps.reportSummary}:
             </h4>
             <ul className={`text-sm text-green-800 space-y-1 ${isRTL ? 'text-right' : 'text-left'}`}>
-              <li>• {t.forms.magazineNumbers}: {magazineNumbers || (isRTL ? 'جميع المجلات' : 'All magazines')}</li>
+              {inputMethod === 'biblio' ? (
+                <li>• {isRTL ? 'أرقام الببليوجرافيا' : 'Biblio Numbers'}: {biblioNumbers.length} {isRTL ? 'رقم' : 'numbers'}</li>
+              ) : (
+                <li>• {t.forms.magazineNumbers}: {magazineNumbers || fileNumbers.join(', ') || (isRTL ? 'جميع المجلات' : 'All magazines')}</li>
+              )}
               <li>• {t.forms.yearRange}: {startYear && endYear ? `${startYear} - ${endYear}` : (isRTL ? 'جميع السنوات' : 'All years')}</li>
               <li>• {t.steps.selectedFields}: {selectedFields.length} {t.steps.fields}</li>
             </ul>

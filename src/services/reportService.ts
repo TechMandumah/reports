@@ -2,6 +2,7 @@ import { executeQuery } from '@/lib/database';
 import { BiblioRecord, BiblioMetadata, BiblioItems, ReportQueryResult, QueryFilters } from '@/types/database';
 import { parseMarcXML, extractMarcField, extractMarcSubfields, extractMultipleMarcFields, extractAllMarcFieldInstances, extractMainAuthorWithId, extractAdditionalAuthorsWithIds } from '@/utils/marcParser';
 
+
 // Base URL configurations
 const BASE_URLS = {
   cataloging: 'https://cataloging.mandumah.com',
@@ -15,6 +16,22 @@ const REPORT_DB_CONFIG = {
   export_translations_citation_author: { usesDifferentDB: true, baseUrl: BASE_URLS.citation },
   default: { usesDifferentDB: false, baseUrl: BASE_URLS.cataloging }
 };
+
+// Build WHERE clause for biblio numbers filter
+function buildBiblioNumbersFilter(biblioNumbers?: string[]): { clause: string; params: any[] } {
+  if (!biblioNumbers || biblioNumbers.length === 0) {
+    return { clause: '', params: [] };
+  }
+  
+  // Convert biblio numbers to integers and create placeholders
+  const biblioNums = biblioNumbers.map(num => parseInt(num.replace(/^0+/, '') || '0'));
+  const placeholders = biblioNums.map(() => '?').join(',');
+  
+  return {
+    clause: `AND b.biblionumber IN (${placeholders})`,
+    params: biblioNums
+  };
+}
 
 // Build WHERE clause for magazine numbers filter
 function buildMagazineNumbersFilter(magazineNumbers?: string[]): { clause: string; params: any[] } {
@@ -67,9 +84,10 @@ function buildAuthorFilter(authorName?: string): { clause: string; params: any[]
 
 // Get bibliographic records with filters
 export async function getBiblioRecords(filters: QueryFilters = {}): Promise<BiblioRecord[]> {
-  const { magazineNumbers, startYear, endYear, authorName, isPreview } = filters;
+  const { magazineNumbers, startYear, endYear, authorName, isPreview, biblioNumbers } = filters;
   
   // Build query filters
+  const biblioFilter = buildBiblioNumbersFilter(biblioNumbers);
   const magazineFilter = buildMagazineNumbersFilter(magazineNumbers);
   const yearFilter = buildYearRangeFilter(startYear, endYear);
   const authorFilter = buildAuthorFilter(authorName);
@@ -87,6 +105,7 @@ export async function getBiblioRecords(filters: QueryFilters = {}): Promise<Bibl
     FROM biblio b
     LEFT JOIN biblioitems bi ON b.biblionumber = bi.biblionumber
     WHERE 1=1
+    ${biblioFilter.clause}
     ${magazineFilter.clause}
     ${yearFilter.clause}
     ${authorFilter.clause}
@@ -95,6 +114,7 @@ export async function getBiblioRecords(filters: QueryFilters = {}): Promise<Bibl
   `;
   
   const params = [
+    ...biblioFilter.params,
     ...magazineFilter.params,
     ...yearFilter.params,
     ...authorFilter.params
@@ -152,7 +172,7 @@ export async function generatePredefinedReport(reportType: string, filters: Quer
       ...record,
       url: record.url || '', // Use the PDF filename from biblioitems
       biblio: String(record.biblionumber).padStart(4, '0'),
-      link: `https://cataloging.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${record.biblionumber}`
+      link: `https://cataloging.mandumah.com/cgi-bin/koha/catalogue/detail.pl?biblionumber=${record.biblionumber}`
     };
     
     // Add specific fields based on report type
@@ -163,6 +183,8 @@ export async function generatePredefinedReport(reportType: string, filters: Quer
         result.title_245 = parsedMarc.main_title_245 || record.title || '';
         result.title_246 = parsedMarc.alternative_title_246 || '';
         result.title_242 = parsedMarc.translated_title_242 || '';
+        // Get the language code 041
+        result.language_041 = parsedMarc.language_041 || '';
         if (reportType === 'export_translations_titles_authors') {
           result.author = parsedMarc.author_100 || record.author || '';
           result.university_373 = parsedMarc.publication_info_260 || '';
@@ -240,7 +262,7 @@ export async function generateCustomReport(filters: QueryFilters): Promise<Repor
       ...record,
       url: record.url || '', // Use the PDF filename from biblioitems
       biblio: String(record.biblionumber).padStart(4, '0'),
-      link: `https://cataloging.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${record.biblionumber}`
+      link: `https://cataloging.mandumah.com/cgi-bin/koha/catalogue/detail.pl?biblionumber=${record.biblionumber}`
     };
     
     // Add selected MARC fields

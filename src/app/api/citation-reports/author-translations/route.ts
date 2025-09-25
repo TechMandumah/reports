@@ -100,8 +100,8 @@ export async function POST(request: NextRequest) {
   
   try {
     console.log(`🚀 [${requestId}] CitationAuthorTranslations: Starting request processing`);
-    const { magazineNumbers, startYear, endYear } = await request.json();
-    console.log(`📋 [${requestId}] CitationAuthorTranslations: Request params:`, { magazineNumbers, startYear, endYear });
+    const { magazineNumbers, startYear, endYear, biblioNumbers } = await request.json();
+    console.log(`📋 [${requestId}] CitationAuthorTranslations: Request params:`, { magazineNumbers, startYear, endYear, biblioNumbers });
 
     // Create database connection with timeout
     console.log(`🔗 [${requestId}] CitationAuthorTranslations: Creating database connection...`);
@@ -234,6 +234,19 @@ export async function POST(request: NextRequest) {
       queryParams.push(parseInt(endYear));
     } else {
       console.log(`ℹ️ [${requestId}] No year filter provided`);
+    }
+
+    // Add biblio numbers filter
+    if (biblioNumbers && Array.isArray(biblioNumbers) && biblioNumbers.length > 0) {
+      console.log(`📚 [${requestId}] Adding biblio numbers filter for ${biblioNumbers.length} biblio numbers`);
+      const placeholders = biblioNumbers.map(() => '?').join(',');
+      query += ` AND b.biblionumber IN (${placeholders})`;
+      // Convert biblio numbers to integers
+      const biblioNumsAsInts = biblioNumbers.map(num => parseInt(num.replace(/^0+/, '') || '0'));
+      queryParams.push(...biblioNumsAsInts);
+      console.log(`📚 [${requestId}] Biblio numbers applied:`, biblioNumsAsInts.slice(0, 10), biblioNumsAsInts.length > 10 ? `... and ${biblioNumsAsInts.length - 10} more` : '');
+    } else {
+      console.log(`ℹ️ [${requestId}] No biblio numbers filter provided`);
     }
 
     query += ' ORDER BY b.biblionumber';
@@ -391,7 +404,7 @@ export async function POST(request: NextRequest) {
       const biblioNumberCellRef = xlsx.utils.encode_cell({ r: row, c: 0 });
       const biblioNumberCell = worksheet[biblioNumberCellRef];
       if (biblioNumberCell && biblioNumberCell.v) {
-        const catalogingUrl = `https://cataloging.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${item.biblionumber}`;
+        const catalogingUrl = `https://cataloging.mandumah.com/cgi-bin/koha/catalogue/detail.pl?biblionumber=${item.biblionumber}`;
         biblioNumberCell.l = { Target: catalogingUrl, Tooltip: "Click to open in cataloging system" };
       }
 

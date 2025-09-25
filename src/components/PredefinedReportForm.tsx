@@ -26,9 +26,13 @@ export default function PredefinedReportForm({
   const [endYear, setEndYear] = useState('');
   const [authorName, setAuthorName] = useState('');
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  const [inputMethod, setInputMethod] = useState<'manual' | 'file'>('manual');
+  const [inputMethod, setInputMethod] = useState<'manual' | 'file' | 'biblio'>('manual');
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [fileNumbers, setFileNumbers] = useState<string[]>([]);
+  const [abstractFilter, setAbstractFilter] = useState<string>('');
+  const [biblioUploadedFile, setBiblioUploadedFile] = useState<File | null>(null);
+  const [biblioNumbers, setBiblioNumbers] = useState<string[]>([]);
+  const [authorTypeFilter, setAuthorTypeFilter] = useState<string[]>([]);
 
   const validateMagazineNumbers = (input: string): { isValid: boolean; errors: string[] } => {
     if (!input.trim()) {
@@ -78,6 +82,94 @@ export default function PredefinedReportForm({
     } catch (error) {
       setValidationErrors([t.errors.errorReadingFile]);
     }
+  };
+
+  const handleBiblioFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.includes('text') && !file.name.endsWith('.txt')) {
+      setValidationErrors([t.errors.uploadTextFile]);
+      return;
+    }
+
+    setBiblioUploadedFile(file);
+    
+    try {
+      const text = await file.text();
+      const { numbers, errors } = parseAndValidateBiblioFileContent(text);
+      setBiblioNumbers(numbers);
+      
+      if (errors.length > 0) {
+        setValidationErrors(errors);
+      } else {
+        setValidationErrors([]);
+      }
+    } catch (error) {
+      setValidationErrors([t.errors.errorReadingFile]);
+    }
+  };
+
+  const parseAndValidateBiblioFileContent = (text: string): { numbers: string[]; errors: string[] } => {
+    const lines = text.split(/\r?\n/);
+    const numbers: string[] = [];
+    const errors: string[] = [];
+    
+    lines.forEach((line, lineIndex) => {
+      const lineNumber = lineIndex + 1;
+      const trimmedLine = line.trim();
+      
+      // Skip empty lines
+      if (trimmedLine === '') {
+        return;
+      }
+      
+      // Check if line contains comma-separated values
+      if (trimmedLine.includes(',')) {
+        const values = trimmedLine.split(',');
+        values.forEach((value, valueIndex) => {
+          const trimmedValue = value.trim();
+          if (trimmedValue === '') return;
+          
+          const validation = validateSingleBiblioNumber(trimmedValue, lineNumber, valueIndex + 1, true);
+          if (validation.isValid) {
+            numbers.push(trimmedValue);
+          } else {
+            errors.push(...validation.errors);
+          }
+        });
+      } else {
+        // Single value per line
+        const validation = validateSingleBiblioNumber(trimmedLine, lineNumber, 1, false);
+        if (validation.isValid) {
+          numbers.push(trimmedLine);
+        } else {
+          errors.push(...validation.errors);
+        }
+      }
+    });
+    
+    return { numbers, errors };
+  };
+
+  const validateSingleBiblioNumber = (value: string, lineNumber: number, position: number, isCommaSeparated: boolean): { isValid: boolean; errors: string[] } => {
+    const errors: string[] = [];
+    const positionText = isCommaSeparated ? `, position ${position}` : '';
+    
+    // Check for non-numeric characters
+    if (!/^\d+$/.test(value)) {
+      const invalidChars = value.match(/[^\d]/g)?.join('') || '';
+      errors.push(`Line ${lineNumber}${positionText}: "${value}" contains invalid characters (${invalidChars}). Only digits 0-9 are allowed for biblio numbers.`);
+      return { isValid: false, errors };
+    }
+    
+    // Biblio numbers can be any length (unlike magazine numbers which must be 4 digits)
+    if (value.length === 0) {
+      errors.push(`Line ${lineNumber}${positionText}: Empty biblio number found.`);
+      return { isValid: false, errors };
+    }
+    
+    return { isValid: true, errors: [] };
   };
 
   const parseAndValidateFileContent = (text: string): { numbers: string[]; errors: string[] } => {
@@ -166,6 +258,14 @@ export default function PredefinedReportForm({
     return { isValid: errors.length === 0, errors };
   };
 
+  const handleAuthorTypeChange = (value: string, checked: boolean) => {
+    if (checked) {
+      setAuthorTypeFilter(prev => [...prev, value]);
+    } else {
+      setAuthorTypeFilter(prev => prev.filter(item => item !== value));
+    }
+  };
+
   const clearFormInputs = () => {
     setMagazineNumbers('');
     setStartYear('');
@@ -175,21 +275,37 @@ export default function PredefinedReportForm({
     setInputMethod('manual');
     setUploadedFile(null);
     setFileNumbers([]);
+    setAbstractFilter('');
+    setBiblioUploadedFile(null);
+    setBiblioNumbers([]);
+    setAuthorTypeFilter([]);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate magazine numbers based on input method
-    let validation;
+    // Validate and prepare data based on input method
+    let validation: { isValid: boolean; errors: string[] };
     let numbersToUse: string[] = [];
+    let biblioToUse: string[] = [];
     
     if (inputMethod === 'manual') {
       validation = validateMagazineNumbers(magazineNumbers);
       numbersToUse = magazineNumbers.split(',').map((m: string) => m.trim()).filter((m: string) => m !== '');
-    } else {
+    } else if (inputMethod === 'file') {
       validation = validateFileNumbers(fileNumbers);
       numbersToUse = fileNumbers;
+    } else if (inputMethod === 'biblio') {
+      // For biblio method, we don't validate magazine numbers but biblio numbers
+      if (biblioNumbers.length === 0) {
+        setValidationErrors(['Please upload a biblio numbers file.']);
+        return;
+      }
+      validation = { isValid: true, errors: [] };
+      biblioToUse = biblioNumbers;
+      numbersToUse = []; // No magazine numbers when using biblio filtering
+    } else {
+      validation = { isValid: false, errors: ['Invalid input method'] };
     }
     
     if (!validation.isValid) {
@@ -205,7 +321,10 @@ export default function PredefinedReportForm({
       magazineNumbers: numbersToUse,
       startYear: startYear ? parseInt(startYear) : undefined,
       endYear: endYear ? parseInt(endYear) : undefined,
-      authorName: authorName || undefined
+      authorName: authorName || undefined,
+      abstractFilter: abstractFilter || undefined,
+      biblioNumbers: biblioToUse.length > 0 ? biblioToUse : undefined,
+      authorTypeFilter: authorTypeFilter.length > 0 ? authorTypeFilter : undefined
     };
     
     onGenerate(formData);
@@ -240,6 +359,8 @@ export default function PredefinedReportForm({
                 setValidationErrors([]);
                 setUploadedFile(null);
                 setFileNumbers([]);
+                setBiblioUploadedFile(null);
+                setBiblioNumbers([]);
               }}
               className={`px-4 py-2 text-sm font-medium rounded-md ${
                 inputMethod === 'manual'
@@ -255,6 +376,8 @@ export default function PredefinedReportForm({
                 setInputMethod('file');
                 setValidationErrors([]);
                 setMagazineNumbers('');
+                setBiblioUploadedFile(null);
+                setBiblioNumbers([]);
               }}
               className={`px-4 py-2 text-sm font-medium rounded-md ${
                 inputMethod === 'file'
@@ -263,6 +386,23 @@ export default function PredefinedReportForm({
               }`}
             >
               {t.steps.uploadFile}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setInputMethod('biblio');
+                setValidationErrors([]);
+                setMagazineNumbers('');
+                setUploadedFile(null);
+                setFileNumbers([]);
+              }}
+              className={`px-4 py-2 text-sm font-medium rounded-md ${
+                inputMethod === 'biblio'
+                  ? 'bg-red-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {t.inputOptions.biblio}
             </button>
           </div>
 
@@ -346,6 +486,65 @@ export default function PredefinedReportForm({
                     <div className="mt-2 text-sm text-green-700">
                       <strong>{t.forms.validNumbersFoundLabel}</strong> {fileNumbers.slice(0, 5).join(', ')}
                       {fileNumbers.length > 5 && ` ... and ${fileNumbers.length - 5} more`}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Biblio Numbers Upload */}
+          {inputMethod === 'biblio' && (
+            <div>
+              <input
+                id="biblioFileUpload"
+                type="file"
+                accept=".txt,text/plain"
+                onChange={handleBiblioFileUpload}
+                className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 bg-gray-50 focus:bg-white text-gray-900"
+              />
+              <p className="mt-2 text-sm text-gray-600">
+                Upload a .txt file with biblio numbers (one per line or comma-separated). This will filter results to only include these specific records.
+              </p>
+              
+              {biblioUploadedFile && (
+                <div className={`mt-3 p-3 border rounded-md ${
+                  validationErrors.length > 0 
+                    ? 'bg-yellow-50 border-yellow-200' 
+                    : 'bg-green-50 border-green-200'
+                }`}>
+                  <div className="flex items-center">
+                    <svg className={`w-4 h-4 mr-2 ${
+                      validationErrors.length > 0 ? 'text-yellow-500' : 'text-green-500'
+                    }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                        d={validationErrors.length > 0 
+                          ? "M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
+                          : "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        } />
+                    </svg>
+                    <span className={`text-sm ${
+                      validationErrors.length > 0 ? 'text-yellow-800' : 'text-green-800'
+                    }`}>
+                      File uploaded: {biblioUploadedFile.name} 
+                      {validationErrors.length === 0 && (
+                        <span> ({biblioNumbers.length} biblio numbers found)</span>
+                      )}
+                      {validationErrors.length > 0 && (
+                        <span> ({biblioNumbers.length} valid, {validationErrors.length} errors)</span>
+                      )}
+                    </span>
+                  </div>
+                  {biblioNumbers.length > 0 && validationErrors.length === 0 && (
+                    <div className="mt-2 text-sm text-green-700">
+                      <strong>Biblio Numbers:</strong> {biblioNumbers.slice(0, 10).join(', ')}
+                      {biblioNumbers.length > 10 && ` ... and ${biblioNumbers.length - 10} more`}
+                    </div>
+                  )}
+                  {validationErrors.length > 0 && biblioNumbers.length > 0 && (
+                    <div className="mt-2 text-sm text-green-700">
+                      <strong>Valid Biblio Numbers:</strong> {biblioNumbers.slice(0, 5).join(', ')}
+                      {biblioNumbers.length > 5 && ` ... and ${biblioNumbers.length - 5} more`}
                     </div>
                   )}
                 </div>
@@ -469,6 +668,138 @@ export default function PredefinedReportForm({
             </p>
           </div>
         )} */}
+
+        {/* Abstract Filter Options - only for abstract field report */}
+        {reportType === 'export_abstract_field' && (
+          <div className="md:col-span-2">
+            <label className="block text-sm font-bold text-gray-800 mb-3">
+              <div className="flex items-center space-x-2">
+                <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                <span>{t.abstractFilter.filterByAbstractType}</span>
+              </div>
+            </label>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <input
+                  type="radio"
+                  id="without_abstract"
+                  name="abstractFilter"
+                  value="without_abstract"
+                  checked={abstractFilter === 'without_abstract'}
+                  onChange={(e) => setAbstractFilter(e.target.value)}
+                  className="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 focus:ring-red-500"
+                />
+                <label htmlFor="without_abstract" className="ml-2 text-sm font-medium text-gray-700">
+                  {t.abstractFilter.withoutAbstract}
+                </label>
+                <p className="ml-6 text-xs text-gray-500">{t.abstractFilter.withoutAbstractDesc}</p>
+              </div>
+              
+              <div>
+                <input
+                  type="radio"
+                  id="missing_english"
+                  name="abstractFilter"
+                  value="missing_english"
+                  checked={abstractFilter === 'missing_english'}
+                  onChange={(e) => setAbstractFilter(e.target.value)}
+                  className="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 focus:ring-red-500"
+                />
+                <label htmlFor="missing_english" className="ml-2 text-sm font-medium text-gray-700">
+                  {t.abstractFilter.missingEnglish}
+                </label>
+                <p className="ml-6 text-xs text-gray-500">{t.abstractFilter.missingEnglishDesc}</p>
+              </div>
+              
+              <div>
+                <input
+                  type="radio"
+                  id="other_language"
+                  name="abstractFilter"
+                  value="other_language"
+                  checked={abstractFilter === 'other_language'}
+                  onChange={(e) => setAbstractFilter(e.target.value)}
+                  className="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 focus:ring-red-500"
+                />
+                <label htmlFor="other_language" className="ml-2 text-sm font-medium text-gray-700">
+                  {t.abstractFilter.otherLanguage}
+                </label>
+                <p className="ml-6 text-xs text-gray-500">{t.abstractFilter.otherLanguageDesc}</p>
+              </div>
+              
+              <div>
+                <input
+                  type="radio"
+                  id="mandumah_abstract"
+                  name="abstractFilter"
+                  value="mandumah_abstract"
+                  checked={abstractFilter === 'mandumah_abstract'}
+                  onChange={(e) => setAbstractFilter(e.target.value)}
+                  className="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 focus:ring-red-500"
+                />
+                <label htmlFor="mandumah_abstract" className="ml-2 text-sm font-medium text-gray-700">
+                  {t.abstractFilter.mandumahAbstract}
+                </label>
+                <p className="ml-6 text-xs text-gray-500">{t.abstractFilter.mandumahAbstractDesc}</p>
+              </div>
+            </div>
+            
+         
+          </div>
+        )}
+
+        {/* Author Type Filter - only for research authors report */}
+        {reportType === 'export_research_authors' && (
+          <div className="md:col-span-2">
+            <label className="block text-sm font-bold text-gray-800 mb-3">
+              <div className="flex items-center space-x-2">
+                <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <span>{t.authorTypeFilter.filterByAuthorType}</span>
+              </div>
+            </label>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <input
+                  type="checkbox"
+                  id="main_author_100"
+                  name="authorType"
+                  value="100"
+                  checked={authorTypeFilter.includes('100')}
+                  onChange={(e) => handleAuthorTypeChange('100', e.target.checked)}
+                  className="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 focus:ring-red-500 rounded"
+                />
+                <label htmlFor="main_author_100" className="ml-2 text-sm font-medium text-gray-700">
+                  {t.authorTypeFilter.mainAuthor100}
+                </label>
+                <p className="ml-6 text-xs text-gray-500">{t.authorTypeFilter.mainAuthorDesc}</p>
+              </div>
+              
+              <div>
+                <input
+                  type="checkbox"
+                  id="additional_authors_700"
+                  name="authorType"
+                  value="700"
+                  checked={authorTypeFilter.includes('700')}
+                  onChange={(e) => handleAuthorTypeChange('700', e.target.checked)}
+                  className="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 focus:ring-red-500 rounded"
+                />
+                <label htmlFor="additional_authors_700" className="ml-2 text-sm font-medium text-gray-700">
+                  {t.authorTypeFilter.additionalAuthors700}
+                </label>
+                <p className="ml-6 text-xs text-gray-500">{t.authorTypeFilter.additionalAuthorsDesc}</p>
+              </div>
+            </div>
+            
+         
+          </div>
+        )}
 
        
       </div>

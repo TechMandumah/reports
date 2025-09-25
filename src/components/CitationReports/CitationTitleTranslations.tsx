@@ -26,9 +26,11 @@ export default function CitationTitleTranslations() {
   const [startYear, setStartYear] = useState('');
   const [endYear, setEndYear] = useState('');
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  const [inputMethod, setInputMethod] = useState<'manual' | 'file'>('manual');
+  const [inputMethod, setInputMethod] = useState<'manual' | 'file' | 'biblio'>('manual');
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [fileNumbers, setFileNumbers] = useState<string[]>([]);
+  const [biblioUploadedFile, setBiblioUploadedFile] = useState<File | null>(null);
+  const [biblioNumbers, setBiblioNumbers] = useState<string[]>([]);
 
   const validateMagazineNumbers = (input: string): { isValid: boolean; errors: string[] } => {
     if (!input.trim()) {

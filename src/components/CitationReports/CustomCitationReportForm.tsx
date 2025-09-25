@@ -45,9 +45,11 @@ export default function CustomCitationReportForm({
   const [endYear, setEndYear] = useState('');
   const [selectedFields, setSelectedFields] = useState<string[]>([]);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  const [inputMethod, setInputMethod] = useState<'manual' | 'file'>('manual');
+  const [inputMethod, setInputMethod] = useState<'manual' | 'file' | 'biblio'>('manual');
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [fileNumbers, setFileNumbers] = useState<string[]>([]);
+  const [biblioUploadedFile, setBiblioUploadedFile] = useState<File | null>(null);
+  const [biblioNumbers, setBiblioNumbers] = useState<string[]>([]);
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
 
@@ -187,6 +189,94 @@ export default function CustomCitationReportForm({
     return { isValid: errors.length === 0, errors };
   };
 
+  const handleBiblioFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.includes('text') && !file.name.endsWith('.txt')) {
+      setValidationErrors(['Please upload a .txt file']);
+      return;
+    }
+
+    setBiblioUploadedFile(file);
+    
+    try {
+      const text = await file.text();
+      const { numbers, errors } = parseAndValidateBiblioFileContent(text);
+      setBiblioNumbers(numbers);
+      
+      if (errors.length > 0) {
+        setValidationErrors(errors);
+      } else {
+        setValidationErrors([]);
+      }
+    } catch (error) {
+      setValidationErrors(['Error reading file']);
+    }
+  };
+
+  const parseAndValidateBiblioFileContent = (text: string): { numbers: string[]; errors: string[] } => {
+    const lines = text.split(/\r?\n/);
+    const numbers: string[] = [];
+    const errors: string[] = [];
+    
+    lines.forEach((line, lineIndex) => {
+      const lineNumber = lineIndex + 1;
+      const trimmedLine = line.trim();
+      
+      // Skip empty lines
+      if (trimmedLine === '') {
+        return;
+      }
+      
+      // Check if line contains comma-separated values
+      if (trimmedLine.includes(',')) {
+        const values = trimmedLine.split(',');
+        values.forEach((value, valueIndex) => {
+          const trimmedValue = value.trim();
+          if (trimmedValue === '') return;
+          
+          const validation = validateSingleBiblioNumber(trimmedValue, lineNumber, valueIndex + 1, true);
+          if (validation.isValid) {
+            numbers.push(trimmedValue);
+          } else {
+            errors.push(...validation.errors);
+          }
+        });
+      } else {
+        // Single value per line
+        const validation = validateSingleBiblioNumber(trimmedLine, lineNumber, 1, false);
+        if (validation.isValid) {
+          numbers.push(trimmedLine);
+        } else {
+          errors.push(...validation.errors);
+        }
+      }
+    });
+    
+    return { numbers, errors };
+  };
+
+  const validateSingleBiblioNumber = (value: string, lineNumber: number, position: number, isCommaSeparated: boolean): { isValid: boolean; errors: string[] } => {
+    const errors: string[] = [];
+    const positionText = isCommaSeparated ? `, position ${position}` : '';
+    
+    // Check for non-numeric characters
+    if (!/^\d+$/.test(value)) {
+      const invalidChars = value.match(/[^\d]/g)?.join('') || '';
+      errors.push(`Line ${lineNumber}${positionText}: "${value}" contains invalid characters (${invalidChars}). Only digits 0-9 are allowed for biblio numbers.`);
+      return { isValid: false, errors };
+    }
+    
+    // Biblio numbers can be any length (unlike magazine numbers which must be 4 digits)
+    if (value.length === 0) {
+      errors.push(`Line ${lineNumber}${positionText}: Empty biblio number found.`);
+      return { isValid: false, errors };
+    }
+    
+    return { isValid: true, errors: [] };
+  };
+
   const clearFormInputs = () => {
     setMagazineNumbers('');
     setStartYear('');
@@ -196,6 +286,8 @@ export default function CustomCitationReportForm({
     setInputMethod('manual');
     setUploadedFile(null);
     setFileNumbers([]);
+    setBiblioUploadedFile(null);
+    setBiblioNumbers([]);
     setPreviewData([]);
     setCurrentStep(1);
   };
@@ -205,8 +297,17 @@ export default function CustomCitationReportForm({
     
     if (inputMethod === 'manual') {
       validation = validateMagazineNumbers(magazineNumbers);
-    } else {
+    } else if (inputMethod === 'file') {
       validation = validateFileNumbers(fileNumbers);
+    } else if (inputMethod === 'biblio') {
+      // For biblio method, check if biblio numbers are uploaded
+      if (biblioNumbers.length === 0) {
+        setValidationErrors(['Please upload a biblio numbers file.']);
+        return;
+      }
+      validation = { isValid: true, errors: [] };
+    } else {
+      validation = { isValid: false, errors: ['Invalid input method'] };
     }
     
     if (!validation.isValid) {
@@ -252,9 +353,10 @@ export default function CustomCitationReportForm({
     console.log('🔍 CustomCitationReportForm: Starting loadPreviewData...');
     setIsLoadingPreview(true);
     try {
-      // Validate magazine numbers before loading preview
+      // Validate and prepare data based on input method
       let validation;
       let numbersToUse: string[] = [];
+      let biblioToUse: string[] = [];
 
       if (inputMethod === 'file' && fileNumbers.length > 0) {
         validation = validateMagazineNumbers(fileNumbers.join(', '));
@@ -262,6 +364,15 @@ export default function CustomCitationReportForm({
       } else if (inputMethod === 'manual' && magazineNumbers.trim()) {
         validation = validateMagazineNumbers(magazineNumbers);
         numbersToUse = magazineNumbers.split(',').map(n => n.trim()).filter(n => n !== '');
+      } else if (inputMethod === 'biblio') {
+        if (biblioNumbers.length === 0) {
+          setValidationErrors(['Please upload a biblio numbers file.']);
+          setCurrentStep(1);
+          return;
+        }
+        validation = { isValid: true, errors: [] };
+        biblioToUse = biblioNumbers;
+        numbersToUse = []; // No magazine numbers when using biblio filtering
       } else {
         validation = { isValid: true, errors: [] };
         numbersToUse = [];
@@ -281,6 +392,7 @@ export default function CustomCitationReportForm({
         startYear: startYear || undefined,
         endYear: endYear || undefined,
         selectedFields,
+        biblioNumbers: biblioToUse.length > 0 ? biblioToUse : undefined,
         isPreview: true
       };
 
@@ -317,16 +429,28 @@ export default function CustomCitationReportForm({
   };
 
   const handleExport = (exportType: 'sample' | 'full') => {
-    // Validate magazine numbers before exporting
+    // Validate and prepare data based on input method
     let validation;
     let numbersToUse: string[] = [];
+    let biblioToUse: string[] = [];
     
     if (inputMethod === 'manual') {
       validation = validateMagazineNumbers(magazineNumbers);
       numbersToUse = magazineNumbers.split(',').map((m: string) => m.trim()).filter((m: string) => m !== '');
-    } else {
+    } else if (inputMethod === 'file') {
       validation = validateFileNumbers(fileNumbers);
       numbersToUse = fileNumbers;
+    } else if (inputMethod === 'biblio') {
+      if (biblioNumbers.length === 0) {
+        setValidationErrors(['Please upload a biblio numbers file.']);
+        setCurrentStep(1);
+        return;
+      }
+      validation = { isValid: true, errors: [] };
+      biblioToUse = biblioNumbers;
+      numbersToUse = []; // No magazine numbers when using biblio filtering
+    } else {
+      validation = { isValid: false, errors: ['Invalid input method'] };
     }
     
     if (!validation.isValid) {
@@ -344,6 +468,7 @@ export default function CustomCitationReportForm({
       startYear: startYear ? parseInt(startYear) : undefined,
       endYear: endYear ? parseInt(endYear) : undefined,
       selectedFields,
+      biblioNumbers: biblioToUse.length > 0 ? biblioToUse : undefined,
       exportType
     };
     
@@ -418,6 +543,8 @@ export default function CustomCitationReportForm({
                         setValidationErrors([]);
                         setUploadedFile(null);
                         setFileNumbers([]);
+                        setBiblioUploadedFile(null);
+                        setBiblioNumbers([]);
                       }}
                       className={`px-4 py-2 text-sm font-medium rounded-md ${
                         inputMethod === 'manual'
@@ -433,6 +560,8 @@ export default function CustomCitationReportForm({
                         setInputMethod('file');
                         setValidationErrors([]);
                         setMagazineNumbers('');
+                        setBiblioUploadedFile(null);
+                        setBiblioNumbers([]);
                       }}
                       className={`px-4 py-2 text-sm font-medium rounded-md ${
                         inputMethod === 'file'
@@ -441,6 +570,23 @@ export default function CustomCitationReportForm({
                       }`}
                     >
                       {isRTL ? 'رفع ملف' : 'Upload File'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInputMethod('biblio');
+                        setValidationErrors([]);
+                        setMagazineNumbers('');
+                        setUploadedFile(null);
+                        setFileNumbers([]);
+                      }}
+                      className={`px-4 py-2 text-sm font-medium rounded-md ${
+                        inputMethod === 'biblio'
+                          ? 'bg-red-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {isRTL ? 'رفع أرقام الببليو' : 'Upload Biblio Numbers'}
                     </button>
                   </div>
 
@@ -522,6 +668,65 @@ export default function CustomCitationReportForm({
                             <div className="mt-2 text-sm text-yellow-700">
                               <strong>{isRTL ? 'الأرقام الصحيحة:' : 'Valid numbers:'}</strong> {fileNumbers.slice(0, 5).join(', ')}
                               {fileNumbers.length > 5 && ` ${isRTL ? `... و ${fileNumbers.length - 5} رقم آخر` : `... and ${fileNumbers.length - 5} more`}`}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Biblio Numbers Upload */}
+                  {inputMethod === 'biblio' && (
+                    <div>
+                      <input
+                        id="biblioFileUpload"
+                        type="file"
+                        accept=".txt,text/plain"
+                        onChange={handleBiblioFileUpload}
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black `}
+                      />
+                      <p className="mt-2 text-sm text-gray-600">
+                        {isRTL ? 'قم برفع ملف .txt يحتوي على أرقام الببليو (رقم واحد في كل سطر أو مفصولة بفواصل). سيتم تصفية النتائج لتشمل هذه السجلات المحددة فقط.' : 'Upload a .txt file with biblio numbers (one per line or comma-separated). This will filter results to only include these specific records.'}
+                      </p>
+                      
+                      {biblioUploadedFile && (
+                        <div className={`mt-3 p-3 border rounded-md ${
+                          validationErrors.length > 0 
+                            ? 'bg-yellow-50 border-yellow-200' 
+                            : 'bg-green-50 border-green-200'
+                        }`}>
+                          <div className="flex items-center">
+                            <svg className={`w-4 h-4 mr-2 ${
+                              validationErrors.length > 0 ? 'text-yellow-500' : 'text-green-500'
+                            }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                d={validationErrors.length > 0 
+                                  ? "M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
+                                  : "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                                } />
+                            </svg>
+                            <span className={`text-sm ${
+                              validationErrors.length > 0 ? 'text-yellow-800' : 'text-green-800'
+                            }`}>
+                              {isRTL ? 'ملف الببليو المرفوع:' : 'Biblio file uploaded:'} {biblioUploadedFile.name} 
+                              {validationErrors.length === 0 && (
+                                <span> ({biblioNumbers.length} {isRTL ? 'أرقام ببليو' : 'biblio numbers'})</span>
+                              )}
+                              {validationErrors.length > 0 && (
+                                <span> ({biblioNumbers.length} {isRTL ? 'صحيحة،' : 'valid,'} {validationErrors.length} {isRTL ? 'أخطاء' : 'errors'})</span>
+                              )}
+                            </span>
+                          </div>
+                          {biblioNumbers.length > 0 && validationErrors.length === 0 && (
+                            <div className="mt-2 text-sm text-green-700">
+                              <strong>{isRTL ? 'أرقام الببليو:' : 'Biblio Numbers:'}</strong> {biblioNumbers.slice(0, 10).join(', ')}
+                              {biblioNumbers.length > 10 && ` ${isRTL ? `... و ${biblioNumbers.length - 10} رقم آخر` : `... and ${biblioNumbers.length - 10} more`}`}
+                            </div>
+                          )}
+                          {validationErrors.length > 0 && biblioNumbers.length > 0 && (
+                            <div className="mt-2 text-sm text-yellow-700">
+                              <strong>{isRTL ? 'أرقام الببليو الصحيحة:' : 'Valid Biblio Numbers:'}</strong> {biblioNumbers.slice(0, 5).join(', ')}
+                              {biblioNumbers.length > 5 && ` ${isRTL ? `... و ${biblioNumbers.length - 5} رقم آخر` : `... and ${biblioNumbers.length - 5} more`}`}
                             </div>
                           )}
                         </div>
@@ -707,7 +912,7 @@ export default function CustomCitationReportForm({
                           {/* Always show Biblio and URL data first */}
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             <a 
-                              href={`https://cataloging.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${row['Biblio Number'] || row.biblionumber || ''}`} 
+                              href={`https://cataloging.mandumah.com/cgi-bin/koha/catalogue/detail.pl?biblionumber=${row['Biblio Number'] || row.biblionumber || ''}`} 
                               target="_blank" 
                               rel="noopener noreferrer"
                               className="text-blue-600 hover:text-blue-800 underline"

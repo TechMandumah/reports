@@ -1,4 +1,44 @@
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
+
+// Helper function to apply abstract field filters
+function filterAbstractRecords(data: ExportData[], abstractFilter?: string): ExportData[] {
+  if (!abstractFilter || abstractFilter === '') {
+    return data; // Return all data if no filter selected
+  }
+
+  return data.filter(row => {
+    switch (abstractFilter) {
+      case 'without_abstract':
+        // Records with no field 520 (no abstract subfields)
+        return !Object.keys(row).some(key => key.startsWith('abstract_520_'));
+      
+      case 'missing_english':
+        // Subfield 'a' is available in field 520 where 'b' and 'f' is empty
+        const hasSubfieldA = row['abstract_520_a'] && row['abstract_520_a'].toString().trim() !== '';
+        const hasSubfieldB = row['abstract_520_b'] && row['abstract_520_b'].toString().trim() !== '';
+        const hasSubfieldF = row['abstract_520_f'] && row['abstract_520_f'].toString().trim() !== '';
+        return hasSubfieldA && !hasSubfieldB && !hasSubfieldF;
+      
+      case 'other_language':
+        // Subfield 'd' is available where all other subfields inside field 520 is empty
+        const hasSubfieldD = row['abstract_520_d'] && row['abstract_520_d'].toString().trim() !== '';
+        const hasOtherSubfields = Object.keys(row)
+          .filter(key => key.startsWith('abstract_520_') && key !== 'abstract_520_d')
+          .some(key => row[key] && row[key].toString().trim() !== '');
+        return hasSubfieldD && !hasOtherSubfields;
+      
+      case 'mandumah_abstract':
+        // Subfield 'a' and 'e' are empty inside field 520
+        const hasSubfieldAEmpty = !row['abstract_520_a'] || row['abstract_520_a'].toString().trim() === '';
+        const hasSubfieldEEmpty = !row['abstract_520_e'] || row['abstract_520_e'].toString().trim() === '';
+        const hasAny520Field = Object.keys(row).some(key => key.startsWith('abstract_520_'));
+        return hasAny520Field && hasSubfieldAEmpty && hasSubfieldEEmpty;
+      
+      default:
+        return true;
+    }
+  });
+}
 
 // Helper function to create safe Excel sheet names (max 31 characters)
 function createSafeSheetName(name: string): string {
@@ -17,28 +57,24 @@ function createSafeSheetName(name: string): string {
 }
 
 // Helper function to style the header row with blue background and white text
-function styleHeaderRow(ws: XLSX.WorkSheet, headerCount: number) {
+function styleHeaderRow(worksheet: ExcelJS.Worksheet, headerCount: number) {
   // Apply style to each header cell in the first row
-  for (let col = 0; col < headerCount; col++) {
-    const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col }); // First row (r=0)
+  for (let col = 1; col <= headerCount; col++) {
+    const cell = worksheet.getCell(1, col);
     
-    // Ensure the cell exists and has content
-    if (ws[cellAddress]) {
-      // Apply simple but effective header styling
-      ws[cellAddress].s = {
-        fill: {
-          patternType: "solid",
-          fgColor: { rgb: "0066CC" }
-        },
-        font: {
-          bold: true,
-          color: { rgb: "FFFFFF" }
-        },
-        alignment: {
-          horizontal: "center"
-        }
-      };
-    }
+    // Apply header styling
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF0066CC' }
+    };
+    cell.font = {
+      bold: true,
+      color: { argb: 'FFFFFFFF' }
+    };
+    cell.alignment = {
+      horizontal: 'center'
+    };
   }
 }
 
@@ -66,11 +102,12 @@ export const reportConfigurations: Record<string, ReportConfig> = {
   export_research_titles: {
     name: "Research Titles for Review",
     columns: [
-  { header: "URL", key: "url" },
-  { header: "Biblio", key: "biblio" },
+      { header: "URL", key: "url" },
+      { header: "Biblio", key: "biblio" },
       { header: "Title 245", key: "title_245" },
       { header: "Title 246", key: "title_246" },
-      { header: "Title 242", key: "title_242" }
+      { header: "Title 242", key: "title_242" },
+      { header: "Language 041", key: "language_041" },
     ]
   },
   export_research_authors: {
@@ -194,7 +231,9 @@ export async function fetchReportData(reportType: string, formData: any): Promis
           startYear: formData.startYear ? parseInt(formData.startYear) : undefined,
           endYear: formData.endYear ? parseInt(formData.endYear) : undefined,
           authorName: formData.authorName,
-          selectedFields: formData.selectedFields
+          selectedFields: formData.selectedFields,
+          abstractFilter: formData.abstractFilter,
+          biblioNumbers: formData.biblioNumbers
         }
       })
     });
@@ -224,7 +263,7 @@ export async function exportToExcel(reportType: string, formData: any): Promise<
 
     // Handle custom reports differently
     if (reportType === 'custom' || reportType === 'custom_report') {
-      return exportCustomReportToExcel(data, formData);
+      return await exportCustomReportToExcel(data, formData);
     }
 
     const config = reportConfigurations[reportType as keyof typeof reportConfigurations];
@@ -256,6 +295,36 @@ export async function exportToExcel(reportType: string, formData: any): Promise<
       });
     }
 
+    // Apply abstract field filter if specified
+    let filteredData = data;
+    if (reportType === 'export_abstract_field' && formData?.abstractFilter) {
+      filteredData = filterAbstractRecords(data, formData.abstractFilter);
+    }
+
+    // Apply author type filter for research authors report
+    if (reportType === 'export_research_authors' && formData?.authorTypeFilter && formData.authorTypeFilter.length > 0) {
+      const authorFilter = formData.authorTypeFilter;
+      
+      // Filter columns based on selected author types
+      finalColumns = finalColumns.filter(col => {
+        // Always keep URL and Biblio columns
+        if (col.key === 'url' || col.key === 'biblio') return true;
+        
+        // If only 100 (main author) is selected
+        if (authorFilter.includes('100') && !authorFilter.includes('700')) {
+          return col.key === 'author' || col.key === 'author_id';
+        }
+        
+        // If only 700 (additional authors) is selected
+        if (authorFilter.includes('700') && !authorFilter.includes('100')) {
+          return col.key.startsWith('additional_author_id');
+        }
+        
+        // If both are selected or neither is selected, include all author columns
+        return true;
+      });
+    }
+
     // Dynamically include additional author columns only if at least one row has a non-empty value
     if (reportType === 'export_research_authors') {
       const additionalAuthorKeys = [
@@ -268,62 +337,59 @@ export async function exportToExcel(reportType: string, formData: any): Promise<
       finalColumns = finalColumns.filter(col => {
         if (!additionalAuthorKeys.includes(col.key)) return true;
         // Only include if at least one row has a non-empty value for this column
-        return data.some(row => row[col.key] && row[col.key].toString().trim() !== '');
+        return filteredData.some(row => row[col.key] && row[col.key].toString().trim() !== '');
       });
     }
 
-    // Create workbook and worksheet with cell styles support
-    const wb = XLSX.utils.book_new();
-    wb.Props = {
-      Title: config.name,
-      Subject: "Report Export",
-      CreatedDate: new Date()
-    };
+    // Create workbook and worksheet with ExcelJS
+    const workbook = new ExcelJS.Workbook();
+    workbook.created = new Date();
+    workbook.modified = new Date();
+    workbook.creator = 'Manduma Reports';
+    workbook.title = config.name;
+    workbook.subject = 'Report Export';
     
     // Prepare data for Excel
-    const excelData = data.map(row => {
+    const excelData = filteredData.map(row => {
       const excelRow: any = {};
       finalColumns.forEach(col => {
         excelRow[col.header] = row[col.key] || '';
       });
       return excelRow;
     });
-
-    // Create worksheet with headers first
-    const ws = XLSX.utils.aoa_to_sheet([]);
     
-    // Add headers manually with styling
+    // Create worksheet
+    const worksheet = workbook.addWorksheet(createSafeSheetName(config.name));
+    
+    // Add headers
     const headers = finalColumns.map(col => col.header);
-    XLSX.utils.sheet_add_aoa(ws, [headers], { origin: 'A1' });
+    worksheet.addRow(headers);
     
     // Add data rows
-    const dataRows = excelData.map(row => 
-      finalColumns.map(col => row[col.header] || '')
-    );
-    XLSX.utils.sheet_add_aoa(ws, dataRows, { origin: 'A2' });
+    excelData.forEach(row => {
+      const dataRow = finalColumns.map(col => row[col.header] || '');
+      worksheet.addRow(dataRow);
+    });
     
     // Make biblio column clickable for ALL reports
     const biblioColumnIndex = finalColumns.findIndex(col => col.key === 'biblio');
     if (biblioColumnIndex !== -1) {
-      // Add hyperlinks to biblio cells
-      for (let rowIndex = 1; rowIndex < excelData.length + 1; rowIndex++) {
-        const cellAddress = XLSX.utils.encode_cell({ r: rowIndex, c: biblioColumnIndex });
-        const biblioNumber = ws[cellAddress]?.v;
+      // Add hyperlinks to biblio cells (starting from row 2, column is 1-indexed)
+      for (let rowIndex = 2; rowIndex <= excelData.length + 1; rowIndex++) {
+        const cell = worksheet.getCell(rowIndex, biblioColumnIndex + 1);
+        const biblioNumber = cell.value;
         
-        if (biblioNumber && ws[cellAddress]) {
+        if (biblioNumber) {
           // Extract the actual number from padded string (e.g., "0001" -> 1)
           const biblioNumericValue = biblioNumber.toString().replace(/^0+/, '') || biblioNumber;
           
           // Create hyperlink to cataloging system
-          const catalogingUrl = `https://cataloging.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${biblioNumericValue}`;
+          const catalogingUrl = `https://cataloging.mandumah.com/cgi-bin/koha/catalogue/detail.pl?biblionumber=${biblioNumericValue}`;
           
-          // Set cell as hyperlink
-          ws[cellAddress].l = { Target: catalogingUrl };
-          ws[cellAddress].s = {
-            font: {
-              color: { rgb: "0000FF" },
-              underline: true
-            }
+          // Set cell as hyperlink using ExcelJS with proper styling
+          cell.value = {
+            text: `${biblioNumber}`,
+            hyperlink: catalogingUrl
           };
         }
       }
@@ -338,21 +404,24 @@ export async function exportToExcel(reportType: string, formData: any): Promise<
 
       // Add hyperlinks to author ID cells
       authorIdColumns.forEach(({ col, index: columnIndex }) => {
-        for (let rowIndex = 1; rowIndex < excelData.length + 1; rowIndex++) {
-          const cellAddress = XLSX.utils.encode_cell({ r: rowIndex, c: columnIndex });
-          const authorId = ws[cellAddress]?.v;
+        for (let rowIndex = 2; rowIndex <= excelData.length + 1; rowIndex++) {
+          const cell = worksheet.getCell(rowIndex, columnIndex + 1);
+          const authorId = cell.value;
           
-          if (authorId && ws[cellAddress]) {
+          if (authorId) {
             // Create hyperlink to Koha authorities page
             const authoritiesUrl = `https://cataloging.mandumah.com/cgi-bin/koha/authorities/authorities.pl?authid=${authorId}`;
             
-            // Set cell as hyperlink
-            ws[cellAddress].l = { Target: authoritiesUrl };
-            ws[cellAddress].s = {
-              font: {
-                color: { rgb: "0000FF" },
-                underline: true
-              }
+            // Set cell as hyperlink using ExcelJS with proper styling
+            cell.value = {
+              text: authorId.toString(),
+              hyperlink: authoritiesUrl
+            };
+            
+            // Apply default Excel hyperlink styling (blue color, underline)
+            cell.font = {
+              color: { argb: 'FF0000FF' }, // Blue color
+              underline: true
             };
           }
         }
@@ -360,58 +429,63 @@ export async function exportToExcel(reportType: string, formData: any): Promise<
     }
     
     // Style the header row with blue background and white text
-    styleHeaderRow(ws, finalColumns.length);
+    styleHeaderRow(worksheet, finalColumns.length);
     
     // Set column widths
-    const colWidths = finalColumns.map(col => {
+    finalColumns.forEach((col, index) => {
+      let width = 20; // default width
       switch (col.key) {
         case 'url':
         case 'link':
-          return { wch: 50 };
+          width = 50;
+          break;
         default:
           // Check if it's an abstract field
           if (col.key.startsWith('abstract_520')) {
-            return { wch: 80 };
+            width = 80;
           }
           // Check if it's a title field
-          if (col.key.includes('title_')) {
-            return { wch: 40 };
+          else if (col.key.includes('title_')) {
+            width = 40;
           }
-          return { wch: 20 };
+          break;
       }
+      worksheet.getColumn(index + 1).width = width;
     });
-    ws['!cols'] = colWidths;
-
-    // Add worksheet to workbook with safe sheet name
-    const safeSheetName = createSafeSheetName(config.name);
-    XLSX.utils.book_append_sheet(wb, ws, safeSheetName);
 
     // Generate filename
     const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
     const filename = `${config.name.replace(/\s+/g, '_')}_${timestamp}.xlsx`;
 
-    // Write file with cell styles enabled and specific book type
-    XLSX.writeFile(wb, filename, { 
-      cellStyles: true, 
-      bookType: 'xlsx',
-      type: 'binary'
-    });
+    // Write file using ExcelJS for browser download
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    
+    // Create download link
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
   } catch (error) {
     console.error('Export error:', error);
     throw error;
   }
 }
 
-function exportCustomReportToExcel(data: ExportData[], formData?: any): void {
+async function exportCustomReportToExcel(data: ExportData[], formData?: any): Promise<void> {
   const selectedFields = formData?.selectedFields || [];
   
-  // Create workbook and worksheet with cell styles support
-  const wb = XLSX.utils.book_new();
-  wb.Props = {
-    Title: "Custom Report",
-    Subject: "Custom Report Export",
-    CreatedDate: new Date()
-  };
+  // Create workbook and worksheet with ExcelJS
+  const workbook = new ExcelJS.Workbook();
+  workbook.created = new Date();
+  workbook.modified = new Date();
+  workbook.creator = 'Manduma Reports';
+  workbook.title = 'Custom Report';
+  workbook.subject = 'Custom Report Export';
   
   // Define columns for custom report
   const columns: ExportColumn[] = [
@@ -533,41 +607,45 @@ function exportCustomReportToExcel(data: ExportData[], formData?: any): void {
     return excelRow;
   });
 
-  // Create worksheet with headers first
-  const ws = XLSX.utils.aoa_to_sheet([]);
+  // Create worksheet
+  const reportName = `Custom_Report_${selectedFields.length}_Fields`;
+  const worksheet = workbook.addWorksheet(createSafeSheetName(reportName));
   
-  // Add headers manually with styling
+  // Add headers
   const headers = columns.map(col => col.header);
-  XLSX.utils.sheet_add_aoa(ws, [headers], { origin: 'A1' });
+  worksheet.addRow(headers);
   
   // Add data rows
-  const dataRows = excelData.map(row => 
-    columns.map(col => row[col.header] || '')
-  );
-  XLSX.utils.sheet_add_aoa(ws, dataRows, { origin: 'A2' });
+  excelData.forEach(row => {
+    const dataRow = columns.map(col => row[col.header] || '');
+    worksheet.addRow(dataRow);
+  });
   
   // Make biblio column clickable for custom reports too
   const biblioColumnIndex = columns.findIndex(col => col.key === 'biblio');
   if (biblioColumnIndex !== -1) {
-    // Add hyperlinks to biblio cells
-    for (let rowIndex = 1; rowIndex < excelData.length + 1; rowIndex++) {
-      const cellAddress = XLSX.utils.encode_cell({ r: rowIndex, c: biblioColumnIndex });
-      const biblioNumber = ws[cellAddress]?.v;
+    // Add hyperlinks to biblio cells (starting from row 2, column is 1-indexed)
+    for (let rowIndex = 2; rowIndex <= excelData.length + 1; rowIndex++) {
+      const cell = worksheet.getCell(rowIndex, biblioColumnIndex + 1);
+      const biblioNumber = cell.value;
       
-      if (biblioNumber && ws[cellAddress]) {
+      if (biblioNumber) {
         // Extract the actual number from padded string (e.g., "0001" -> 1)
         const biblioNumericValue = biblioNumber.toString().replace(/^0+/, '') || biblioNumber;
         
         // Create hyperlink to cataloging system
-        const catalogingUrl = `https://cataloging.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${biblioNumericValue}`;
+        const catalogingUrl = `https://cataloging.mandumah.com/cgi-bin/koha/catalogue/detail.pl?biblionumber=${biblioNumericValue}`;
         
-        // Set cell as hyperlink
-        ws[cellAddress].l = { Target: catalogingUrl };
-        ws[cellAddress].s = {
-          font: {
-            color: { rgb: "0000FF" },
-            underline: true
-          }
+        // Set cell as hyperlink using ExcelJS with proper styling
+        cell.value = {
+          text: biblioNumber.toString(),
+          hyperlink: catalogingUrl
+        };
+        
+        // Apply default Excel hyperlink styling (blue color, underline)
+        cell.font = {
+          color: { argb: 'FF0000FF' }, // Blue color
+          underline: true
         };
       }
     }
@@ -584,56 +662,60 @@ function exportCustomReportToExcel(data: ExportData[], formData?: any): void {
 
   // Add hyperlinks to author ID cells
   authorIdColumns.forEach(({ col, index: columnIndex }) => {
-    for (let rowIndex = 1; rowIndex < excelData.length + 1; rowIndex++) {
-      const cellAddress = XLSX.utils.encode_cell({ r: rowIndex, c: columnIndex });
-      const authorId = ws[cellAddress]?.v;
+    for (let rowIndex = 2; rowIndex <= excelData.length + 1; rowIndex++) {
+      const cell = worksheet.getCell(rowIndex, columnIndex + 1);
+      const authorId = cell.value;
       
-      if (authorId && ws[cellAddress]) {
+      if (authorId) {
         // Create hyperlink to Koha authorities page
         const authoritiesUrl = `https://cataloging.mandumah.com/cgi-bin/koha/authorities/authorities.pl?authid=${authorId}`;
         
-        // Set cell as hyperlink
-        ws[cellAddress].l = { Target: authoritiesUrl };
-        ws[cellAddress].s = {
-          font: {
-            color: { rgb: "0000FF" },
-            underline: true
-          }
+        // Set cell as hyperlink using ExcelJS with proper styling
+        cell.value = {
+          text: authorId.toString(),
+          hyperlink: authoritiesUrl
+        };
+        
+        // Apply default Excel hyperlink styling (blue color, underline)
+        cell.font = {
+          color: { argb: 'FF0000FF' }, // Blue color
+          underline: true
         };
       }
     }
   });
   
   // Style the header row with blue background and white text
-  styleHeaderRow(ws, columns.length);
+  styleHeaderRow(worksheet, columns.length);
   
   // Set column widths
-  const colWidths = columns.map(col => {
+  columns.forEach((col, index) => {
+    let width = 25; // default width
     if (col.key === 'url' || col.key === 'link') {
-      return { wch: 50 };
+      width = 50;
     } else if (col.key.startsWith('marc_520')) { // All 520 subfields
-      return { wch: 80 };
+      width = 80;
     } else if (col.key === 'marc_245' || col.key === 'marc_246' || col.key === 'marc_242') {
-      return { wch: 40 };
-    } else {
-      return { wch: 25 };
+      width = 40;
     }
+    worksheet.getColumn(index + 1).width = width;
   });
-  ws['!cols'] = colWidths;
-
-  // Add worksheet to workbook with safe sheet name
-  const reportName = `Custom_Report_${selectedFields.length}_Fields`;
-  const safeSheetName = createSafeSheetName(reportName);
-  XLSX.utils.book_append_sheet(wb, ws, safeSheetName);
 
   // Generate filename
   const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
   const filename = `${reportName}_${timestamp}.xlsx`;
 
-  // Write file with cell styles enabled and specific book type
-  XLSX.writeFile(wb, filename, { 
-    cellStyles: true, 
-    bookType: 'xlsx',
-    type: 'binary'
-  });
+  // Write file using ExcelJS for browser download
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  
+  // Create download link
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
 }

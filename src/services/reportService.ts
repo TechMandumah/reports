@@ -264,7 +264,7 @@ export async function getMarcMetadata(biblionumbers: number[]): Promise<Map<numb
     console.log(`Fetching MARC metadata batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(biblionumbers.length/batchSize)} (${batch.length} records)`);
     
     const query = `
-      SELECT biblionumber, metadata
+      SELECT biblionumber
       FROM biblio_metadata
       WHERE biblionumber IN (${placeholders})
     `;

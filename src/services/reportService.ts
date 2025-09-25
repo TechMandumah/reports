@@ -82,15 +82,83 @@ function buildAuthorFilter(authorName?: string): { clause: string; params: any[]
   };
 }
 
+// Build WHERE clause for abstract filter
+function buildAbstractFilter(abstractFilter?: string): { clause: string; params: any[] } {
+  if (!abstractFilter) {
+    return { clause: '', params: [] };
+  }
+  
+  switch (abstractFilter) {
+    case 'without_abstract':
+      // Records with no field 520 - check if abstract is null or empty
+      return {
+        clause: 'AND (b.abstract IS NULL OR b.abstract = "" OR TRIM(b.abstract) = "")',
+        params: []
+      };
+    
+    case 'missing_english':
+    case 'other_language':
+    case 'mandumah_abstract':
+      // For these complex MARC subfield checks, we need to filter at application level
+      // after parsing MARC XML. For now, return records with abstracts and let 
+      // the application-level filtering handle the specifics
+      return {
+        clause: 'AND b.abstract IS NOT NULL AND b.abstract != "" AND TRIM(b.abstract) != ""',
+        params: []
+      };
+    
+    default:
+      return { clause: '', params: [] };
+  }
+}
+
+// Filter records based on abstract MARC subfield criteria
+function filterRecordsByAbstractType(records: ReportQueryResult[], marcMetadataMap: Map<number, string>, abstractFilter?: string): ReportQueryResult[] {
+  if (!abstractFilter || abstractFilter === 'without_abstract') {
+    return records; // SQL-level filtering already handled this
+  }
+  
+  return records.filter(record => {
+    const marcXml = marcMetadataMap.get(record.biblionumber) || '';
+    if (!marcXml) return false;
+    
+    const subfields520 = extractMarcSubfields(marcXml, '520');
+    
+    switch (abstractFilter) {
+      case 'missing_english':
+        // Subfield 'a' available, but 'b' and 'f' empty
+        return subfields520.a && (!subfields520.b || subfields520.b.trim() === '') && (!subfields520.f || subfields520.f.trim() === '');
+      
+      case 'other_language':
+        // Subfield 'd' available, all others empty
+        return subfields520.d && 
+               (!subfields520.a || subfields520.a.trim() === '') && 
+               (!subfields520.b || subfields520.b.trim() === '') && 
+               (!subfields520.e || subfields520.e.trim() === '') && 
+               (!subfields520.f || subfields520.f.trim() === '');
+      
+      case 'mandumah_abstract':
+        // Subfields 'a' and 'e' empty in field 520 - this means Mandumah generated the abstract
+        return (!subfields520.a || subfields520.a.trim() === '') && 
+               (!subfields520.e || subfields520.e.trim() === '') &&
+               (record.abstract && record.abstract.trim() !== ''); // But there is still an abstract
+      
+      default:
+        return true;
+    }
+  });
+}
+
 // Get bibliographic records with filters
 export async function getBiblioRecords(filters: QueryFilters = {}): Promise<BiblioRecord[]> {
-  const { magazineNumbers, startYear, endYear, authorName, isPreview, biblioNumbers } = filters;
+  const { magazineNumbers, startYear, endYear, authorName, isPreview, biblioNumbers, abstractFilter } = filters;
   
   // Build query filters
   const biblioFilter = buildBiblioNumbersFilter(biblioNumbers);
   const magazineFilter = buildMagazineNumbersFilter(magazineNumbers);
   const yearFilter = buildYearRangeFilter(startYear, endYear);
   const authorFilter = buildAuthorFilter(authorName);
+  const absFilter = buildAbstractFilter(abstractFilter);
   
   // Add LIMIT clause for preview mode
   const limitClause = isPreview ? 'LIMIT 5' : '';
@@ -109,6 +177,7 @@ export async function getBiblioRecords(filters: QueryFilters = {}): Promise<Bibl
     ${magazineFilter.clause}
     ${yearFilter.clause}
     ${authorFilter.clause}
+    ${absFilter.clause}
     ORDER BY b.biblionumber DESC
     ${limitClause}
   `;
@@ -117,7 +186,8 @@ export async function getBiblioRecords(filters: QueryFilters = {}): Promise<Bibl
     ...biblioFilter.params,
     ...magazineFilter.params,
     ...yearFilter.params,
-    ...authorFilter.params
+    ...authorFilter.params,
+    ...absFilter.params
   ];
   
   return await executeQuery<BiblioRecord>(query, params);
@@ -235,7 +305,10 @@ export async function generatePredefinedReport(reportType: string, filters: Quer
     return result;
   });
   
-  return reportData;
+  // Apply application-level abstract filtering if needed
+  const filteredData = filterRecordsByAbstractType(reportData, marcMetadata, filters.abstractFilter);
+  
+  return filteredData;
 }
 
 // Generate custom report with selected MARC fields

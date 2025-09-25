@@ -23,8 +23,17 @@ function buildBiblioNumbersFilter(biblioNumbers?: string[]): { clause: string; p
     return { clause: '', params: [] };
   }
   
-  // Convert biblio numbers to integers and create placeholders
-  const biblioNums = biblioNumbers.map(num => parseInt(num.replace(/^0+/, '') || '0'));
+  // Convert biblio numbers to integers - keep original values for direct DB matching
+  // The database biblionumber field is int(11) so we should match exactly
+  const biblioNums = biblioNumbers.map(num => {
+    const cleanNum = num.trim();
+    return parseInt(cleanNum) || 0;
+  }).filter(num => num > 0); // Remove any invalid numbers
+  
+  if (biblioNums.length === 0) {
+    return { clause: '', params: [] };
+  }
+  
   const placeholders = biblioNums.map(() => '?').join(',');
   
   return {
@@ -183,9 +192,29 @@ export async function getBiblioRecords(filters: QueryFilters = {}): Promise<Bibl
   // Add LIMIT clause for preview mode
   const limitClause = isPreview ? 'LIMIT 5' : '';
   
+  // Log query info for performance debugging
+  if (biblioNumbers && biblioNumbers.length > 0) {
+    console.log(`Executing biblio query for ${biblioNumbers.length} biblio numbers`);
+  }
+  
   const query = `
     SELECT 
-      b.*,
+      b.biblionumber,
+      b.frameworkcode,
+      b.author,
+      b.title,
+      b.medium,
+      b.subtitle,
+      b.part_number,
+      b.part_name,
+      b.unititle,
+      b.notes,
+      b.serial,
+      b.seriestitle,
+      b.copyrightdate,
+      b.timestamp,
+      b.datecreated,
+      b.abstract,
       bi.url,
       bi.journalnum,
       bi.volumenumber,
@@ -210,7 +239,12 @@ export async function getBiblioRecords(filters: QueryFilters = {}): Promise<Bibl
     ...absFilter.params
   ];
   
-  return await executeQuery<BiblioRecord>(query, params);
+  const startTime = Date.now();
+  const result = await executeQuery<BiblioRecord>(query, params);
+  const queryTime = Date.now() - startTime;
+  
+  console.log(`Query executed in ${queryTime}ms, returned ${result.length} records`);
+  return result;
 }
 
 // Get MARC metadata for specific biblio records
@@ -219,22 +253,34 @@ export async function getMarcMetadata(biblionumbers: number[]): Promise<Map<numb
     return new Map();
   }
   
-  const placeholders = biblionumbers.map(() => '?').join(',');
-  //Console log in the browser
-  console.log('Fetching MARC metadata for biblionumbers:', biblionumbers);
-  const query = `
-    SELECT biblionumber, metadata
-    FROM biblio_metadata
-    WHERE biblionumber IN (${placeholders})
-  `;
-  
-  const results = await executeQuery<BiblioMetadata>(query, biblionumbers);
+  // Process in batches to avoid query size limits
+  const batchSize = 1000;
   const metadataMap = new Map<number, string>();
   
-  results.forEach(row => {
-    metadataMap.set(row.biblionumber, row.metadata);
-  });
+  for (let i = 0; i < biblionumbers.length; i += batchSize) {
+    const batch = biblionumbers.slice(i, i + batchSize);
+    const placeholders = batch.map(() => '?').join(',');
+    
+    console.log(`Fetching MARC metadata batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(biblionumbers.length/batchSize)} (${batch.length} records)`);
+    
+    const query = `
+      SELECT biblionumber, metadata
+      FROM biblio_metadata
+      WHERE biblionumber IN (${placeholders})
+    `;
+    
+    try {
+      const results = await executeQuery<BiblioMetadata>(query, batch);
+      results.forEach(row => {
+        metadataMap.set(row.biblionumber, row.metadata);
+      });
+    } catch (error) {
+      console.error(`Error fetching MARC metadata batch:`, error);
+      // Continue with next batch instead of failing completely
+    }
+  }
   
+  console.log(`Successfully fetched MARC metadata for ${metadataMap.size}/${biblionumbers.length} records`);
   return metadataMap;
 }
 

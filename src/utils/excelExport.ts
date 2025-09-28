@@ -325,21 +325,26 @@ export async function exportToExcel(reportType: string, formData: any): Promise<
       });
     }
 
-    // Dynamically include additional author columns only if at least one row has a non-empty value
-    if (reportType === 'export_research_authors') {
-      const additionalAuthorKeys = [
-        'additional_author_id',
-        'additional_author_id_2',
-        'additional_author_id_3',
-        'additional_author_id_4',
-        'additional_author_id_5'
-      ];
-      finalColumns = finalColumns.filter(col => {
-        if (!additionalAuthorKeys.includes(col.key)) return true;
-        // Only include if at least one row has a non-empty value for this column
-        return filteredData.some(row => row[col.key] && row[col.key].toString().trim() !== '');
+    // Remove completely empty columns from all reports
+    finalColumns = finalColumns.filter(col => {
+      // Always keep essential columns like URL and Biblio
+      if (col.key === 'url' || col.key === 'biblio') return true;
+      
+      // Check if column has any non-empty values
+      const hasNonEmptyValue = filteredData.some(row => {
+        const value = row[col.key];
+        return value !== null && value !== undefined && value !== '' && 
+               (typeof value !== 'string' || value.trim() !== '');
       });
-    }
+      
+      if (!hasNonEmptyValue) {
+        console.log(`Removing empty column: ${col.header} (${col.key})`);
+      }
+      
+      return hasNonEmptyValue;
+    });
+
+    console.log(`Final column count after removing empty columns: ${finalColumns.length}`);
 
     // Create workbook and worksheet with ExcelJS
     const workbook = new ExcelJS.Workbook();
@@ -479,6 +484,40 @@ export async function exportToExcel(reportType: string, formData: any): Promise<
 async function exportCustomReportToExcel(data: ExportData[], formData?: any): Promise<void> {
   const selectedFields = formData?.selectedFields || [];
   
+  // Helper function to check if a column is completely empty
+  function isColumnEmpty(columnKey: string, data: ExportData[]): boolean {
+    return data.every(row => {
+      const value = row[columnKey];
+      return value === null || value === undefined || value === '' || (typeof value === 'string' && value.trim() === '');
+    });
+  }
+  
+  // Filter out empty columns from data
+  function removeEmptyColumns(data: ExportData[]): { filteredData: ExportData[], availableKeys: string[] } {
+    if (data.length === 0) {
+      return { filteredData: data, availableKeys: [] };
+    }
+    
+    // Get all potential column keys
+    const allKeys = new Set<string>();
+    data.forEach(row => {
+      Object.keys(row).forEach(key => allKeys.add(key));
+    });
+    
+    // Identify non-empty columns
+    const nonEmptyKeys = Array.from(allKeys).filter(key => !isColumnEmpty(key, data));
+    
+    console.log(`Removed ${allKeys.size - nonEmptyKeys.length} empty columns out of ${allKeys.size} total columns`);
+    
+    return { 
+      filteredData: data, // Keep original data, just track which columns to include
+      availableKeys: nonEmptyKeys 
+    };
+  }
+  
+  // Remove empty columns before processing
+  const { filteredData, availableKeys } = removeEmptyColumns(data);
+  
   // Create workbook and worksheet with ExcelJS
   const workbook = new ExcelJS.Workbook();
   workbook.created = new Date();
@@ -487,20 +526,27 @@ async function exportCustomReportToExcel(data: ExportData[], formData?: any): Pr
   workbook.title = 'Custom Report';
   workbook.subject = 'Custom Report Export';
   
-  // Define base columns for custom report
-  const columns: ExportColumn[] = [
-    { header: "URL", key: "url" },
-    { header: "Biblio", key: "biblio" }
-  ];
+  // Define base columns for custom report - only include if they have data
+  const columns: ExportColumn[] = [];
+  
+  // Add URL column if it has data
+  if (availableKeys.includes('url')) {
+    columns.push({ header: "URL", key: "url" });
+  }
+  
+  // Add Biblio column if it has data  
+  if (availableKeys.includes('biblio')) {
+    columns.push({ header: "Biblio", key: "biblio" });
+  }
 
-  // Add all dynamically generated MARC fields as columns
+  // Add all dynamically generated MARC fields as columns - only non-empty ones
   if (data.length > 0) {
-    // Get all MARC field keys from the first record
-    const marcFieldKeys = Object.keys(data[0])
+    // Get all MARC field keys from available (non-empty) keys
+    const marcFieldKeys = availableKeys
       .filter(key => key.startsWith('marc_'))
       .sort();
     
-    // Create columns for each MARC field
+    // Create columns for each non-empty MARC field
     marcFieldKeys.forEach(marcKey => {
       let header = marcKey;
       
@@ -534,6 +580,7 @@ async function exportCustomReportToExcel(data: ExportData[], formData?: any): Pr
     });
   } else {
     // No data available, create basic column structure based on selected fields
+    // (This case is rare since we check for empty data earlier)
     selectedFields.forEach((fieldTag: string) => {
       columns.push({
         header: `${fieldTag} - Field`,

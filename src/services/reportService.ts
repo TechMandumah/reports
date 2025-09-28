@@ -349,49 +349,74 @@ const MARC_FIELD_CONFIGS: { [key: string]: { subfields: string[], multiValue?: b
 };
 
 // Build dynamic EXTRACTVALUE queries based on selected MARC fields
-function buildCustomMarcExtractions(selectedFields: string[]): { selectFields: string[], fieldMap: { [key: string]: string } } {
+function buildCustomMarcExtractions(selectedFields: string[], isBiblioSearch = false): { selectFields: string[], fieldMap: { [key: string]: string } } {
   const selectFields: string[] = [];
   const fieldMap: { [key: string]: string } = {};
+  
+  // For biblio number searches, limit MARC extractions to prevent performance issues
+  const maxFieldsForBiblioSearch = 15; // Reduce from 88 to 15 extractions max
+  let extractionCount = 0;
   
   selectedFields.forEach(fieldTag => {
     const config = MARC_FIELD_CONFIGS[fieldTag];
     if (!config) return;
     
+    // Skip if we've reached the limit for biblio searches
+    if (isBiblioSearch && extractionCount >= maxFieldsForBiblioSearch) {
+      console.log(`Limiting MARC field extractions at ${maxFieldsForBiblioSearch} for biblio search performance`);
+      return;
+    }
+    
     if (fieldTag === '000') {
       // Leader field - special handling
       selectFields.push('EXTRACTVALUE(bm.metadata, \'//leader\') AS marc_000');
       fieldMap[`marc_000`] = `${fieldTag}_Leader`;
+      extractionCount++;
     } else if (fieldTag === '001') {
       // Control number
       selectFields.push('EXTRACTVALUE(bm.metadata, \'//controlfield[@tag="001"]\') AS marc_001');
       fieldMap[`marc_001`] = `${fieldTag}_Control_Number`;
+      extractionCount++;
     } else {
       // Regular datafields with subfields
       config.subfields.forEach(subfield => {
+        // Skip if we've reached the limit for biblio searches
+        if (isBiblioSearch && extractionCount >= maxFieldsForBiblioSearch) {
+          return;
+        }
+        
         if (config.multiValue && fieldTag === '700') {
-          // Handle multiple 700 fields (additional authors)
-          for (let i = 1; i <= 5; i++) {
+          // Handle multiple 700 fields (additional authors) - limit for biblio search
+          const maxInstances = isBiblioSearch ? 2 : 5; // Reduce instances for biblio search
+          for (let i = 1; i <= maxInstances; i++) {
+            if (isBiblioSearch && extractionCount >= maxFieldsForBiblioSearch) break;
             const fieldKey = `marc_${fieldTag}_${i}_${subfield}`;
             selectFields.push(`EXTRACTVALUE(bm.metadata, '//datafield[@tag="${fieldTag}"][${i}]/subfield[@code="${subfield}"]') AS ${fieldKey}`);
             fieldMap[fieldKey] = `${fieldTag}_${subfield}_Author_${i}`;
+            extractionCount++;
           }
         } else if (config.multiValue && (fieldTag === '653' || fieldTag === '692')) {
-          // Handle multiple keyword fields
-          for (let i = 1; i <= 10; i++) {
+          // Handle multiple keyword fields - limit for biblio search
+          const maxInstances = isBiblioSearch ? 3 : 10; // Reduce instances for biblio search
+          for (let i = 1; i <= maxInstances; i++) {
+            if (isBiblioSearch && extractionCount >= maxFieldsForBiblioSearch) break;
             const fieldKey = `marc_${fieldTag}_${i}_${subfield}`;
             selectFields.push(`EXTRACTVALUE(bm.metadata, '//datafield[@tag="${fieldTag}"][${i}]/subfield[@code="${subfield}"]') AS ${fieldKey}`);
             fieldMap[fieldKey] = `${fieldTag}_${subfield}_${i}`;
+            extractionCount++;
           }
         } else {
           // Regular single fields
           const fieldKey = `marc_${fieldTag}_${subfield}`;
           selectFields.push(`EXTRACTVALUE(bm.metadata, '//datafield[@tag="${fieldTag}"]/subfield[@code="${subfield}"]') AS ${fieldKey}`);
           fieldMap[fieldKey] = `${fieldTag}_${subfield}`;
+          extractionCount++;
         }
       });
     }
   });
   
+  console.log(`Generated ${extractionCount} MARC extractions for ${isBiblioSearch ? 'biblio' : 'general'} search`);
   return { selectFields, fieldMap };
 }
 
@@ -406,22 +431,100 @@ async function getBiblioRecordsForCustomReport(filters: QueryFilters, selectedFi
   const authorFilter = buildAuthorFilter(authorName);
   const absFilter = buildAbstractFilter(abstractFilter);
   
-  // Build dynamic MARC extractions based on selected fields
-  const { selectFields, fieldMap } = buildCustomMarcExtractions(selectedFields);
+  // Detect if this is a biblio number search for performance optimization
+  const isBiblioSearch = biblioNumbers && biblioNumbers.length > 0;
+  
+  // Build dynamic MARC extractions based on selected fields with optimization for biblio searches
+  const { selectFields, fieldMap } = buildCustomMarcExtractions(selectedFields, isBiblioSearch);
   
   // Add LIMIT clause for preview mode
   const limitClause = isPreview ? 'LIMIT 5' : '';
   
+  // For large biblio searches, use two-stage approach to prevent timeouts
+  if (isBiblioSearch && biblioNumbers && biblioNumbers.length > 5) {
+    console.log('Using two-stage approach for large biblio number search to prevent server timeout');
+    
+    // Stage 1: Get basic record info first (fast query)
+    const basicQuery = `
+      SELECT 
+        b.biblionumber,
+        b.author,
+        b.title,
+        bi.url
+      FROM biblio b
+      LEFT JOIN biblioitems bi ON b.biblionumber = bi.biblionumber
+      WHERE 1=1
+      ${biblioFilter.clause}
+      ORDER BY b.biblionumber DESC
+      ${limitClause}
+    `;
+    
+    const basicResult = await executeQuery<any>(basicQuery, biblioFilter.params);
+    
+    if (basicResult.length === 0) {
+      return [];
+    }
+    
+    // Stage 2: Get MARC data for found records only if needed
+    const foundBiblios = basicResult.map(r => r.biblionumber);
+    const limitedBiblioFilter = buildBiblioNumbersFilter(foundBiblios.map(String));
+    
+    const marcSelectClause = selectFields.length > 0 ? `,\n      ${selectFields.join(',\n      ')}` : '';
+    
+    const marcQuery = `
+      SELECT 
+        b.biblionumber,
+        b.frameworkcode,
+        b.author,
+        b.title,
+        b.medium,
+        b.subtitle,
+        b.part_number,
+        b.part_name,
+        b.unititle,
+        b.notes,
+        b.serial,
+        b.seriestitle,
+        b.copyrightdate,
+        b.timestamp,
+        b.datecreated,
+        b.abstract,
+        bi.url,
+        bi.journalnum,
+        bi.volumenumber,
+        bi.issuenumber${marcSelectClause}
+      FROM biblio b
+      LEFT JOIN biblioitems bi ON b.biblionumber = bi.biblionumber
+      LEFT JOIN biblio_metadata bm ON b.biblionumber = bm.biblionumber
+      WHERE 1=1
+      ${limitedBiblioFilter.clause}
+      ORDER BY b.biblionumber DESC
+    `;
+    
+    const startTime = Date.now();
+    const result = await executeQuery<any>(marcQuery, limitedBiblioFilter.params);
+    const queryTime = Date.now() - startTime;
+    
+    console.log(`Two-stage biblio query executed in ${queryTime}ms, returned ${result.length} records with ${selectFields.length} MARC extractions`);
+    return result.map(record => ({ ...record, _marcFieldMap: fieldMap }));
+  }
+  
   // Log query info for performance debugging
   if (biblioNumbers && biblioNumbers.length > 0) {
-    console.log(`Executing custom biblio query for ${biblioNumbers.length} biblio numbers with ${selectedFields.length} MARC fields`);
+    console.log(`Executing custom biblio query for ${biblioNumbers.length} biblio numbers with ${selectedFields.length} selected MARC fields (${selectFields.length} extractions)`);
+    console.log('Performance optimization: Limiting MARC extractions for biblio number searches');
+  } else {
+    console.log(`Executing custom query with ${selectedFields.length} selected MARC fields (${selectFields.length} extractions)`);
   }
   
   // Build query with selected MARC field extractions
   const marcSelectClause = selectFields.length > 0 ? `,\n      ${selectFields.join(',\n      ')}` : '';
   
+  // Add query hints for performance optimization
+  const queryHints = isBiblioSearch ? '/*+ USE_INDEX(b, PRIMARY) */' : '';
+
   const query = `
-    SELECT 
+    SELECT ${queryHints}
       b.biblionumber,
       b.frameworkcode,
       b.author,

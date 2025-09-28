@@ -74,6 +74,7 @@ export default function ReportContent({ activeReport }: ReportContentProps) {
           reportType: activeReport,
           filters: {
             magazineNumbers: formData.magazineNumbers,
+            biblioNumbers: formData.biblioNumbers,
             startYear: formData.startYear ? parseInt(formData.startYear) : undefined,
             endYear: formData.endYear ? parseInt(formData.endYear) : undefined,
             authorName: formData.authorName,

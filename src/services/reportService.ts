@@ -322,32 +322,201 @@ export async function generatePredefinedReport(reportType: string, filters: Quer
   return reportData;
 }
 
-// Generate custom report with selected MARC fields using EXTRACTVALUE
+// MARC field configurations for dynamic EXTRACTVALUE queries
+const MARC_FIELD_CONFIGS: { [key: string]: { subfields: string[], multiValue?: boolean } } = {
+  '000': { subfields: [''] }, // Leader - special field, no subfields
+  '001': { subfields: [''] }, // Control Number
+  '024': { subfields: ['a', 'c', '2'] }, // Other Standard Identifier
+  '041': { subfields: ['a', 'b'] }, // Language Code
+  '044': { subfields: ['a', 'b'] }, // Country code
+  '100': { subfields: ['a', '9', 'd', 'c'] }, // Main Author
+  '110': { subfields: ['a', '9'] }, // Corporate Name
+  '242': { subfields: ['a', 'b', 'c'] }, // Translation of Title
+  '245': { subfields: ['a', 'b', 'c', 'n', 'p'] }, // Title Statement
+  '246': { subfields: ['a', 'b'] }, // Varying Form of Title
+  '260': { subfields: ['a', 'b', 'c'] }, // Publication
+  '300': { subfields: ['a', 'b', 'c'] }, // Physical Description
+  '336': { subfields: ['a', 'b'] }, // Content Type
+  '500': { subfields: ['a'] }, // General Note
+  '520': { subfields: ['a', 'b', 'd', 'e', 'f'] }, // Summary/Abstract
+  '653': { subfields: ['a'], multiValue: true }, // Index Term
+  '692': { subfields: ['a'], multiValue: true }, // Keywords
+  '700': { subfields: ['a', '9', 'd', 'c'], multiValue: true }, // Additional Authors
+  '773': { subfields: ['t', 'g', 'd', 'x'] }, // Host Item
+  '856': { subfields: ['u', 'y', 'z'] }, // Electronic Location
+  '930': { subfields: ['a'] }, // Equivalence
+  '995': { subfields: ['a'] }, // Recommendation
+};
+
+// Build dynamic EXTRACTVALUE queries based on selected MARC fields
+function buildCustomMarcExtractions(selectedFields: string[]): { selectFields: string[], fieldMap: { [key: string]: string } } {
+  const selectFields: string[] = [];
+  const fieldMap: { [key: string]: string } = {};
+  
+  selectedFields.forEach(fieldTag => {
+    const config = MARC_FIELD_CONFIGS[fieldTag];
+    if (!config) return;
+    
+    if (fieldTag === '000') {
+      // Leader field - special handling
+      selectFields.push('EXTRACTVALUE(bm.metadata, \'//leader\') AS marc_000');
+      fieldMap[`marc_000`] = `${fieldTag}_Leader`;
+    } else if (fieldTag === '001') {
+      // Control number
+      selectFields.push('EXTRACTVALUE(bm.metadata, \'//controlfield[@tag="001"]\') AS marc_001');
+      fieldMap[`marc_001`] = `${fieldTag}_Control_Number`;
+    } else {
+      // Regular datafields with subfields
+      config.subfields.forEach(subfield => {
+        if (config.multiValue && fieldTag === '700') {
+          // Handle multiple 700 fields (additional authors)
+          for (let i = 1; i <= 5; i++) {
+            const fieldKey = `marc_${fieldTag}_${i}_${subfield}`;
+            selectFields.push(`EXTRACTVALUE(bm.metadata, '//datafield[@tag="${fieldTag}"][${i}]/subfield[@code="${subfield}"]') AS ${fieldKey}`);
+            fieldMap[fieldKey] = `${fieldTag}_${subfield}_Author_${i}`;
+          }
+        } else if (config.multiValue && (fieldTag === '653' || fieldTag === '692')) {
+          // Handle multiple keyword fields
+          for (let i = 1; i <= 10; i++) {
+            const fieldKey = `marc_${fieldTag}_${i}_${subfield}`;
+            selectFields.push(`EXTRACTVALUE(bm.metadata, '//datafield[@tag="${fieldTag}"][${i}]/subfield[@code="${subfield}"]') AS ${fieldKey}`);
+            fieldMap[fieldKey] = `${fieldTag}_${subfield}_${i}`;
+          }
+        } else {
+          // Regular single fields
+          const fieldKey = `marc_${fieldTag}_${subfield}`;
+          selectFields.push(`EXTRACTVALUE(bm.metadata, '//datafield[@tag="${fieldTag}"]/subfield[@code="${subfield}"]') AS ${fieldKey}`);
+          fieldMap[fieldKey] = `${fieldTag}_${subfield}`;
+        }
+      });
+    }
+  });
+  
+  return { selectFields, fieldMap };
+}
+
+// Get bibliographic records with custom MARC field selection using EXTRACTVALUE
+async function getBiblioRecordsForCustomReport(filters: QueryFilters, selectedFields: string[]): Promise<any[]> {
+  const { magazineNumbers, startYear, endYear, authorName, isPreview, biblioNumbers, abstractFilter } = filters;
+  
+  // Build query filters
+  const biblioFilter = buildBiblioNumbersFilter(biblioNumbers);
+  const magazineFilter = buildMagazineNumbersFilter(magazineNumbers);
+  const yearFilter = buildYearRangeFilter(startYear, endYear);
+  const authorFilter = buildAuthorFilter(authorName);
+  const absFilter = buildAbstractFilter(abstractFilter);
+  
+  // Build dynamic MARC extractions based on selected fields
+  const { selectFields, fieldMap } = buildCustomMarcExtractions(selectedFields);
+  
+  // Add LIMIT clause for preview mode
+  const limitClause = isPreview ? 'LIMIT 5' : '';
+  
+  // Log query info for performance debugging
+  if (biblioNumbers && biblioNumbers.length > 0) {
+    console.log(`Executing custom biblio query for ${biblioNumbers.length} biblio numbers with ${selectedFields.length} MARC fields`);
+  }
+  
+  // Build query with selected MARC field extractions
+  const marcSelectClause = selectFields.length > 0 ? `,\n      ${selectFields.join(',\n      ')}` : '';
+  
+  const query = `
+    SELECT 
+      b.biblionumber,
+      b.frameworkcode,
+      b.author,
+      b.title,
+      b.medium,
+      b.subtitle,
+      b.part_number,
+      b.part_name,
+      b.unititle,
+      b.notes,
+      b.serial,
+      b.seriestitle,
+      b.copyrightdate,
+      b.timestamp,
+      b.datecreated,
+      b.abstract,
+      bi.url,
+      bi.journalnum,
+      bi.volumenumber,
+      bi.issuenumber${marcSelectClause}
+    FROM biblio b
+    LEFT JOIN biblioitems bi ON b.biblionumber = bi.biblionumber
+    LEFT JOIN biblio_metadata bm ON b.biblionumber = bm.biblionumber
+    WHERE 1=1
+    ${biblioFilter.clause}
+    ${magazineFilter.clause}
+    ${yearFilter.clause}
+    ${authorFilter.clause}
+    ${absFilter.clause}
+    ORDER BY b.biblionumber DESC
+    ${limitClause}
+  `;
+  
+  const params = [
+    ...biblioFilter.params,
+    ...magazineFilter.params,
+    ...yearFilter.params,
+    ...authorFilter.params,
+    ...absFilter.params
+  ];
+  
+  const startTime = Date.now();
+  const result = await executeQuery<any>(query, params);
+  const queryTime = Date.now() - startTime;
+  
+  console.log(`Custom query executed in ${queryTime}ms, returned ${result.length} records with ${selectFields.length} MARC extractions`);
+  return result.map(record => ({ ...record, _marcFieldMap: fieldMap }));
+}
+
+// Generate custom report with selected MARC fields using dynamic EXTRACTVALUE
 export async function generateCustomReport(filters: QueryFilters): Promise<ReportQueryResult[]> {
-  // For custom reports, we'll get the basic records and add specific MARC extractions as needed
-  // This is a simplified version - for full flexibility, we could build dynamic EXTRACTVALUE queries
-  const biblioRecords = await getBiblioRecords(filters);
+  const { selectedFields } = filters;
+  
+  if (!selectedFields || selectedFields.length === 0) {
+    console.log('No MARC fields selected for custom report, using default fields');
+    // Use default common fields if none selected
+    const defaultFields = ['245', '100', '260', '520'];
+    const updatedFilters = { ...filters, selectedFields: defaultFields };
+    return generateCustomReport(updatedFilters);
+  }
+  
+  // Get bibliographic records with custom MARC field extractions
+  const biblioRecords = await getBiblioRecordsForCustomReport(filters, selectedFields);
   
   if (biblioRecords.length === 0) {
     return [];
   }
   
-  // Transform records into report format - all common MARC fields are already extracted
+  // Transform records into report format with all selected MARC fields
   const reportData: ReportQueryResult[] = biblioRecords.map(record => {
+    const marcFieldMap = record._marcFieldMap || {};
+    delete record._marcFieldMap; // Remove helper field
+    
     // Base result with common fields
     const result: ReportQueryResult = {
       ...record,
-      url: record.url || '', // Use the PDF filename from biblioitems
+      url: record.url || '',
       biblio: String(record.biblionumber).padStart(4, '0'),
       link: `https://cataloging.mandumah.com/cgi-bin/koha/catalogue/detail.pl?biblionumber=${record.biblionumber}`
     };
     
-    // All MARC fields are already extracted in getBiblioRecords using EXTRACTVALUE
-    // They're available as marc_245_a, marc_100_a, etc.
+    // Add all extracted MARC fields with proper field names for export/display
+    Object.keys(marcFieldMap).forEach(marcKey => {
+      const fieldName = marcFieldMap[marcKey];
+      const fieldValue = record[marcKey] || '';
+      
+      // Add both the raw marc field and a display-friendly version
+      (result as any)[marcKey] = fieldValue;
+      (result as any)[fieldName] = fieldValue;
+    });
     
     return result;
   });
   
+  console.log(`Generated custom report with ${reportData.length} records and ${selectedFields.length} MARC fields`);
   return reportData;
 }
 

@@ -885,69 +885,48 @@ export default function CustomReportForm({
                     {selectedFields.map(fieldTag => {
                       const field = marcFields.find(f => f.tag === fieldTag);
                       
-                      if (fieldTag === '520') {
-                        // Special handling for tag 520 - find all subfields in the preview data
-                        const subfieldCodes = new Set<string>();
-                        previewData.forEach(row => {
-                          Object.keys(row).forEach(key => {
-                            if (key.startsWith('marc_520_')) {
-                              const code = key.replace('marc_520_', '');
-                              subfieldCodes.add(code);
-                            }
-                          });
+                      // Find all actual MARC fields for this tag in the preview data
+                      const actualMarcFields = new Set<string>();
+                      if (previewData.length > 0) {
+                        Object.keys(previewData[0]).forEach(key => {
+                          if (key.startsWith(`marc_${fieldTag}_`) || 
+                              (fieldTag === '000' && key === 'marc_000') ||
+                              (fieldTag === '001' && key === 'marc_001')) {
+                            actualMarcFields.add(key);
+                          }
                         });
+                      }
+                      
+                      // Generate headers for actual fields found
+                      return Array.from(actualMarcFields).sort().map(marcKey => {
+                        let header = `${fieldTag} - ${field?.tag_name || 'Field'}`;
                         
-                        return Array.from(subfieldCodes).sort().map(code => (
-                          <th key={`520_${code}`} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-300">
-                            520{code} - Abstract {code.toUpperCase()}
-                          </th>
-                        ));
-                      } else if (fieldTag === '100') {
-                        // Special handling for field 100 - main author with ID
-                        return [
-                          <th key="100_author" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-300">
-                            100 - Main Author
-                          </th>,
-                          <th key="100_id" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-300">
-                            100 - Main Author ID
-                          </th>
-                        ];
-                      } else if (fieldTag === '700') {
-                        // Special handling for field 700 - only show ID columns
-                        const authorIdColumns = new Set<string>();
-                        previewData.forEach(row => {
-                          Object.keys(row).forEach(key => {
-                            if ((key === 'marc_700_id' || key.match(/^marc_700_id_\d+$/)) && row[key] && row[key].toString().trim() !== '') {
-                              authorIdColumns.add(key);
+                        if (marcKey === 'marc_000') {
+                          header = '000 - Leader';
+                        } else if (marcKey === 'marc_001') {
+                          header = '001 - Control Number';
+                        } else if (marcKey.includes('_')) {
+                          // Extract subfield info from key like marc_245_a or marc_700_1_a
+                          const parts = marcKey.split('_');
+                          if (parts.length >= 3) {
+                            const subfield = parts[parts.length - 1]; // Last part is subfield
+                            if (parts.length === 4 && /^\d+$/.test(parts[2])) {
+                              // Multi-value field like marc_700_1_a
+                              const instance = parts[2];
+                              header = `${fieldTag}/${subfield} #${instance}`;
+                            } else {
+                              // Regular field like marc_245_a
+                              header = `${fieldTag}/${subfield}`;
                             }
-                          });
-                        });
+                          }
+                        }
                         
-                        return Array.from(authorIdColumns).sort((a, b) => {
-                          const aMatch = a.match(/_(\d+)$/);
-                          const bMatch = b.match(/_(\d+)$/);
-                          const aNum = aMatch ? parseInt(aMatch[1]) : 1;
-                          const bNum = bMatch ? parseInt(bMatch[1]) : 1;
-                          return aNum - bNum;
-                        }).map(columnKey => {
-                          const instanceNumber = columnKey.includes('_id_') ? columnKey.split('_').pop() : '';
-                          const header = columnKey === 'marc_700_id' 
-                            ? '700 - Additional Author ID'
-                            : `700 - Additional Author ID (${instanceNumber})`;
-                          
-                          return (
-                            <th key={columnKey} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-300">
-                              {header}
-                            </th>
-                          );
-                        });
-                      } else {
                         return (
-                          <th key={fieldTag} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-300">
-                            {fieldTag} - {field?.tag_name}
+                          <th key={marcKey} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-300">
+                            {header}
                           </th>
                         );
-                      }
+                      });
                     })}
                   </tr>
                 </thead>
@@ -961,76 +940,42 @@ export default function CustomReportForm({
                         {row.biblio || '-'}
                       </td>
                       {selectedFields.map(fieldTag => {
-                        if (fieldTag === '520') {
-                          // Special handling for tag 520 - show all subfields
-                          const subfieldCodes = new Set<string>();
-                          previewData.forEach(previewRow => {
-                            Object.keys(previewRow).forEach(key => {
-                              if (key.startsWith('marc_520_')) {
-                                const code = key.replace('marc_520_', '');
-                                subfieldCodes.add(code);
-                              }
-                            });
+                        // Find all actual MARC fields for this tag in the preview data
+                        const actualMarcFields = new Set<string>();
+                        if (previewData.length > 0) {
+                          Object.keys(previewData[0]).forEach(key => {
+                            if (key.startsWith(`marc_${fieldTag}_`) || 
+                                (fieldTag === '000' && key === 'marc_000') ||
+                                (fieldTag === '001' && key === 'marc_001')) {
+                              actualMarcFields.add(key);
+                            }
                           });
+                        }
+                        
+                        // Generate cells for actual fields found
+                        return Array.from(actualMarcFields).sort().map(marcKey => {
+                          const value = row[marcKey] || '';
                           
-                          return Array.from(subfieldCodes).sort().map(code => (
-                            <td key={`520_${code}_${index}`} className="px-3 py-2 text-sm text-gray-900 border-r border-gray-300 max-w-xs truncate">
-                              {row[`marc_520_${code}`] || '-'}
-                            </td>
-                          ));
-                        } else if (fieldTag === '100') {
-                          // Special handling for field 100 - main author with ID
-                          return [
-                            <td key={`100_author_${index}`} className="px-3 py-2 text-sm text-gray-900 border-r border-gray-300 max-w-xs truncate">
-                              {row.marc_100 || '-'}
-                            </td>,
-                            <td key={`100_id_${index}`} className="px-3 py-2 text-sm text-gray-900 border-r border-gray-300 max-w-xs truncate">
-                              {row.marc_100_id ? (
-                                <a href={`https://cataloging.mandumah.com/cgi-bin/koha/authorities/authorities.pl?authid=${row.marc_100_id}`} 
+                          // Special handling for authority IDs (subfield 9)
+                          if (marcKey.endsWith('_9') && value) {
+                            return (
+                              <td key={`${marcKey}_${index}`} className="px-3 py-2 text-sm text-gray-900 border-r border-gray-300 max-w-xs truncate">
+                                <a href={`https://cataloging.mandumah.com/cgi-bin/koha/authorities/authorities.pl?authid=${value}`} 
                                    target="_blank" 
                                    rel="noopener noreferrer"
                                    className="text-blue-600 hover:text-blue-800 underline">
-                                  {row.marc_100_id}
+                                  {value}
                                 </a>
-                              ) : '-'}
-                            </td>
-                          ];
-                        } else if (fieldTag === '700') {
-                          // Special handling for field 700 - only show ID columns
-                          const authorIdColumns = new Set<string>();
-                          previewData.forEach(previewRow => {
-                            Object.keys(previewRow).forEach(key => {
-                              if ((key === 'marc_700_id' || key.match(/^marc_700_id_\d+$/)) && previewRow[key] && previewRow[key].toString().trim() !== '') {
-                                authorIdColumns.add(key);
-                              }
-                            });
-                          });
+                              </td>
+                            );
+                          }
                           
-                          return Array.from(authorIdColumns).sort((a, b) => {
-                            const aMatch = a.match(/_(\d+)$/);
-                            const bMatch = b.match(/_(\d+)$/);
-                            const aNum = aMatch ? parseInt(aMatch[1]) : 1;
-                            const bNum = bMatch ? parseInt(bMatch[1]) : 1;
-                            return aNum - bNum;
-                          }).map(columnKey => (
-                            <td key={`${columnKey}_${index}`} className="px-3 py-2 text-sm text-gray-900 border-r border-gray-300 max-w-xs truncate">
-                              {row[columnKey] ? (
-                                <a href={`https://cataloging.mandumah.com/cgi-bin/koha/authorities/authorities.pl?authid=${row[columnKey]}`} 
-                                   target="_blank" 
-                                   rel="noopener noreferrer"
-                                   className="text-blue-600 hover:text-blue-800 underline">
-                                  {row[columnKey]}
-                                </a>
-                              ) : '-'}
-                            </td>
-                          ));
-                        } else {
                           return (
-                            <td key={fieldTag} className="px-3 py-2 text-sm text-gray-900 border-r border-gray-300 max-w-xs truncate">
-                              {row[`marc_${fieldTag}`] || '-'}
+                            <td key={`${marcKey}_${index}`} className="px-3 py-2 text-sm text-gray-900 border-r border-gray-300 max-w-xs truncate">
+                              {value || '-'}
                             </td>
                           );
-                        }
+                        });
                       })}
                     </tr>
                   ))}

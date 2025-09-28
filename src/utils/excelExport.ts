@@ -487,122 +487,73 @@ async function exportCustomReportToExcel(data: ExportData[], formData?: any): Pr
   workbook.title = 'Custom Report';
   workbook.subject = 'Custom Report Export';
   
-  // Define columns for custom report
+  // Define base columns for custom report
   const columns: ExportColumn[] = [
     { header: "URL", key: "url" },
     { header: "Biblio", key: "biblio" }
   ];
 
-  // Add selected MARC fields as columns
-  selectedFields.forEach((fieldTag: string) => {
-    if (fieldTag === '520') {
-      // Special handling for tag 520 - find all subfields in the data
-      const subfieldCodes = new Set<string>();
-      data.forEach(row => {
-        Object.keys(row).forEach(key => {
-          if (key.startsWith('marc_520_')) {
-            const code = key.replace('marc_520_', '');
-            subfieldCodes.add(code);
-          }
-        });
-      });
+  // Add all dynamically generated MARC fields as columns
+  if (data.length > 0) {
+    // Get all MARC field keys from the first record
+    const marcFieldKeys = Object.keys(data[0])
+      .filter(key => key.startsWith('marc_'))
+      .sort();
+    
+    // Create columns for each MARC field
+    marcFieldKeys.forEach(marcKey => {
+      let header = marcKey;
       
-      // Add columns for each subfield
-      Array.from(subfieldCodes).sort().forEach(code => {
-        columns.push({
-          header: `520${code} - Abstract Subfield ${code.toUpperCase()}`,
-          key: `marc_520_${code}`
-        });
-      });
-    } else if (fieldTag === '100') {
-      // Special handling for field 100 - main author with ID
-      columns.push({
-        header: `100 - Main Author`,
-        key: `marc_100`
-      });
-      columns.push({
-        header: `100 - Main Author ID`,
-        key: `marc_100_id`
-      });
-    } else if (fieldTag === '700') {
-      // Special handling for field 700 - additional authors with IDs
-      // Only include ID columns, not author name columns
-      const authorIdInstances = new Set<string>();
-      data.forEach(row => {
-        Object.keys(row).forEach(key => {
-          if ((key === 'marc_700_id' || key.match(/^marc_700_id_\d+$/)) && row[key] && row[key].toString().trim() !== '') {
-            authorIdInstances.add(key);
-          }
-        });
-      });
-      
-      const sortedAuthorIdInstances = Array.from(authorIdInstances).sort((a, b) => {
-        const aMatch = a.match(/_(\d+)$/);
-        const bMatch = b.match(/_(\d+)$/);
-        const aNum = aMatch ? parseInt(aMatch[1]) : 1;
-        const bNum = bMatch ? parseInt(bMatch[1]) : 1;
-        return aNum - bNum;
-      });
-      
-      // Add columns for each author ID instance
-      sortedAuthorIdInstances.forEach((instanceKey, index) => {
-        const instanceNumber = instanceKey.includes('_id_') ? instanceKey.split('_').pop() : '';
-        const header = index === 0 
-          ? `700 - Additional Author ID`
-          : `700 - Additional Author ID (${instanceNumber})`;
-        
-        columns.push({
-          header,
-          key: instanceKey
-        });
-      });
-    } else {
-      // Handle multiple instances of the same field
-      const fieldInfo = marcFieldMapping[fieldTag];
-      if (fieldInfo) {
-        // Find all instances of this field in the data
-        const fieldInstances = new Set<string>();
-        data.forEach(row => {
-          Object.keys(row).forEach(key => {
-            if (key === `marc_${fieldTag}`) {
-              fieldInstances.add(key);
-            } else if (key.startsWith(`marc_${fieldTag}_`)) {
-              fieldInstances.add(key);
-            }
-          });
-        });
-        
-        // Sort the instances to ensure consistent column order
-        const sortedInstances = Array.from(fieldInstances).sort((a, b) => {
-          // Extract instance number for sorting
-          const aMatch = a.match(/_(\d+)$/);
-          const bMatch = b.match(/_(\d+)$/);
-          const aNum = aMatch ? parseInt(aMatch[1]) : 1;
-          const bNum = bMatch ? parseInt(bMatch[1]) : 1;
-          return aNum - bNum;
-        });
-        
-        // Add columns for each instance
-        sortedInstances.forEach((instanceKey, index) => {
-          const instanceNumber = instanceKey.includes('_') ? instanceKey.split('_').pop() : '1';
-          const header = index === 0 
-            ? `${fieldTag} - ${fieldInfo.name}`
-            : `${fieldTag} - ${fieldInfo.name} (${instanceNumber})`;
+      // Create user-friendly headers
+      if (marcKey === 'marc_000') {
+        header = '000 - Leader';
+      } else if (marcKey === 'marc_001') {
+        header = '001 - Control Number';
+      } else if (marcKey.includes('_')) {
+        // Parse dynamic field keys like marc_245_a or marc_700_1_a
+        const parts = marcKey.split('_');
+        if (parts.length >= 3) {
+          const fieldTag = parts[1];
+          const subfield = parts[parts.length - 1];
           
-          columns.push({
-            header,
-            key: instanceKey
-          });
-        });
+          if (parts.length === 4 && /^\d+$/.test(parts[2])) {
+            // Multi-value field like marc_700_1_a
+            const instance = parts[2];
+            header = `${fieldTag}/${subfield} #${instance}`;
+          } else {
+            // Regular field like marc_245_a
+            header = `${fieldTag}/${subfield}`;
+          }
+        }
       }
-    }
-  });
+      
+      columns.push({
+        header: header,
+        key: marcKey
+      });
+    });
+  } else {
+    // No data available, create basic column structure based on selected fields
+    selectedFields.forEach((fieldTag: string) => {
+      columns.push({
+        header: `${fieldTag} - Field`,
+        key: `marc_${fieldTag}`
+      });
+    });
+  }
 
   // Prepare data for Excel
   const excelData = data.map(row => {
     const excelRow: any = {};
     columns.forEach(col => {
-      excelRow[col.header] = row[col.key] || '';
+      const value = row[col.key] || '';
+      
+      // Special handling for authority IDs (subfield 9) - make them clickable
+      if (col.key.endsWith('_9') && value) {
+        excelRow[col.header] = value; // Store the value, hyperlink will be added later
+      } else {
+        excelRow[col.header] = value;
+      }
     });
     return excelRow;
   });
@@ -620,15 +571,14 @@ async function exportCustomReportToExcel(data: ExportData[], formData?: any): Pr
     const dataRow = columns.map(col => row[col.header] || '');
     worksheet.addRow(dataRow);
   });
-  
-  // Make biblio column clickable for custom reports too
+
+  // Make biblio column clickable
   const biblioColumnIndex = columns.findIndex(col => col.key === 'biblio');
   if (biblioColumnIndex !== -1) {
     // Add hyperlinks to biblio cells (starting from row 2, column is 1-indexed)
     for (let rowIndex = 2; rowIndex <= excelData.length + 1; rowIndex++) {
       const cell = worksheet.getCell(rowIndex, biblioColumnIndex + 1);
       const biblioNumber = cell.value;
-      
       if (biblioNumber) {
         // Extract the actual number from padded string (e.g., "0001" -> 1)
         const biblioNumericValue = biblioNumber.toString().replace(/^0+/, '') || biblioNumber;
@@ -650,40 +600,24 @@ async function exportCustomReportToExcel(data: ExportData[], formData?: any): Pr
       }
     }
   }
-
-  // Make author ID columns clickable for custom reports (field 100 and 700)
-  const authorIdColumns = columns
-    .map((col, index) => ({ col, index }))
-    .filter(({ col }) => 
-      col.key === 'marc_100_id' || 
-      col.key === 'marc_700_id' || 
-      col.key.match(/^marc_700_id_\d+$/)
-    );
-
-  // Add hyperlinks to author ID cells
-  authorIdColumns.forEach(({ col, index: columnIndex }) => {
-    for (let rowIndex = 2; rowIndex <= excelData.length + 1; rowIndex++) {
-      const cell = worksheet.getCell(rowIndex, columnIndex + 1);
-      const authorId = cell.value;
-      
-      if (authorId) {
-        // Create hyperlink to Koha authorities page
-        const authoritiesUrl = `https://cataloging.mandumah.com/cgi-bin/koha/authorities/authorities.pl?authid=${authorId}`;
-        
-        // Set cell as hyperlink using ExcelJS with proper styling
-        cell.value = {
-          text: authorId.toString(),
-          hyperlink: authoritiesUrl
-        };
-        
-        // Apply default Excel hyperlink styling (blue color, underline)
-        cell.font = {
-          color: { argb: 'FF0000FF' }, // Blue color
-          underline: true
-        };
+  
+  // Make authority ID columns (subfield 9) clickable
+  columns.forEach((col, colIndex) => {
+    if (col.key.endsWith('_9')) {
+      // Add hyperlinks to authority ID cells (starting from row 2, column is 1-indexed)
+      for (let rowIndex = 2; rowIndex <= excelData.length + 1; rowIndex++) {
+        const cell = worksheet.getCell(rowIndex, colIndex + 1);
+        const authorityId = cell.value;
+        if (authorityId) {
+          cell.value = {
+            text: authorityId.toString(),
+            hyperlink: `https://cataloging.mandumah.com/cgi-bin/koha/authorities/authorities.pl?authid=${authorityId}`,
+            tooltip: `Open authority record ${authorityId}`
+          };
+        }
       }
     }
-  });
+  }); 
   
   // Style the header row with blue background and white text
   styleHeaderRow(worksheet, columns.length);

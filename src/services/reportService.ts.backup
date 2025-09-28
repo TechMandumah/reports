@@ -428,7 +428,7 @@ async function getBiblioRecordsByNumbers(biblioNumbers: string[], selectedFields
     return [];
   }
   
-  console.log(`Processing optimized biblio number search for: ${biblioNumbers.join(', ')}`);
+  console.log(`Processing biblio number search for: ${biblioNumbers.join(', ')}`);
   
   // Convert and validate biblio numbers
   const validBiblioNums = biblioNumbers
@@ -440,10 +440,9 @@ async function getBiblioRecordsByNumbers(biblioNumbers: string[], selectedFields
     return [];
   }
   
-  // Build limited MARC extractions for performance (max 8 fields)
+  // Build optimized MARC extractions for biblio search (max 8 fields)
   const { selectFields, fieldMap } = buildCustomMarcExtractions(selectedFields, true);
-  const limitedSelectFields = selectFields.slice(0, 8); // Further limit to prevent timeouts
-  const marcClause = limitedSelectFields.length > 0 ? `,\n    ${limitedSelectFields.join(',\n    ')}` : '';
+  const limitedMarcClause = selectFields.length > 0 ? `,\n    ${selectFields.slice(0, 8).join(',\n    ')}` : '';
   
   const limitClause = isPreview ? 'LIMIT 10' : '';
   
@@ -469,7 +468,7 @@ async function getBiblioRecordsByNumbers(biblioNumbers: string[], selectedFields
       bi.url,
       bi.journalnum,
       bi.volumenumber,
-      bi.issuenumber${marcClause}
+      bi.issuenumber${limitedMarcClause}
     FROM biblio b
     LEFT JOIN biblioitems bi ON b.biblionumber = bi.biblionumber
     LEFT JOIN biblio_metadata bm ON b.biblionumber = bm.biblionumber
@@ -484,7 +483,7 @@ async function getBiblioRecordsByNumbers(biblioNumbers: string[], selectedFields
     const result = await executeQuery<any>(query, validBiblioNums);
     const queryTime = Date.now() - startTime;
     
-    console.log(`Optimized biblio query executed in ${queryTime}ms, returned ${result.length}/${validBiblioNums.length} records with ${limitedSelectFields.length} MARC extractions`);
+    console.log(`Biblio number query executed in ${queryTime}ms, returned ${result.length}/${validBiblioNums.length} records`);
     
     if (result.length === 0) {
       console.log(`No records found for biblio numbers: ${validBiblioNums.join(', ')}`);
@@ -499,38 +498,67 @@ async function getBiblioRecordsByNumbers(biblioNumbers: string[], selectedFields
     return result.map(record => ({ ...record, _marcFieldMap: fieldMap }));
   } catch (error) {
     console.error('Error executing biblio number query:', error);
-    throw new Error(`Database query failed for biblio numbers: ${validBiblioNums.join(', ')} - ${error}`);
+    throw new Error(`Database query failed for biblio numbers: ${error}`);
   }
 }
-
-// Get bibliographic records with custom MARC field selection using EXTRACTVALUE
 async function getBiblioRecordsForCustomReport(filters: QueryFilters, selectedFields: string[]): Promise<any[]> {
   const { magazineNumbers, startYear, endYear, authorName, isPreview, biblioNumbers, abstractFilter } = filters;
   
-  // For biblio number searches, use optimized direct approach
-  if (biblioNumbers && biblioNumbers.length > 0) {
-    return await getBiblioRecordsByNumbers(biblioNumbers, selectedFields, isPreview);
-  }
-  
-  // Build query filters for regular searches
+  // Build query filters
+  const biblioFilter = buildBiblioNumbersFilter(biblioNumbers);
   const magazineFilter = buildMagazineNumbersFilter(magazineNumbers);
   const yearFilter = buildYearRangeFilter(startYear, endYear);
   const authorFilter = buildAuthorFilter(authorName);
   const absFilter = buildAbstractFilter(abstractFilter);
   
-  // Build dynamic MARC extractions for regular searches
-  const { selectFields, fieldMap } = buildCustomMarcExtractions(selectedFields, false);
+  // Detect if this is a biblio number search for performance optimization
+  const isBiblioSearch = biblioNumbers && biblioNumbers.length > 0;
+  
+  // Build dynamic MARC extractions based on selected fields with optimization for biblio searches
+  const { selectFields, fieldMap } = buildCustomMarcExtractions(selectedFields, isBiblioSearch);
   
   // Add LIMIT clause for preview mode
   const limitClause = isPreview ? 'LIMIT 5' : '';
   
-  console.log(`Executing regular custom query with ${selectedFields.length} selected MARC fields (${selectFields.length} extractions)`);
+  // For biblio number searches, use optimized direct approach
+  if (isBiblioSearch && biblioNumbers && biblioNumbers.length > 0) {
+    return await getBiblioRecordsByNumbers(biblioNumbers, selectedFields, isPreview);
+  }
+    
+    const marcSelectClause = selectFields.length > 0 ? `,\n      ${selectFields.join(',\n      ')}` : '';
+    
+    const marcQuery = `
+      SELECT 
+        b.biblionumber,
+        b.frameworkcode,
+        b.author,
+        b.title,
+        b.medium,
+        b.subtitle,
+        b.part_number,
+        b.part_name,
+    
+    const marcSelectClause = selectFields.length > 0 ? `,\n      ${selectFields.join(',\n      ')}` : '';
+    
+    const startTime = Date.now();
+    const result = await executeQuery<any>(marcQuery, limitedBiblioFilter.params);
+    const queryTime = Date.now() - startTime;
+    
+    console.log(`Two-stage biblio query executed in ${queryTime}ms, returned ${result.length} records with ${selectFields.length} MARC extractions`);
+    return result.map(record => ({ ...record, _marcFieldMap: fieldMap }));
+  }
+  
+  // Log query info for performance debugging (regular queries)
+  console.log(`Executing custom query with ${selectedFields.length} selected MARC fields (${selectFields.length} extractions)`);
   
   // Build query with selected MARC field extractions
   const marcSelectClause = selectFields.length > 0 ? `,\n      ${selectFields.join(',\n      ')}` : '';
+  
+  // Add query hints for performance optimization
+  const queryHints = isBiblioSearch ? '/*+ USE_INDEX(b, PRIMARY) */' : '';
 
   const query = `
-    SELECT 
+    SELECT ${queryHints}
       b.biblionumber,
       b.frameworkcode,
       b.author,
@@ -555,6 +583,7 @@ async function getBiblioRecordsForCustomReport(filters: QueryFilters, selectedFi
     LEFT JOIN biblioitems bi ON b.biblionumber = bi.biblionumber
     LEFT JOIN biblio_metadata bm ON b.biblionumber = bm.biblionumber
     WHERE 1=1
+    ${biblioFilter.clause}
     ${magazineFilter.clause}
     ${yearFilter.clause}
     ${authorFilter.clause}
@@ -564,6 +593,7 @@ async function getBiblioRecordsForCustomReport(filters: QueryFilters, selectedFi
   `;
   
   const params = [
+    ...biblioFilter.params,
     ...magazineFilter.params,
     ...yearFilter.params,
     ...authorFilter.params,

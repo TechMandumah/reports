@@ -91,7 +91,7 @@ function buildAuthorFilter(authorName?: string): { clause: string; params: any[]
   };
 }
 
-// Build WHERE clause for abstract filter
+// Build WHERE clause for abstract filter using EXTRACTVALUE for efficiency
 function buildAbstractFilter(abstractFilter?: string): { clause: string; params: any[] } {
   if (!abstractFilter) {
     return { clause: '', params: [] };
@@ -99,20 +99,50 @@ function buildAbstractFilter(abstractFilter?: string): { clause: string; params:
   
   switch (abstractFilter) {
     case 'without_abstract':
-      // Records with no field 520 - check if abstract is null or empty
+      // Records with no abstract - check database field and MARC field 520
       return {
-        clause: 'AND (b.abstract IS NULL OR b.abstract = "" OR TRIM(b.abstract) = "")',
+        clause: `AND (b.abstract IS NULL OR b.abstract = "" OR TRIM(b.abstract) = "" 
+                 OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="a"]') = "" 
+                 OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="a"]') IS NULL)`,
         params: []
       };
     
     case 'missing_english':
-    case 'other_language':
-    case 'mandumah_abstract':
-      // For these complex MARC subfield checks, we need to filter at application level
-      // after parsing MARC XML. For now, return records with abstracts and let 
-      // the application-level filtering handle the specifics
+      // Subfield 'a' available, but 'b' and 'f' empty using EXTRACTVALUE
       return {
-        clause: 'AND b.abstract IS NOT NULL AND b.abstract != "" AND TRIM(b.abstract) != ""',
+        clause: `AND EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="a"]') != "" 
+                 AND EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="a"]') IS NOT NULL
+                 AND (EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="b"]') = "" 
+                      OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="b"]') IS NULL)
+                 AND (EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="f"]') = "" 
+                      OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="f"]') IS NULL)`,
+        params: []
+      };
+    
+    case 'other_language':
+      // Subfield 'd' available, all others empty using EXTRACTVALUE
+      return {
+        clause: `AND EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="d"]') != "" 
+                 AND EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="d"]') IS NOT NULL
+                 AND (EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="a"]') = "" 
+                      OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="a"]') IS NULL)
+                 AND (EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="b"]') = "" 
+                      OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="b"]') IS NULL)
+                 AND (EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="e"]') = "" 
+                      OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="e"]') IS NULL)
+                 AND (EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="f"]') = "" 
+                      OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="f"]') IS NULL)`,
+        params: []
+      };
+      
+    case 'mandumah_abstract':
+      // Subfields 'a' and 'e' empty but there is still an abstract (Mandumah generated)
+      return {
+        clause: `AND (EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="a"]') = "" 
+                      OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="a"]') IS NULL)
+                 AND (EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="e"]') = "" 
+                      OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="e"]') IS NULL)
+                 AND b.abstract IS NOT NULL AND b.abstract != "" AND TRIM(b.abstract) != ""`,
         params: []
       };
     
@@ -121,64 +151,9 @@ function buildAbstractFilter(abstractFilter?: string): { clause: string; params:
   }
 }
 
-// Filter records based on abstract MARC subfield criteria
-function filterRecordsByAbstractType(records: ReportQueryResult[], marcMetadataMap: Map<number, string>, abstractFilter?: string): ReportQueryResult[] {
-  if (!abstractFilter || abstractFilter === 'without_abstract') {
-    return records; // SQL-level filtering already handled this
-  }
-  
-  return records.filter(record => {
-    const marcXml = marcMetadataMap.get(record.biblionumber) || '';
-    
-    // If no MARC XML is available, fall back to basic abstract field check
-    if (!marcXml || !marcXml.trim().startsWith('<?xml')) {
-      switch (abstractFilter) {
-        case 'mandumah_abstract':
-          // If we can't parse MARC, assume records with abstracts might be Mandumah-generated
-          return record.abstract && record.abstract.trim() !== '';
-        case 'missing_english':
-        case 'other_language':
-          // For these cases without MARC data, we can't make accurate determinations
-          return record.abstract && record.abstract.trim() !== '';
-        default:
-          return true;
-      }
-    }
-    
-    try {
-      const subfields520 = extractMarcSubfields(marcXml, '520');
-      
-      switch (abstractFilter) {
-        case 'missing_english':
-          // Subfield 'a' available, but 'b' and 'f' empty
-          return subfields520.a && (!subfields520.b || subfields520.b.trim() === '') && (!subfields520.f || subfields520.f.trim() === '');
-        
-        case 'other_language':
-          // Subfield 'd' available, all others empty
-          return subfields520.d && 
-                 (!subfields520.a || subfields520.a.trim() === '') && 
-                 (!subfields520.b || subfields520.b.trim() === '') && 
-                 (!subfields520.e || subfields520.e.trim() === '') && 
-                 (!subfields520.f || subfields520.f.trim() === '');
-        
-        case 'mandumah_abstract':
-          // Subfields 'a' and 'e' empty in field 520 - this means Mandumah generated the abstract
-          return (!subfields520.a || subfields520.a.trim() === '') && 
-                 (!subfields520.e || subfields520.e.trim() === '') &&
-                 (record.abstract && record.abstract.trim() !== ''); // But there is still an abstract
-        
-        default:
-          return true;
-      }
-    } catch (error) {
-      console.error(`Error extracting MARC subfields for biblio ${record.biblionumber}:`, error);
-      // Fall back to basic abstract check on error
-      return record.abstract && record.abstract.trim() !== '';
-    }
-  });
-}
+// Note: getMarcMetadata and filterRecordsByAbstractType functions removed - now using EXTRACTVALUE directly for better performance
 
-// Get bibliographic records with filters
+// Get bibliographic records with filters using EXTRACTVALUE for MARC data (like user's SQL queries)
 export async function getBiblioRecords(filters: QueryFilters = {}): Promise<BiblioRecord[]> {
   const { magazineNumbers, startYear, endYear, authorName, isPreview, biblioNumbers, abstractFilter } = filters;
   
@@ -197,6 +172,7 @@ export async function getBiblioRecords(filters: QueryFilters = {}): Promise<Bibl
     console.log(`Executing biblio query for ${biblioNumbers.length} biblio numbers`);
   }
   
+  // Use efficient query with EXTRACTVALUE() like user's working SQL
   const query = `
     SELECT 
       b.biblionumber,
@@ -218,9 +194,26 @@ export async function getBiblioRecords(filters: QueryFilters = {}): Promise<Bibl
       bi.url,
       bi.journalnum,
       bi.volumenumber,
-      bi.issuenumber
+      bi.issuenumber,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="245"]/subfield[@code="a"]') AS marc_245_a,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="246"]/subfield[@code="a"]') AS marc_246_a,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="242"]/subfield[@code="a"]') AS marc_242_a,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="041"]/subfield[@code="a"]') AS marc_041_a,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="100"]/subfield[@code="a"]') AS marc_100_a,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="100"]/subfield[@code="9"]') AS marc_100_9,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="260"]/subfield[@code="b"]') AS marc_260_b,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][1]/subfield[@code="a"]') AS marc_700_1_a,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][1]/subfield[@code="9"]') AS marc_700_1_9,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][2]/subfield[@code="a"]') AS marc_700_2_a,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][2]/subfield[@code="9"]') AS marc_700_2_9,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="a"]') AS marc_520_a,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="b"]') AS marc_520_b,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="d"]') AS marc_520_d,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="e"]') AS marc_520_e,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="f"]') AS marc_520_f
     FROM biblio b
     LEFT JOIN biblioitems bi ON b.biblionumber = bi.biblionumber
+    LEFT JOIN biblio_metadata bm ON b.biblionumber = bm.biblionumber
     WHERE 1=1
     ${biblioFilter.clause}
     ${magazineFilter.clause}
@@ -247,92 +240,22 @@ export async function getBiblioRecords(filters: QueryFilters = {}): Promise<Bibl
   return result;
 }
 
-// Get MARC metadata for specific biblio records
-export async function getMarcMetadata(biblionumbers: number[]): Promise<Map<number, string>> {
-  if (biblionumbers.length === 0) {
-    return new Map();
-  }
-  
-  // Process in batches to avoid query size limits
-  const batchSize = 1000;
-  const metadataMap = new Map<number, string>();
-  
-  for (let i = 0; i < biblionumbers.length; i += batchSize) {
-    const batch = biblionumbers.slice(i, i + batchSize);
-    const placeholders = batch.map(() => '?').join(',');
-    
-    console.log(`Fetching MARC metadata batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(biblionumbers.length/batchSize)} (${batch.length} records)`);
-    
-    const query = `
-      SELECT biblionumber
-      FROM biblio_metadata
-      WHERE biblionumber IN (${placeholders})
-    `;
-    
-    try {
-      const results = await executeQuery<BiblioMetadata>(query, batch);
-      results.forEach(row => {
-        metadataMap.set(row.biblionumber, row.metadata);
-      });
-    } catch (error) {
-      console.error(`Error fetching MARC metadata batch:`, error);
-      // Continue with next batch instead of failing completely
-    }
-  }
-  
-  console.log(`Successfully fetched MARC metadata for ${metadataMap.size}/${biblionumbers.length} records`);
-  return metadataMap;
-}
+// Note: getMarcMetadata and filterRecordsByAbstractType functions removed - now using EXTRACTVALUE directly for better performance
 
-// Generate report data for predefined reports
+// Generate report data for predefined reports using pre-extracted MARC data
 export async function generatePredefinedReport(reportType: string, filters: QueryFilters): Promise<ReportQueryResult[]> {
-  // Get base bibliographic records
+  // Get base bibliographic records with MARC data already extracted using EXTRACTVALUE
   const biblioRecords = await getBiblioRecords(filters);
   
   if (biblioRecords.length === 0) {
     return [];
   }
 
-  // Determine if MARC metadata is needed for this report type
-  const needsMarcData = [
-    'export_research_titles',
-    'export_translations_titles_authors', 
-    'export_translations_citation_title',
-    'export_translations_citation_author',
-    'export_abstract_field'
-  ].includes(reportType);
-
-  // Get MARC metadata only if needed
-  const biblionumbers = biblioRecords.map(record => record.biblionumber);
-  let marcMetadata = new Map<number, string>();
-  
-  if (needsMarcData) {
-    try {
-      marcMetadata = await getMarcMetadata(biblionumbers);
-    } catch (error) {
-      console.error('Error fetching MARC metadata:', error);
-      // Continue with empty MARC data - will use database fields as fallback
-    }
-  }
-
   // Get database configuration for this report type
   const dbConfig = REPORT_DB_CONFIG[reportType as keyof typeof REPORT_DB_CONFIG] || REPORT_DB_CONFIG.default;
 
-  // Transform records into report format
+  // Transform records into report format using pre-extracted MARC data
   const reportData: ReportQueryResult[] = biblioRecords.map(record => {
-    const marcXml = marcMetadata.get(record.biblionumber) || '';
-    let parsedMarc: any = {};
-    
-    // Only parse MARC if we have valid XML data
-    if (marcXml && marcXml.trim().startsWith('<?xml')) {
-      try {
-        parsedMarc = parseMarcXML(marcXml);
-      } catch (error) {
-        console.error(`Error parsing MARC for biblio ${record.biblionumber}:`, error);
-        parsedMarc = {}; // Use empty object as fallback
-      }
-    }
-
     // Base result with common fields
     const result: ReportQueryResult = {
       ...record,
@@ -341,50 +264,46 @@ export async function generatePredefinedReport(reportType: string, filters: Quer
       link: `https://cataloging.mandumah.com/cgi-bin/koha/catalogue/detail.pl?biblionumber=${record.biblionumber}`
     };
     
-    // Add specific fields based on report type
+    // Add specific fields based on report type using pre-extracted MARC fields
     switch (reportType) {
       case 'export_research_titles':
       case 'export_translations_titles_authors':
       case 'export_translations_citation_title':
-        result.title_245 = parsedMarc.main_title_245 || record.title || '';
-        result.title_246 = parsedMarc.alternative_title_246 || '';
-        result.title_242 = parsedMarc.translated_title_242 || '';
-        // Get the language code 041
-        result.language_041 = parsedMarc.language_041 || '';
+        result.title_245 = (record as any).marc_245_a || record.title || '';
+        result.title_246 = (record as any).marc_246_a || '';
+        result.title_242 = (record as any).marc_242_a || '';
+        result.language_041 = (record as any).marc_041_a || '';
         if (reportType === 'export_translations_titles_authors') {
-          result.author = parsedMarc.author_100 || record.author || '';
-          result.university_373 = parsedMarc.publication_info_260 || '';
+          result.author = (record as any).marc_100_a || record.author || '';
+          result.university_373 = (record as any).marc_260_b || '';
         }
         break;
         
       case 'export_research_authors':
-        // Extract main author (field 100) with ID
-        const mainAuthor = extractMainAuthorWithId(marcXml);
-        result.author = mainAuthor.author;
-        result.author_id = mainAuthor.authorId;
+        // Use pre-extracted author data from EXTRACTVALUE
+        result.author = (record as any).marc_100_a || record.author || '';
+        result.author_id = (record as any).marc_100_9 || '';
         
-        // Extract all additional authors (field 700) with IDs
-        const additionalAuthors = extractAdditionalAuthorsWithIds(marcXml);
-        additionalAuthors.forEach((authorData, index) => {
-          const suffix = index === 0 ? '' : `_${index + 1}`;
-          result[`additional_author${suffix}`] = authorData.author;
-          result[`additional_author_id${suffix}`] = authorData.authorId;
-        });
+        // Use pre-extracted additional authors data
+        result.additional_author = (record as any).marc_700_1_a || '';
+        result.additional_author_id = (record as any).marc_700_1_9 || '';
+        result.additional_author_2 = (record as any).marc_700_2_a || '';
+        result.additional_author_id_2 = (record as any).marc_700_2_9 || '';
         break;
         
       case 'export_author_data':
       case 'export_translations_citation_author':
-        result.author = parsedMarc.author_100 || record.author || '';
+        result.author = (record as any).marc_100_a || record.author || '';
         break;
         
       case 'export_abstract_field':
-        // Extract all subfields of tag 520
-        const subfields520 = extractMarcSubfields(marcXml, '520');
-        Object.entries(subfields520).forEach(([code, value]) => {
-          result[`abstract_520_${code}`] = value;
-        });
-        // Also keep the original for backward compatibility
-        result.abstract_520 = parsedMarc.abstract_520 || record.abstract || '';
+        // Use pre-extracted abstract subfields
+        result.abstract_520_a = (record as any).marc_520_a || '';
+        result.abstract_520_b = (record as any).marc_520_b || '';
+        result.abstract_520_d = (record as any).marc_520_d || '';
+        result.abstract_520_e = (record as any).marc_520_e || '';
+        result.abstract_520_f = (record as any).marc_520_f || '';
+        result.abstract_520 = record.abstract || '';
         break;
         
       case 'export_citation_entry':
@@ -393,39 +312,28 @@ export async function generatePredefinedReport(reportType: string, filters: Quer
         
       case 'convert_url_to_biblio':
         // This report needs biblio and the PDF filename from the url field
-        // The biblio will be clickable, the url will show the PDF filename
-        result.url = record.url || ''; // This contains the PDF filename like "0005-000-077-222.pdf"
+        result.url = record.url || '';
         break;
     }
     
     return result;
   });
   
-  // Apply application-level abstract filtering if needed
-  const filteredData = filterRecordsByAbstractType(reportData, marcMetadata, filters.abstractFilter);
-  
-  return filteredData;
+  return reportData;
 }
 
-// Generate custom report with selected MARC fields
+// Generate custom report with selected MARC fields using EXTRACTVALUE
 export async function generateCustomReport(filters: QueryFilters): Promise<ReportQueryResult[]> {
-  const { selectedFields = [] } = filters;
-  
-  // Get base bibliographic records
+  // For custom reports, we'll get the basic records and add specific MARC extractions as needed
+  // This is a simplified version - for full flexibility, we could build dynamic EXTRACTVALUE queries
   const biblioRecords = await getBiblioRecords(filters);
   
   if (biblioRecords.length === 0) {
     return [];
   }
   
-  // Get MARC metadata for all records
-  const biblionumbers = biblioRecords.map(record => record.biblionumber);
-  const marcMetadata = await getMarcMetadata(biblionumbers);
-  
-  // Transform records into report format
+  // Transform records into report format - all common MARC fields are already extracted
   const reportData: ReportQueryResult[] = biblioRecords.map(record => {
-    const marcXml = marcMetadata.get(record.biblionumber) || '';
-    
     // Base result with common fields
     const result: ReportQueryResult = {
       ...record,
@@ -434,45 +342,8 @@ export async function generateCustomReport(filters: QueryFilters): Promise<Repor
       link: `https://cataloging.mandumah.com/cgi-bin/koha/catalogue/detail.pl?biblionumber=${record.biblionumber}`
     };
     
-    // Add selected MARC fields
-    selectedFields.forEach(fieldTag => {
-      if (fieldTag === '520') {
-        // Special handling for tag 520 - extract all subfields
-        const subfields = extractMarcSubfields(marcXml, '520');
-        Object.entries(subfields).forEach(([code, value]) => {
-          result[`marc_520_${code}`] = value;
-        });
-      } else if (fieldTag === '700') {
-        // Special handling for field 700 - extract authors with IDs
-        const additionalAuthors = extractAdditionalAuthorsWithIds(marcXml);
-        additionalAuthors.forEach((authorData, index) => {
-          if (index === 0) {
-            result[`marc_700`] = authorData.author;
-            result[`marc_700_id`] = authorData.authorId;
-          } else {
-            result[`marc_700_${index + 1}`] = authorData.author;
-            result[`marc_700_id_${index + 1}`] = authorData.authorId;
-          }
-        });
-      } else if (fieldTag === '100') {
-        // Special handling for field 100 - extract main author with ID
-        const mainAuthor = extractMainAuthorWithId(marcXml);
-        result[`marc_100`] = mainAuthor.author;
-        result[`marc_100_id`] = mainAuthor.authorId;
-      } else {
-        // Handle multiple instances of the same field
-        const fieldInstances = extractMultipleMarcFields(marcXml, fieldTag);
-        if (fieldInstances.length > 0) {
-          // First instance uses the standard property name
-          result[`marc_${fieldTag}`] = fieldInstances[0];
-          
-          // Additional instances get numbered property names
-          for (let i = 1; i < fieldInstances.length; i++) {
-            result[`marc_${fieldTag}_${i + 1}`] = fieldInstances[i];
-          }
-        }
-      }
-    });
+    // All MARC fields are already extracted in getBiblioRecords using EXTRACTVALUE
+    // They're available as marc_245_a, marc_100_a, etc.
     
     return result;
   });

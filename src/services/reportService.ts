@@ -440,9 +440,9 @@ async function getBiblioRecordsByNumbers(biblioNumbers: string[], selectedFields
     return [];
   }
   
-  // Build limited MARC extractions for performance (max 60 fields)
+  // Build limited MARC extractions for performance (max 80 fields)
   const { selectFields, fieldMap } = buildCustomMarcExtractions(selectedFields, true);
-  const limitedSelectFields = selectFields.slice(0, 60); // Reasonable limit to balance performance and data completeness
+  const limitedSelectFields = selectFields.slice(0, 80); // Reasonable limit to balance performance and data completeness
   const marcClause = limitedSelectFields.length > 0 ? `,\n    ${limitedSelectFields.join(',\n    ')}` : '';
   
   const limitClause = isPreview ? 'LIMIT 10' : '';

@@ -356,7 +356,7 @@ function buildCustomMarcExtractions(selectedFields: string[], isBiblioSearch = f
   const fieldMap: { [key: string]: string } = {};
   
   // For biblio number searches, limit MARC extractions to prevent performance issues
-  const maxFieldsForBiblioSearch = 35; // Increase from 15 to 35 extractions max for better coverage
+  const maxFieldsForBiblioSearch = 80; // Increase to 80 extractions to allow most fields while maintaining performance
   let extractionCount = 0;
   
   selectedFields.forEach(fieldTag => {

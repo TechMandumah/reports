@@ -356,7 +356,7 @@ function buildCustomMarcExtractions(selectedFields: string[], isBiblioSearch = f
   const fieldMap: { [key: string]: string } = {};
   
   // For biblio number searches, limit MARC extractions to prevent performance issues
-  const maxFieldsForBiblioSearch = 15; // Reduce from 88 to 15 extractions max
+  const maxFieldsForBiblioSearch = 35; // Increase from 15 to 35 extractions max for better coverage
   let extractionCount = 0;
   
   selectedFields.forEach(fieldTag => {
@@ -440,9 +440,9 @@ async function getBiblioRecordsByNumbers(biblioNumbers: string[], selectedFields
     return [];
   }
   
-  // Build limited MARC extractions for performance (max 8 fields)
+  // Build limited MARC extractions for performance (max 60 fields)
   const { selectFields, fieldMap } = buildCustomMarcExtractions(selectedFields, true);
-  const limitedSelectFields = selectFields.slice(0, 8); // Further limit to prevent timeouts
+  const limitedSelectFields = selectFields.slice(0, 60); // Reasonable limit to balance performance and data completeness
   const marcClause = limitedSelectFields.length > 0 ? `,\n    ${limitedSelectFields.join(',\n    ')}` : '';
   
   const limitClause = isPreview ? 'LIMIT 10' : '';

@@ -152,8 +152,19 @@ export async function POST(request: NextRequest) {
         b.author as biblio_author,
         b.title as biblio_title,
         b.copyrightdate,
-        bi.marcxml,
-        bi.url
+        bi.url,
+        -- Extract MARC fields using EXTRACTVALUE for better performance
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="100"]/subfield[@code="a"]') AS marc_100_a,
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="100"]/subfield[@code="9"]') AS marc_100_9,
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="700"][1]/subfield[@code="a"]') AS marc_700_1_a,
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="700"][1]/subfield[@code="9"]') AS marc_700_1_9,
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="700"][2]/subfield[@code="a"]') AS marc_700_2_a,
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="700"][2]/subfield[@code="9"]') AS marc_700_2_9,
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="700"][3]/subfield[@code="a"]') AS marc_700_3_a,
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="700"][3]/subfield[@code="9"]') AS marc_700_3_9,
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="245"]/subfield[@code="a"]') AS marc_245_a,
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="260"]/subfield[@code="c"]') AS marc_260_c,
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="773"]/subfield[@code="t"]') AS marc_773_t
       FROM biblioitems bi
       INNER JOIN biblio b ON bi.biblionumber = b.biblionumber
       WHERE b.frameworkcode = 'CIT'
@@ -308,27 +319,22 @@ export async function POST(request: NextRequest) {
     for (let i = 0; i < results.length; i++) {
       const row = results[i];
       try {
-        const marcData = row.marcxml ? extractAuthorDataFromMarcXml(row.marcxml) : {
-          mainAuthor: '',
-          mainAuthorId: '',
-          additionalAuthors: [],
-          additionalAuthorIds: [],
-          allAuthors: '',
-          title: '',
-          year: '',
-          journal: ''
-        };
+        // Use pre-extracted MARC data from EXTRACTVALUE - much faster than client-side parsing
+        const additionalAuthors = [row.marc_700_1_a, row.marc_700_2_a, row.marc_700_3_a].filter(a => a);
+        const additionalAuthorIds = [row.marc_700_1_9, row.marc_700_2_9, row.marc_700_3_9].filter(a => a);
+        const mainAuthor = row.marc_100_a || row.biblio_author || '';
+        const allAuthors = [mainAuthor, ...additionalAuthors].filter(a => a).join('; ');
 
         authorData.push({
           biblionumber: row.biblionumber,
-          mainAuthor: marcData.mainAuthor || row.biblio_author || '',
-          mainAuthorId: marcData.mainAuthorId,
-          additionalAuthors: marcData.additionalAuthors,
-          additionalAuthorIds: marcData.additionalAuthorIds,
-          allAuthors: marcData.allAuthors || (row.biblio_author ? row.biblio_author : ''),
-          title: marcData.title || row.biblio_title || '',
-          year: marcData.year || row.copyrightdate?.toString() || '',
-          journal: marcData.journal || '',
+          mainAuthor: mainAuthor,
+          mainAuthorId: row.marc_100_9 || '',
+          additionalAuthors: additionalAuthors,
+          additionalAuthorIds: additionalAuthorIds,
+          allAuthors: allAuthors,
+          title: row.marc_245_a || row.biblio_title || '',
+          year: row.marc_260_c || row.copyrightdate?.toString() || '',
+          journal: row.marc_773_t || '',
           url: row.url || '',
           pdfUrl: constructPdfUrl(row.url || ''),
         });
@@ -340,7 +346,7 @@ export async function POST(request: NextRequest) {
         
         // More frequent logging for first few and last few records
         if (i < 5 || i >= results.length - 5) {
-          console.log(`📝 [${requestId}] Record ${i + 1}: biblionumber=${row.biblionumber}, mainAuthor="${marcData.mainAuthor || row.biblio_author}", marcxmlLength=${row.marcxml?.length || 0}`);
+          console.log(`📝 [${requestId}] Record ${i + 1}: biblionumber=${row.biblionumber}, mainAuthor="${mainAuthor}", hasExtractedData=${!!(row.marc_100_a || row.marc_245_a)}`);
         }
       } catch (error) {
         console.error(`❌ [${requestId}] Error processing record ${i + 1} (biblionumber: ${row.biblionumber}):`, error);

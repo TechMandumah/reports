@@ -225,18 +225,34 @@ export async function POST(request: NextRequest) {
         b.datecreated,
         b.abstract,
         bi.biblioitemnumber,
-        bi.volume,
-        bi.publishercode,
         bi.volumedate,
         bi.illus,
-        bi.pages,
-        bi.notes as biblioitem_notes,
         bi.size,
         bi.place,
         bi.lccn,
         bi.marc,
         bi.url,
-        bi.marcxml
+        bi.publishercode,
+        -- Extract MARC fields using EXTRACTVALUE for better performance
+        EXTRACTVALUE(bi.marcxml, '//controlfield[@tag="001"]') AS marc_001,
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="041"]/subfield[@code="a"]') AS marc_041_a,
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="073"]/subfield[@code="a"]') AS marc_073_a,
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="100"]/subfield[@code="a"]') AS marc_100_a,
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="100"]/subfield[@code="9"]') AS marc_100_9,
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="242"]/subfield[@code="a"]') AS marc_242_a,
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="245"]/subfield[@code="a"]') AS marc_245_a,
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="246"]/subfield[@code="a"]') AS marc_246_a,
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="260"]/subfield[@code="c"]') AS marc_260_c,
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="300"]/subfield[@code="a"]') AS marc_300_a,
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="336"]/subfield[@code="a"]') AS marc_336_a,
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="700"][1]/subfield[@code="a"]') AS marc_700_1_a,
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="700"][1]/subfield[@code="9"]') AS marc_700_1_9,
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="700"][2]/subfield[@code="a"]') AS marc_700_2_a,
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="700"][2]/subfield[@code="9"]') AS marc_700_2_9,
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="773"]/subfield[@code="t"]') AS marc_773_t,
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="773"]/subfield[@code="g"]') AS marc_773_g,
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="995"]/subfield[@code="a"]') AS marc_995_a,
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="999"]/subfield[@code="c"]') AS marc_999_c
       FROM biblioitems bi
       INNER JOIN biblio b ON bi.biblionumber = b.biblionumber
       WHERE b.frameworkcode = 'CIT'
@@ -374,28 +390,40 @@ export async function POST(request: NextRequest) {
         biblio_author: row.biblio_author,
         biblio_title: row.biblio_title,
         copyrightdate: row.copyrightdate,
-        marcxmlPreview: row.marcxml ? row.marcxml.substring(0, 200) + '...' : 'NO MARCXML'
+        hasMarcData: !!(row.marc_245_a || row.marc_100_a)
       });
 
-      const marcData = row.marcxml ? extractFromMarcXml(row.marcxml) : {
-        author: '',
-        authorId: undefined,
-        title: '',
-        translatedTitle: undefined,
-        alternativeTitle: undefined,
-        year: '',
-        journal: '',
-        volume: undefined,
-        issue: undefined,
-        pages: undefined,
-        additionalAuthors: [],
-        additionalAuthorIds: [],
-        contentType: undefined,
-        citation: undefined,
-        languageCode: undefined
+      // Use pre-extracted MARC data from EXTRACTVALUE - much faster than client-side parsing
+      const marcData = {
+        author: row.marc_100_a || '',
+        authorId: row.marc_100_9 || '',
+        title: row.marc_245_a || '',
+        translatedTitle: row.marc_242_a || '',
+        alternativeTitle: row.marc_246_a || '',
+        year: row.marc_260_c || '',
+        journal: row.marc_773_t || '',
+        volume: '',
+        issue: '',
+        pages: row.marc_300_a || '',
+        additionalAuthors: [row.marc_700_1_a, row.marc_700_2_a].filter(a => a).join('; '),
+        additionalAuthorIds: [row.marc_700_1_9, row.marc_700_2_9].filter(a => a).join('; '),
+        contentType: row.marc_336_a || '',
+        citation: row.marc_995_a || '',
+        languageCode: row.marc_041_a || ''
       };
 
-      console.log('CustomCitationReport: Extracted MARC data:', marcData);
+      // Parse volume/issue from 773$g if available
+      if (row.marc_773_g) {
+        const volumeIssueMatch = row.marc_773_g.match(/Vol\.\s*(\d+).*?No\.\s*(\d+)/i) ||
+                                row.marc_773_g.match(/المجلد\s*(\d+).*?العدد\s*(\d+)/i) ||
+                                row.marc_773_g.match(/(\d+)\s*\((\d+)\)/);
+        if (volumeIssueMatch) {
+          marcData.volume = volumeIssueMatch[1];
+          marcData.issue = volumeIssueMatch[2];
+        }
+      }
+
+      console.log('CustomCitationReport: Using pre-extracted MARC data:', marcData);
 
       // Create complete data object with all available fields
       const completeData: CustomCitationData = {
@@ -413,12 +441,12 @@ export async function POST(request: NextRequest) {
         volume: marcData.volume || row.volume || '',
         issue: marcData.issue || '',
         pages: marcData.pages || row.pages || '',
-        additionalAuthors: marcData.additionalAuthors?.join('; ') || '',
-        additionalAuthorIds: marcData.additionalAuthorIds?.join('; ') || '',
+        additionalAuthors: marcData.additionalAuthors || '',
+        additionalAuthorIds: marcData.additionalAuthorIds || '',
         languageCode: marcData.languageCode || '',
         contentType: marcData.contentType || '',
         citation: marcData.citation || '',
-        publishercode: row.publishercode || '',
+        publishercode: row.publishercode || row.marc_073_a || '',
         notes: row.notes || row.biblioitem_notes || '',
         abstract: row.abstract || '',
         serial: row.serial || '',
@@ -449,7 +477,7 @@ export async function POST(request: NextRequest) {
             console.log('CustomCitationReport: Field 000 (Leader) - not implemented');
             break;
           case '001':
-            filteredData['controlNumber'] = completeData.biblionumber || '';
+            filteredData['controlNumber'] = row.marc_001 || completeData.biblionumber || '';
             console.log(`CustomCitationReport: Field 001 mapped to controlNumber: ${filteredData['controlNumber']}`);
             break;
           case '041':

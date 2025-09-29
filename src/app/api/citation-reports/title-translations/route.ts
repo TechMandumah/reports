@@ -158,8 +158,15 @@ export async function POST(request: NextRequest) {
         b.author as biblio_author,
         b.title as biblio_title,
         b.copyrightdate,
-        bi.marcxml,
-        bi.url
+        bi.url,
+        -- Extract MARC fields using EXTRACTVALUE for better performance
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="245"]/subfield[@code="a"]') AS marc_245_a,
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="242"]/subfield[@code="a"]') AS marc_242_a,
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="246"]/subfield[@code="a"]') AS marc_246_a,
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="100"]/subfield[@code="a"]') AS marc_100_a,
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="100"]/subfield[@code="9"]') AS marc_100_9,
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="260"]/subfield[@code="c"]') AS marc_260_c,
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="773"]/subfield[@code="t"]') AS marc_773_t
       FROM biblioitems bi
       INNER JOIN biblio b ON bi.biblionumber = b.biblionumber
       WHERE b.frameworkcode = 'CIT'
@@ -291,29 +298,24 @@ export async function POST(request: NextRequest) {
     for (let i = 0; i < results.length; i++) {
       const row = results[i];
       try {
-        const marcData = row.marcxml ? extractTitleDataFromMarcXml(row.marcxml) : {
-          titles_245: [],
-          titles_242: [],
-          titles_246: [],
-          allTitles: '',
-          author: '',
-          year: '',
-          journal: '',
-          authorId: undefined
-        };
+        // Use pre-extracted MARC data from EXTRACTVALUE - much faster than client-side parsing
+        const titles_245 = row.marc_245_a ? [row.marc_245_a] : [];
+        const titles_242 = row.marc_242_a ? [row.marc_242_a] : [];
+        const titles_246 = row.marc_246_a ? [row.marc_246_a] : [];
+        const allTitles = [...titles_245, ...titles_242, ...titles_246].filter(t => t).join(' | ') || row.biblio_title || '';
 
         titleData.push({
           biblionumber: row.biblionumber,
-          titles_245: marcData.titles_245,
-          titles_242: marcData.titles_242,
-          titles_246: marcData.titles_246,
-          allTitles: marcData.allTitles || (row.biblio_title ? row.biblio_title : ''),
-          author: marcData.author || row.biblio_author || '',
-          year: marcData.year || row.copyrightdate?.toString() || '',
-          journal: marcData.journal || '',
+          titles_245: titles_245,
+          titles_242: titles_242,
+          titles_246: titles_246,
+          allTitles: allTitles,
+          author: row.marc_100_a || row.biblio_author || '',
+          year: row.marc_260_c || row.copyrightdate?.toString() || '',
+          journal: row.marc_773_t || '',
           url: row.url || '',
           pdfUrl: constructPdfUrl(row.url || ''),
-          authorId: marcData.authorId,
+          authorId: row.marc_100_9,
         });
 
         // Log progress for large datasets

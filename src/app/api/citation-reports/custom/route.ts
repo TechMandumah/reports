@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as xlsx from 'xlsx';
 import { getCitationConnection } from '@/lib/citation_db';
 
+// Configure API route timeout
+export const maxDuration = 3000; // 50 minutes
+export const dynamic = 'force-dynamic';
+
 interface CustomCitationData {
   [key: string]: any;
 }

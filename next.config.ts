@@ -9,6 +9,11 @@ const nextConfig: NextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['mysql2'],
   },
+  // Set default timeout for API routes
+  serverRuntimeConfig: {
+    // apiTimeout: 300000, // 5 minutes in milliseconds
+    apiTimeout: 1800000, // 30 minutes in milliseconds
+  },
   // Configure API routes timeout
   async headers() {
     return [

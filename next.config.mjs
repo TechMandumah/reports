@@ -12,7 +12,7 @@ const nextConfig = {
         headers: [
           {
             key: 'Keep-Alive',
-            value: 'timeout=300, max=1000'
+            value: 'timeout=3000000000, max=1000'
           }
         ]
       }

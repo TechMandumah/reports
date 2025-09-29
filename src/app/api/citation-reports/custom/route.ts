@@ -305,14 +305,31 @@ export async function POST(request: NextRequest) {
     }
 
     // Add biblio numbers filter
-    if (biblioNumbers && Array.isArray(biblioNumbers) && biblioNumbers.length > 0) {
-      console.log(`📚 [${requestId}] CustomCitationReport: Adding biblio numbers filter for ${biblioNumbers.length} biblio numbers`);
-      const placeholders = biblioNumbers.map(() => '?').join(',');
-      query += ` AND b.biblionumber IN (${placeholders})`;
-      // Convert biblio numbers to integers
-      const biblioNumsAsInts = biblioNumbers.map(num => parseInt(num.replace(/^0+/, '') || '0'));
-      queryParams.push(...biblioNumsAsInts);
-      console.log(`📚 [${requestId}] CustomCitationReport: Biblio numbers applied:`, biblioNumsAsInts.slice(0, 10), biblioNumsAsInts.length > 10 ? `... and ${biblioNumsAsInts.length - 10} more` : '');
+    if (biblioNumbers) {
+      console.log(`🔍 [${requestId}] Processing biblio numbers filter...`);
+      let numbers: string[] = [];
+      
+      // Handle different types of biblioNumbers input (similar to magazineNumbers)
+      if (Array.isArray(biblioNumbers)) {
+        numbers = biblioNumbers.filter((num: any) => num && num.toString().trim()).map(num => num.toString());
+        console.log(`📚 [${requestId}] CustomCitationReport: Biblio numbers (array format):`, numbers);
+      } else if (typeof biblioNumbers === 'string') {
+        numbers = biblioNumbers.split(/[,\s\n]+/).filter((num: string) => num.trim());
+        console.log(`📚 [${requestId}] CustomCitationReport: Biblio numbers (string format):`, numbers);
+      } else {
+        numbers = [biblioNumbers.toString()].filter((num: string) => num.trim());
+        console.log(`📚 [${requestId}] CustomCitationReport: Biblio numbers (other format):`, numbers);
+      }
+      
+      if (numbers.length > 0) {
+        console.log(`📚 [${requestId}] CustomCitationReport: Adding biblio numbers filter for ${numbers.length} biblio numbers`);
+        const placeholders = numbers.map(() => '?').join(',');
+        query += ` AND b.biblionumber IN (${placeholders})`;
+        // Convert biblio numbers to integers
+        const biblioNumsAsInts = numbers.map(num => parseInt(num.replace(/^0+/, '') || '0'));
+        queryParams.push(...biblioNumsAsInts);
+        console.log(`📚 [${requestId}] CustomCitationReport: Biblio numbers applied:`, biblioNumsAsInts.slice(0, 10), biblioNumsAsInts.length > 10 ? `... and ${biblioNumsAsInts.length - 10} more` : '');
+      }
     }
 
     query += ' ORDER BY b.biblionumber';

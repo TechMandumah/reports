@@ -167,22 +167,123 @@ export default function CitationTitleTranslations() {
     setInputMethod('manual');
     setUploadedFile(null);
     setFileNumbers([]);
+    setBiblioUploadedFile(null);
+    setBiblioNumbers([]);
+  };
+
+  const handleBiblioFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.includes('text') && !file.name.endsWith('.txt')) {
+      setValidationErrors(['Please upload a .txt file']);
+      return;
+    }
+
+    setBiblioUploadedFile(file);
+    
+    try {
+      const text = await file.text();
+      const { numbers, errors } = parseAndValidateBiblioFileContent(text);
+      setBiblioNumbers(numbers);
+      
+      if (errors.length > 0) {
+        setValidationErrors(errors);
+      } else {
+        setValidationErrors([]);
+      }
+    } catch (error) {
+      setValidationErrors(['Error reading file']);
+    }
+  };
+
+  const parseAndValidateBiblioFileContent = (text: string): { numbers: string[]; errors: string[] } => {
+    const lines = text.split(/\r?\n/);
+    const numbers: string[] = [];
+    const errors: string[] = [];
+    
+    lines.forEach((line, lineIndex) => {
+      const lineNumber = lineIndex + 1;
+      const trimmedLine = line.trim();
+      
+      // Skip empty lines
+      if (trimmedLine === '') {
+        return;
+      }
+      
+      // Check if line contains comma-separated values
+      if (trimmedLine.includes(',')) {
+        const values = trimmedLine.split(',');
+        values.forEach((value, valueIndex) => {
+          const trimmedValue = value.trim();
+          if (trimmedValue === '') return;
+          
+          const validation = validateSingleBiblioNumber(trimmedValue, lineNumber, valueIndex + 1, true);
+          if (validation.isValid) {
+            numbers.push(trimmedValue);
+          } else {
+            errors.push(...validation.errors);
+          }
+        });
+      } else {
+        // Single value per line
+        const validation = validateSingleBiblioNumber(trimmedLine, lineNumber, 1, false);
+        if (validation.isValid) {
+          numbers.push(trimmedLine);
+        } else {
+          errors.push(...validation.errors);
+        }
+      }
+    });
+    
+    return { numbers, errors };
+  };
+
+  const validateSingleBiblioNumber = (value: string, lineNumber: number, position: number, isCommaSeparated: boolean): { isValid: boolean; errors: string[] } => {
+    const errors: string[] = [];
+    const positionText = isCommaSeparated ? `, position ${position}` : '';
+    
+    // Check for non-numeric characters
+    if (!/^\d+$/.test(value)) {
+      const invalidChars = value.match(/[^\d]/g)?.join('') || '';
+      errors.push(`Line ${lineNumber}${positionText}: "${value}" contains invalid characters (${invalidChars}). Only digits 0-9 are allowed for biblio numbers.`);
+      return { isValid: false, errors };
+    }
+    
+    // Biblio numbers can be any length (unlike magazine numbers which must be 4 digits)
+    if (value.length === 0) {
+      errors.push(`Line ${lineNumber}${positionText}: Empty biblio number found.`);
+      return { isValid: false, errors };
+    }
+    
+    return { isValid: true, errors: [] };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsGenerating(true);
 
-    // Validate magazine numbers based on input method
-    let validation;
+    // Validate input based on input method
+    let validation: { isValid: boolean; errors: string[] };
     let numbersToUse: string[] = [];
+    let biblioNumbersToUse: string[] = [];
     
     if (inputMethod === 'manual') {
       validation = validateMagazineNumbers(magazineNumbers);
       numbersToUse = magazineNumbers.split(',').map((m: string) => m.trim()).filter((m: string) => m !== '');
-    } else {
+    } else if (inputMethod === 'file') {
       validation = validateFileNumbers(fileNumbers);
       numbersToUse = fileNumbers;
+    } else if (inputMethod === 'biblio') {
+      if (biblioNumbers.length === 0) {
+        setValidationErrors(['Please upload a biblio file with valid numbers']);
+        setIsGenerating(false);
+        return;
+      }
+      validation = { isValid: true, errors: [] };
+      biblioNumbersToUse = biblioNumbers;
+    } else {
+      validation = { isValid: false, errors: ['Invalid input method'] };
     }
     
     if (!validation.isValid) {
@@ -198,10 +299,12 @@ export default function CitationTitleTranslations() {
       console.log('🚀 Citation Title Translations: Starting report generation');
       console.log('📋 Request data:', {
         magazineNumbers: numbersToUse.length > 0 ? numbersToUse.join(',') : null,
+        biblioNumbers: biblioNumbersToUse.length > 0 ? biblioNumbersToUse.join(',') : null,
         startYear: startYear || null,
         endYear: endYear || null,
         originalMagazineNumbers: magazineNumbers,
-        numbersToUse: numbersToUse
+        numbersToUse: numbersToUse,
+        biblioNumbersToUse: biblioNumbersToUse
       });
 
       const response = await fetch('/api/citation-reports/title-translations', {
@@ -211,6 +314,7 @@ export default function CitationTitleTranslations() {
         },
         body: JSON.stringify({
           magazineNumbers: numbersToUse.length > 0 ? numbersToUse.join(',') : null,
+          biblioNumbers: biblioNumbersToUse.length > 0 ? biblioNumbersToUse.join(',') : null,
           startYear: startYear || null,
           endYear: endYear || null,
         }),
@@ -304,6 +408,8 @@ export default function CitationTitleTranslations() {
                 setValidationErrors([]);
                 setUploadedFile(null);
                 setFileNumbers([]);
+                setBiblioUploadedFile(null);
+                setBiblioNumbers([]);
               }}
               className={`px-4 py-2 text-sm font-medium rounded-md ${
                 inputMethod === 'manual'
@@ -319,6 +425,8 @@ export default function CitationTitleTranslations() {
                 setInputMethod('file');
                 setValidationErrors([]);
                 setMagazineNumbers('');
+                setBiblioUploadedFile(null);
+                setBiblioNumbers([]);
               }}
               className={`px-4 py-2 text-sm font-medium rounded-md ${
                 inputMethod === 'file'
@@ -327,6 +435,23 @@ export default function CitationTitleTranslations() {
               }`}
             >
               {t.steps.uploadFile}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setInputMethod('biblio');
+                setValidationErrors([]);
+                setMagazineNumbers('');
+                setUploadedFile(null);
+                setFileNumbers([]);
+              }}
+              className={`px-4 py-2 text-sm font-medium rounded-md ${
+                inputMethod === 'biblio'
+                  ? 'bg-red-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Upload Biblio Numbers
             </button>
           </div>
 
@@ -409,6 +534,65 @@ export default function CitationTitleTranslations() {
                     <div className="mt-2 text-sm text-green-700">
                       <strong>{t.forms.validNumbersFoundLabel}</strong> {fileNumbers.slice(0, 5).join(', ')}
                       {fileNumbers.length > 5 && ` ... and ${fileNumbers.length - 5} more`}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Biblio Upload */}
+          {inputMethod === 'biblio' && (
+            <div>
+              <input
+                id="biblioFileUpload"
+                type="file"
+                accept=".txt,text/plain"
+                onChange={handleBiblioFileUpload}
+                className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 bg-gray-50 focus:bg-white text-gray-900"
+              />
+              <p className="mt-2 text-sm text-gray-600">
+                Upload a .txt file containing biblio numbers (one per line or comma-separated)
+              </p>
+              
+              {biblioUploadedFile && (
+                <div className={`mt-3 p-3 border rounded-md ${
+                  validationErrors.length > 0 
+                    ? 'bg-yellow-50 border-yellow-200' 
+                    : 'bg-green-50 border-green-200'
+                }`}>
+                  <div className="flex items-center">
+                    <svg className={`w-4 h-4 mr-2 ${
+                      validationErrors.length > 0 ? 'text-yellow-500' : 'text-green-500'
+                    }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                        d={validationErrors.length > 0 
+                          ? "M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
+                          : "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        } />
+                    </svg>
+                    <span className={`text-sm ${
+                      validationErrors.length > 0 ? 'text-yellow-800' : 'text-green-800'
+                    }`}>
+                      Biblio file uploaded: {biblioUploadedFile.name} 
+                      {validationErrors.length === 0 && (
+                        <span> ({biblioNumbers.length} valid biblio numbers found)</span>
+                      )}
+                      {validationErrors.length > 0 && (
+                        <span> ({biblioNumbers.length} valid biblio numbers found, {validationErrors.length} errors)</span>
+                      )}
+                    </span>
+                  </div>
+                  {biblioNumbers.length > 0 && validationErrors.length === 0 && (
+                    <div className="mt-2 text-sm text-green-700">
+                      <strong>Valid biblio numbers:</strong> {biblioNumbers.slice(0, 10).join(', ')}
+                      {biblioNumbers.length > 10 && ` ... and ${biblioNumbers.length - 10} more`}
+                    </div>
+                  )}
+                  {validationErrors.length > 0 && biblioNumbers.length > 0 && (
+                    <div className="mt-2 text-sm text-green-700">
+                      <strong>Valid biblio numbers:</strong> {biblioNumbers.slice(0, 5).join(', ')}
+                      {biblioNumbers.length > 5 && ` ... and ${biblioNumbers.length - 5} more`}
                     </div>
                   )}
                 </div>

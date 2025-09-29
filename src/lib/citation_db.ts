@@ -8,20 +8,14 @@ const citationDbConfig = {
   user: process.env.DB_USER_CIT || 'root',
   password: process.env.DB_PASS_CIT || '',
   database: process.env.DB_NAME_CIT ||  'koha_citation',
-  // host: 'citation.mandumah.com',
-  // port: 3306,
-  // user: 'salam',
-  // password: 'a67tzKi',
-  // // database: 'koha',
-  // connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '20'),
-  // queueLimit: 0,
-  // // Timeout configurations for production
-  // acquireTimeout: parseInt(process.env.DB_ACQUIRE_TIMEOUT || '60000'), // 60 seconds to acquire connection
-  // idleTimeout: parseInt(process.env.DB_IDLE_TIMEOUT || '300000'), // 5 minutes idle timeout
-  // reconnect: true,
-  // connectTimeout: parseInt(process.env.DB_CONNECT_TIMEOUT || '60000'), // 60 seconds to connect
-  // multipleStatements: false,
-  // timezone: '+00:00'
+  // Timeout configurations for large citation queries
+  acquireTimeout: parseInt(process.env.DB_ACQUIRE_TIMEOUT || '60000'), // 60 seconds to acquire connection
+  timeout: parseInt(process.env.DB_QUERY_TIMEOUT || '1200000'), // 20 minutes for queries
+  connectTimeout: parseInt(process.env.DB_CONNECT_TIMEOUT || '60000'), // 60 seconds to connect
+  idleTimeout: parseInt(process.env.DB_IDLE_TIMEOUT || '300000'), // 5 minutes idle timeout
+  reconnect: true,
+  multipleStatements: false,
+  timezone: '+00:00'
 };
 
 // Create connection pool for better performance

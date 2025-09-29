@@ -110,6 +110,8 @@ export default function ReportContent({ activeReport }: ReportContentProps) {
     setIsGenerating(true);
     setShowSuccessMessage(false);
     
+    console.log('🔍 ReportContent: handleGenerateCustomCitationReport called with formData:', formData);
+    
     try {
       // Call the custom citation form API
       const response = await fetch('/api/citation-reports/custom', {
@@ -122,6 +124,7 @@ export default function ReportContent({ activeReport }: ReportContentProps) {
           startYear: formData.startYear,
           endYear: formData.endYear,
           selectedFields: formData.selectedFields,
+          biblioNumbers: formData.biblioNumbers,
           isPreview: false
         })
       });

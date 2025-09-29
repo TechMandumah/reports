@@ -451,7 +451,7 @@ export default function CitationTitleTranslations() {
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              Upload Biblio Numbers
+            {isRTL ? 'رفع أرقام الببليو' : 'Upload Biblio Numbers'}
             </button>
           </div>
 

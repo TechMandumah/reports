@@ -433,7 +433,7 @@ export async function POST(request: NextRequest) {
       const biblioNumberCellRef = xlsx.utils.encode_cell({ r: row, c: 0 });
       const biblioNumberCell = worksheet[biblioNumberCellRef];
       if (biblioNumberCell && biblioNumberCell.v) {
-        const catalogingUrl = `https://cataloging.mandumah.com/cgi-bin/koha/catalogue/detail.pl?biblionumber=${item.biblionumber}`;
+        const catalogingUrl = `https://citationadmin.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${item.biblionumber}`;
         biblioNumberCell.l = { Target: catalogingUrl, Tooltip: "Click to open in cataloging system" };
       }
 

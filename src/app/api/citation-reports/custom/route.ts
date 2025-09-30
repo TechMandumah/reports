@@ -769,7 +769,7 @@ export async function POST(request: NextRequest) {
           const cellRef = xlsx.utils.encode_cell({ r: row, c: biblioColIndex });
           const cell = worksheet[cellRef];
           if (cell && cell.v) {
-            const catalogingUrl = `https://cataloging.mandumah.com/cgi-bin/koha/catalogue/detail.pl?biblionumber=${cell.v}`;
+            const catalogingUrl = `https://citationadmin.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${cell.v}`;
             cell.l = { Target: catalogingUrl, Tooltip: "Click to open in cataloging system" };
           }
         }

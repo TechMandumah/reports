@@ -640,10 +640,10 @@ async function exportCustomReportToExcel(data: ExportData[], formData?: any): Pr
         };
         
         // Apply default Excel hyperlink styling (blue color, underline)
-        cell.font = {
-          color: { argb: 'FF0000FF' }, // Blue color
-          underline: true
-        };
+        // cell.font = {
+        //   color: { argb: 'FF0000FF' }, // Blue color
+        //   underline: true
+        // };
       }
     }
   }

@@ -324,7 +324,7 @@ export async function POST(request: NextRequest) {
       console.log(`ℹ️ [${requestId}] No year filter provided`);
     }
 
-    // Add biblio numbers filter - CORRECTED: Find citations within specified journals
+    // Add biblio numbers filter - ENHANCED: Try multiple methods to find citations within journals
     if (biblioNumbers) {
       console.log(`🔍 [${requestId}] Processing journal biblio numbers filter...`);
       let numbers: string[] = [];
@@ -342,16 +342,54 @@ export async function POST(request: NextRequest) {
       }
       
       if (numbers.length > 0) {
-        console.log(`📚 [${requestId}] CustomCitationReport: Finding citations within ${numbers.length} journals`);
+        console.log(`📚 [${requestId}] CustomCitationReport: Finding citations within ${numbers.length} journals:`, numbers);
         
-        // CORRECTED: Look for citations that belong to these journals
-        // Method 1: Through MARC field 773 subfield w (journal reference)
-        const journalConditions = numbers.map(() => 'EXTRACTVALUE(bi.marcxml, \'//datafield[@tag="773"]/subfield[@code="w"]\') = ?').join(' OR ');
-        query += ` AND (${journalConditions})`;
+        // Try multiple methods to find the relationship
+        const conditions: string[] = [];
         
-        // Convert journal numbers to strings for MARC field matching
-        queryParams.push(...numbers);
-        console.log(`📚 [${requestId}] CustomCitationReport: Looking for citations referencing journals:`, numbers);
+        // Method 1: MARC field 773 subfield w (journal biblionumber reference)
+        const method1Conditions = numbers.map(() => 'EXTRACTVALUE(bi.marcxml, \'//datafield[@tag="773"]/subfield[@code="w"]\') = ?').join(' OR ');
+        if (method1Conditions) {
+          conditions.push(`(${method1Conditions})`);
+          queryParams.push(...numbers);
+        }
+        
+        // Method 2: MARC field 773 subfield x (ISSN or other journal identifier)
+        const method2Conditions = numbers.map(() => 'EXTRACTVALUE(bi.marcxml, \'//datafield[@tag="773"]/subfield[@code="x"]\') = ?').join(' OR ');
+        if (method2Conditions) {
+          conditions.push(`(${method2Conditions})`);
+          queryParams.push(...numbers);
+        }
+        
+        // Method 3: URL pattern matching (e.g., citations might have URLs like "1433060-001.pdf")
+        const method3Conditions = numbers.map(() => 'bi.url LIKE ?').join(' OR ');
+        if (method3Conditions) {
+          conditions.push(`(${method3Conditions})`);
+          queryParams.push(...numbers.map(num => `${num}-%`));
+        }
+        
+        // Method 4: Publisher code matching
+        const method4Conditions = numbers.map(() => 'bi.publishercode = ?').join(' OR ');
+        if (method4Conditions) {
+          conditions.push(`(${method4Conditions})`);
+          queryParams.push(...numbers);
+        }
+        
+        // Method 5: Direct biblionumber matching (original approach - keep as fallback)
+        const method5Conditions = numbers.map(() => 'b.biblionumber = ?').join(' OR ');
+        if (method5Conditions) {
+          conditions.push(`(${method5Conditions})`);
+          queryParams.push(...numbers.map(num => parseInt(num)));
+        }
+        
+        if (conditions.length > 0) {
+          // Use OR to try all methods - any citation that matches any method will be included
+          query += ` AND (${conditions.join(' OR ')})`;
+          console.log(`📚 [${requestId}] CustomCitationReport: Applied ${conditions.length} search methods for journal relationship`);
+          console.log(`📚 [${requestId}] CustomCitationReport: Looking for citations related to journals:`, numbers);
+        } else {
+          console.log(`⚠️ [${requestId}] CustomCitationReport: No search methods could be applied`);
+        }
       }
     }
 
@@ -372,6 +410,47 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString(),
       averageTimePerRow: results.length > 0 ? `${(queryTime / results.length).toFixed(2)}ms` : 'N/A'
     });
+    
+    // Enhanced debugging for journal relationship issue
+    if (biblioNumbers && biblioNumbers.length > 0) {
+      console.log(`🔍 [${requestId}] DEBUGGING: Journal relationship analysis`);
+      console.log(`📚 [${requestId}] Input journals:`, biblioNumbers);
+      console.log(`📝 [${requestId}] Records found:`, results.length);
+      
+      if (results.length === 0) {
+        console.log(`❌ [${requestId}] NO RECORDS FOUND - Checking why...`);
+        
+        // Run diagnostic queries to understand the issue
+        try {
+          const [totalCitations] = await connection.execute(`
+            SELECT COUNT(*) as total 
+            FROM biblioitems bi 
+            INNER JOIN biblio b ON bi.biblionumber = b.biblionumber 
+            WHERE b.frameworkcode = 'CIT'
+          `);
+          console.log(`📊 [${requestId}] Total citations in database:`, (totalCitations as any[])[0]);
+          
+          // Check if journals exist
+          const journalNumbers = Array.isArray(biblioNumbers) ? biblioNumbers : [biblioNumbers];
+          const [journalCheck] = await connection.execute(`
+            SELECT biblionumber, title, frameworkcode 
+            FROM biblio 
+            WHERE biblionumber IN (${journalNumbers.map(() => '?').join(',')})
+          `, journalNumbers.map(num => parseInt(num.toString())));
+          console.log(`📖 [${requestId}] Journal records found:`, journalCheck);
+          
+        } catch (debugError) {
+          console.error(`🚨 [${requestId}] Debug query failed:`, debugError);
+        }
+      } else {
+        console.log(`✅ [${requestId}] SUCCESS: Found ${results.length} citations`);
+        console.log(`📝 [${requestId}] First few biblionumbers:`, results.slice(0, 5).map(r => r.biblionumber));
+        console.log(`📝 [${requestId}] Sample titles:`, results.slice(0, 3).map(r => ({
+          biblionumber: r.biblionumber,
+          title: r.marc_245_a || r.biblio_title
+        })));
+      }
+    }
     
     if (results.length > 0) {
       console.log(`📊 [${requestId}] Sample record structure:`, {

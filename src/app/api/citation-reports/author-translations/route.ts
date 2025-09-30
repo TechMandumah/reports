@@ -251,33 +251,36 @@ export async function POST(request: NextRequest) {
       console.log(`ℹ️ [${requestId}] No year filter provided`);
     }
 
-    // Add biblio numbers filter
+    // Add biblio numbers filter - CORRECTED: Find citations within specified journals
     if (biblioNumbers) {
-      console.log(`🔍 [${requestId}] Processing biblio numbers filter...`);
+      console.log(`🔍 [${requestId}] Processing journal biblio numbers filter...`);
       let numbers: string[] = [];
       
       // Handle different types of biblioNumbers input (similar to magazineNumbers)
       if (Array.isArray(biblioNumbers)) {
         numbers = biblioNumbers.filter((num: any) => num && num.toString().trim()).map(num => num.toString());
-        console.log(`📚 [${requestId}] CitationAuthorTranslations: Biblio numbers (array format):`, numbers);
+        console.log(`📚 [${requestId}] CitationAuthorTranslations: Journal biblio numbers (array format):`, numbers);
       } else if (typeof biblioNumbers === 'string') {
         numbers = biblioNumbers.split(/[,\s\n]+/).filter((num: string) => num.trim());
-        console.log(`📚 [${requestId}] CitationAuthorTranslations: Biblio numbers (string format):`, numbers);
+        console.log(`📚 [${requestId}] CitationAuthorTranslations: Journal biblio numbers (string format):`, numbers);
       } else {
         numbers = [biblioNumbers.toString()].filter((num: string) => num.trim());
-        console.log(`📚 [${requestId}] CitationAuthorTranslations: Biblio numbers (other format):`, numbers);
+        console.log(`📚 [${requestId}] CitationAuthorTranslations: Journal biblio numbers (other format):`, numbers);
       }
       
       if (numbers.length > 0) {
-        console.log(`📚 [${requestId}] Adding biblio numbers filter for ${numbers.length} biblio numbers`);
-        const placeholders = numbers.map(() => '?').join(',');
-        query += ` AND b.biblionumber IN (${placeholders})`;
-        // Convert biblio numbers to integers
-        const biblioNumsAsInts = numbers.map(num => parseInt(num.replace(/^0+/, '') || '0'));
-        queryParams.push(...biblioNumsAsInts);
-        console.log(`📚 [${requestId}] Biblio numbers applied:`, biblioNumsAsInts.slice(0, 10), biblioNumsAsInts.length > 10 ? `... and ${biblioNumsAsInts.length - 10} more` : '');
+        console.log(`📚 [${requestId}] Finding citations within ${numbers.length} journals`);
+        
+        // CORRECTED: Look for citations that belong to these journals
+        // Method 1: Through MARC field 773 subfield w (journal reference)
+        const journalConditions = numbers.map(() => 'EXTRACTVALUE(bi.marcxml, \'//datafield[@tag="773"]/subfield[@code="w"]\') = ?').join(' OR ');
+        query += ` AND (${journalConditions})`;
+        
+        // Convert journal numbers to strings for MARC field matching
+        queryParams.push(...numbers);
+        console.log(`📚 [${requestId}] Looking for citations referencing journals:`, numbers);
       } else {
-        console.log(`ℹ️ [${requestId}] No valid biblio numbers found to filter`);
+        console.log(`ℹ️ [${requestId}] No valid journal biblio numbers found to filter`);
       }
     } else {
       console.log(`ℹ️ [${requestId}] No biblio numbers filter provided`);

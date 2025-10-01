@@ -324,7 +324,7 @@ export async function POST(request: NextRequest) {
       console.log(`ℹ️ [${requestId}] No year filter provided`);
     }
 
-    // Add biblio numbers filter - ENHANCED: Try multiple methods to find citations within journals
+    // Add biblio numbers filter - CORRECTED: Use MARC field 073 subfield a for journal relationship
     if (biblioNumbers) {
       console.log(`🔍 [${requestId}] Processing journal biblio numbers filter...`);
       let numbers: string[] = [];
@@ -344,52 +344,13 @@ export async function POST(request: NextRequest) {
       if (numbers.length > 0) {
         console.log(`📚 [${requestId}] CustomCitationReport: Finding citations within ${numbers.length} journals:`, numbers);
         
-        // Try multiple methods to find the relationship
-        const conditions: string[] = [];
+        // CORRECTED: Use MARC field 073 subfield a (batch/journal reference)
+        const journalConditions = numbers.map(() => 'EXTRACTVALUE(bi.marcxml, \'//datafield[@tag="073"]/subfield[@code="a"]\') = ?').join(' OR ');
+        query += ` AND (${journalConditions})`;
         
-        // Method 1: MARC field 773 subfield w (journal biblionumber reference)
-        const method1Conditions = numbers.map(() => 'EXTRACTVALUE(bi.marcxml, \'//datafield[@tag="773"]/subfield[@code="w"]\') = ?').join(' OR ');
-        if (method1Conditions) {
-          conditions.push(`(${method1Conditions})`);
-          queryParams.push(...numbers);
-        }
-        
-        // Method 2: MARC field 773 subfield x (ISSN or other journal identifier)
-        const method2Conditions = numbers.map(() => 'EXTRACTVALUE(bi.marcxml, \'//datafield[@tag="773"]/subfield[@code="x"]\') = ?').join(' OR ');
-        if (method2Conditions) {
-          conditions.push(`(${method2Conditions})`);
-          queryParams.push(...numbers);
-        }
-        
-        // Method 3: URL pattern matching (e.g., citations might have URLs like "1433060-001.pdf")
-        const method3Conditions = numbers.map(() => 'bi.url LIKE ?').join(' OR ');
-        if (method3Conditions) {
-          conditions.push(`(${method3Conditions})`);
-          queryParams.push(...numbers.map(num => `${num}-%`));
-        }
-        
-        // Method 4: Publisher code matching
-        const method4Conditions = numbers.map(() => 'bi.publishercode = ?').join(' OR ');
-        if (method4Conditions) {
-          conditions.push(`(${method4Conditions})`);
-          queryParams.push(...numbers);
-        }
-        
-        // Method 5: Direct biblionumber matching (original approach - keep as fallback)
-        const method5Conditions = numbers.map(() => 'b.biblionumber = ?').join(' OR ');
-        if (method5Conditions) {
-          conditions.push(`(${method5Conditions})`);
-          queryParams.push(...numbers.map(num => parseInt(num)));
-        }
-        
-        if (conditions.length > 0) {
-          // Use OR to try all methods - any citation that matches any method will be included
-          query += ` AND (${conditions.join(' OR ')})`;
-          console.log(`📚 [${requestId}] CustomCitationReport: Applied ${conditions.length} search methods for journal relationship`);
-          console.log(`📚 [${requestId}] CustomCitationReport: Looking for citations related to journals:`, numbers);
-        } else {
-          console.log(`⚠️ [${requestId}] CustomCitationReport: No search methods could be applied`);
-        }
+        // Add journal numbers as strings for MARC field matching
+        queryParams.push(...numbers);
+        console.log(`📚 [${requestId}] CustomCitationReport: Looking for citations in journals via MARC 073a:`, numbers);
       }
     }
 

@@ -104,6 +104,7 @@ export const reportConfigurations: Record<string, ReportConfig> = {
     columns: [
       { header: "URL", key: "url" },
       { header: "Biblio", key: "biblio" },
+      { header: "Biblio Details", key: "biblio_details" },
       { header: "Title 245", key: "title_245" },
       { header: "Title 246", key: "title_246" },
       { header: "Title 242", key: "title_242" },
@@ -115,6 +116,7 @@ export const reportConfigurations: Record<string, ReportConfig> = {
     columns: [
   { header: "URL", key: "url" },
   { header: "Biblio", key: "biblio" },
+  { header: "Biblio Details", key: "biblio_details" },
   { header: "Main Author (100)", key: "author" },
   { header: "Main Author ID", key: "author_id" },
   { header: "Additional Author ID", key: "additional_author_id" },
@@ -129,6 +131,7 @@ export const reportConfigurations: Record<string, ReportConfig> = {
     columns: [
   { header: "URL", key: "url" },
   { header: "Biblio", key: "biblio" },
+  { header: "Biblio Details", key: "biblio_details" },
   { header: "Author", key: "author" }
     ]
   },
@@ -137,6 +140,7 @@ export const reportConfigurations: Record<string, ReportConfig> = {
     columns: [
   { header: "URL", key: "url" },
   { header: "Biblio", key: "biblio" },
+  { header: "Biblio Details", key: "biblio_details" },
   { header: "Title 245", key: "title_245" },
   { header: "Title 246", key: "title_246" },
   { header: "Title 242", key: "title_242" },
@@ -149,6 +153,7 @@ export const reportConfigurations: Record<string, ReportConfig> = {
     columns: [
   { header: "URL", key: "url" },
   { header: "Biblio", key: "biblio" },
+  { header: "Biblio Details", key: "biblio_details" },
   { header: "Abstract 520", key: "abstract_520" }
     ]
   },
@@ -184,6 +189,7 @@ export const reportConfigurations: Record<string, ReportConfig> = {
     name: "Convert URL to Biblio",
     columns: [
       { header: "Biblio", key: "biblio" },
+      { header: "Biblio Details", key: "biblio_details" },
       { header: "URL", key: "url" }
     ]
   }
@@ -308,7 +314,7 @@ export async function exportToExcel(reportType: string, formData: any): Promise<
       // Filter columns based on selected author types
       finalColumns = finalColumns.filter(col => {
         // Always keep URL and Biblio columns
-        if (col.key === 'url' || col.key === 'biblio') return true;
+        if (col.key === 'url' || col.key === 'biblio' || col.key === 'biblio_details') return true;
         
         // If only 100 (main author) is selected
         if (authorFilter.includes('100') && !authorFilter.includes('700')) {
@@ -328,7 +334,7 @@ export async function exportToExcel(reportType: string, formData: any): Promise<
     // Remove completely empty columns from all reports
     finalColumns = finalColumns.filter(col => {
       // Always keep essential columns like URL and Biblio
-      if (col.key === 'url' || col.key === 'biblio') return true;
+      if (col.key === 'url' || col.key === 'biblio' || col.key === 'biblio_details') return true;
       
       // Check if column has any non-empty values
       const hasNonEmptyValue = filteredData.some(row => {
@@ -395,6 +401,24 @@ export async function exportToExcel(reportType: string, formData: any): Promise<
           cell.value = {
             text: `${biblioNumber}`,
             hyperlink: catalogingUrl
+          };
+        }
+      }
+    }
+
+    // Make biblio_details column clickable for ALL normal reports
+    const biblioDetailsColumnIndex = finalColumns.findIndex(col => col.key === 'biblio_details');
+    if (biblioDetailsColumnIndex !== -1) {
+      // Add hyperlinks to biblio_details cells (starting from row 2, column is 1-indexed)
+      for (let rowIndex = 2; rowIndex <= excelData.length + 1; rowIndex++) {
+        const cell = worksheet.getCell(rowIndex, biblioDetailsColumnIndex + 1);
+        const biblioDetailsUrl = cell.value;
+        
+        if (biblioDetailsUrl) {
+          // Set cell as hyperlink using ExcelJS with proper styling
+          cell.value = {
+            text: 'Edit Details',
+            hyperlink: biblioDetailsUrl.toString()
           };
         }
       }
@@ -539,6 +563,11 @@ async function exportCustomReportToExcel(data: ExportData[], formData?: any): Pr
     columns.push({ header: "Biblio", key: "biblio" });
   }
 
+  // Add Biblio Details column if it has data
+  if (availableKeys.includes('biblio_details')) {
+    columns.push({ header: "Biblio Details", key: "biblio_details" });
+  }
+
   // Add all dynamically generated MARC fields as columns - only non-empty ones
   if (data.length > 0) {
     // Get all MARC field keys from available (non-empty) keys
@@ -644,6 +673,23 @@ async function exportCustomReportToExcel(data: ExportData[], formData?: any): Pr
         //   color: { argb: 'FF0000FF' }, // Blue color
         //   underline: true
         // };
+      }
+    }
+  }
+
+  // Make biblio_details column clickable
+  const biblioDetailsColumnIndex = columns.findIndex(col => col.key === 'biblio_details');
+  if (biblioDetailsColumnIndex !== -1) {
+    // Add hyperlinks to biblio_details cells (starting from row 2, column is 1-indexed)
+    for (let rowIndex = 2; rowIndex <= excelData.length + 1; rowIndex++) {
+      const cell = worksheet.getCell(rowIndex, biblioDetailsColumnIndex + 1);
+      const biblioDetailsUrl = cell.value;
+      if (biblioDetailsUrl) {
+        // Set cell as hyperlink using ExcelJS with proper styling
+        cell.value = {
+          text: 'Edit Details',
+          hyperlink: biblioDetailsUrl.toString()
+        };
       }
     }
   }

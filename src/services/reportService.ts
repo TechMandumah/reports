@@ -263,7 +263,8 @@ export async function generatePredefinedReport(reportType: string, filters: Quer
       ...record,
       url: record.url || '', // Use the PDF filename from biblioitems
       biblio: String(record.biblionumber).padStart(4, '0'),
-      link: `https://cataloging.mandumah.com/cgi-bin/koha/catalogue/detail.pl?biblionumber=${record.biblionumber}`
+      link: `https://cataloging.mandumah.com/cgi-bin/koha/catalogue/detail.pl?biblionumber=${record.biblionumber}`,
+      biblio_details: `https://citationadmin.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${record.biblionumber}`
     };
     
     // Add specific fields based on report type using pre-extracted MARC fields
@@ -607,7 +608,8 @@ export async function generateCustomReport(filters: QueryFilters): Promise<Repor
       ...record,
       url: record.url || '',
       biblio: String(record.biblionumber).padStart(4, '0'),
-      link: `https://cataloging.mandumah.com/cgi-bin/koha/catalogue/detail.pl?biblionumber=${record.biblionumber}`
+      link: `https://cataloging.mandumah.com/cgi-bin/koha/catalogue/detail.pl?biblionumber=${record.biblionumber}`,
+      biblio_details: `https://citationadmin.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${record.biblionumber}`
     };
     
     // Add all extracted MARC fields with proper field names for export/display

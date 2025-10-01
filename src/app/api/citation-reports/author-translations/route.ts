@@ -251,7 +251,7 @@ export async function POST(request: NextRequest) {
       console.log(`ℹ️ [${requestId}] No year filter provided`);
     }
 
-    // Add biblio numbers filter - CORRECTED: Find citations within specified journals
+    // Add biblio numbers filter - CORRECTED: Use MARC field 073 subfield a for journal relationship
     if (biblioNumbers) {
       console.log(`🔍 [${requestId}] Processing journal biblio numbers filter...`);
       let numbers: string[] = [];
@@ -271,14 +271,13 @@ export async function POST(request: NextRequest) {
       if (numbers.length > 0) {
         console.log(`📚 [${requestId}] Finding citations within ${numbers.length} journals`);
         
-        // CORRECTED: Look for citations that belong to these journals
-        // Method 1: Through MARC field 773 subfield w (journal reference)
-        const journalConditions = numbers.map(() => 'EXTRACTVALUE(bi.marcxml, \'//datafield[@tag="773"]/subfield[@code="w"]\') = ?').join(' OR ');
+        // CORRECTED: Use MARC field 073 subfield a (batch/journal reference)
+        const journalConditions = numbers.map(() => 'EXTRACTVALUE(bi.marcxml, \'//datafield[@tag="073"]/subfield[@code="a"]\') = ?').join(' OR ');
         query += ` AND (${journalConditions})`;
         
-        // Convert journal numbers to strings for MARC field matching
+        // Add journal numbers as strings for MARC field matching
         queryParams.push(...numbers);
-        console.log(`📚 [${requestId}] Looking for citations referencing journals:`, numbers);
+        console.log(`📚 [${requestId}] Looking for citations in journals via MARC 073a:`, numbers);
       } else {
         console.log(`ℹ️ [${requestId}] No valid journal biblio numbers found to filter`);
       }

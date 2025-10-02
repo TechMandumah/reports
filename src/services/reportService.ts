@@ -144,7 +144,8 @@ function buildAbstractFilter(abstractFilter?: string): { clause: string; params:
                       OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="a"]') IS NULL)
                  AND (EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="e"]') = "" 
                       OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="e"]') IS NULL)
-                 AND b.abstract IS NOT NULL AND b.abstract != "" AND TRIM(b.abstract) != ""`,
+                 AND b.abstract IS NOT NULL AND b.abstract != "" AND TRIM(b.abstract) != ""
+                 AND b.abstract NOT LIKE '%<datafield%'`, // Exclude records where abstract is just MARC XML
         params: []
       };
     
@@ -197,9 +198,24 @@ export async function getBiblioRecords(filters: QueryFilters = {}): Promise<Bibl
       bi.journalnum,
       bi.volumenumber,
       bi.issuenumber,
-      EXTRACTVALUE(bm.metadata, '//datafield[@tag="245"]/subfield[@code="a"]') AS marc_245_a,
-      EXTRACTVALUE(bm.metadata, '//datafield[@tag="246"]/subfield[@code="a"]') AS marc_246_a,
-      EXTRACTVALUE(bm.metadata, '//datafield[@tag="242"]/subfield[@code="a"]') AS marc_242_a,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="245"][1]/subfield[@code="a"]') AS marc_245_1_a,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="245"][1]/subfield[@code="b"]') AS marc_245_1_b,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="245"][2]/subfield[@code="a"]') AS marc_245_2_a,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="245"][2]/subfield[@code="b"]') AS marc_245_2_b,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="245"][3]/subfield[@code="a"]') AS marc_245_3_a,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="245"][3]/subfield[@code="b"]') AS marc_245_3_b,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="246"][1]/subfield[@code="a"]') AS marc_246_1_a,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="246"][1]/subfield[@code="b"]') AS marc_246_1_b,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="246"][2]/subfield[@code="a"]') AS marc_246_2_a,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="246"][2]/subfield[@code="b"]') AS marc_246_2_b,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="246"][3]/subfield[@code="a"]') AS marc_246_3_a,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="246"][3]/subfield[@code="b"]') AS marc_246_3_b,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="242"][1]/subfield[@code="a"]') AS marc_242_1_a,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="242"][1]/subfield[@code="b"]') AS marc_242_1_b,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="242"][2]/subfield[@code="a"]') AS marc_242_2_a,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="242"][2]/subfield[@code="b"]') AS marc_242_2_b,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="242"][3]/subfield[@code="a"]') AS marc_242_3_a,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="242"][3]/subfield[@code="b"]') AS marc_242_3_b,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="041"]/subfield[@code="a"]') AS marc_041_a,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="100"]/subfield[@code="a"]') AS marc_100_a,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="100"]/subfield[@code="9"]') AS marc_100_9,
@@ -208,6 +224,22 @@ export async function getBiblioRecords(filters: QueryFilters = {}): Promise<Bibl
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][1]/subfield[@code="9"]') AS marc_700_1_9,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][2]/subfield[@code="a"]') AS marc_700_2_a,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][2]/subfield[@code="9"]') AS marc_700_2_9,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][3]/subfield[@code="a"]') AS marc_700_3_a,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][3]/subfield[@code="9"]') AS marc_700_3_9,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][4]/subfield[@code="a"]') AS marc_700_4_a,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][4]/subfield[@code="9"]') AS marc_700_4_9,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][5]/subfield[@code="a"]') AS marc_700_5_a,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][5]/subfield[@code="9"]') AS marc_700_5_9,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][6]/subfield[@code="a"]') AS marc_700_6_a,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][6]/subfield[@code="9"]') AS marc_700_6_9,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][7]/subfield[@code="a"]') AS marc_700_7_a,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][7]/subfield[@code="9"]') AS marc_700_7_9,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][8]/subfield[@code="a"]') AS marc_700_8_a,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][8]/subfield[@code="9"]') AS marc_700_8_9,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][9]/subfield[@code="a"]') AS marc_700_9_a,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][9]/subfield[@code="9"]') AS marc_700_9_9,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][10]/subfield[@code="a"]') AS marc_700_10_a,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][10]/subfield[@code="9"]') AS marc_700_10_9,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="a"]') AS marc_520_a,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="b"]') AS marc_520_b,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="d"]') AS marc_520_d,
@@ -272,9 +304,25 @@ export async function generatePredefinedReport(reportType: string, filters: Quer
       case 'export_research_titles':
       case 'export_translations_titles_authors':
       case 'export_translations_citation_title':
-        result.title_245 = (record as any).marc_245_a || record.title || '';
-        result.title_246 = (record as any).marc_246_a || '';
-        result.title_242 = (record as any).marc_242_a || '';
+        // Use multi-instance, multi-subfield title extractions
+        result.title_245_1_a = (record as any).marc_245_1_a || '';
+        result.title_245_1_b = (record as any).marc_245_1_b || '';
+        result.title_245_2_a = (record as any).marc_245_2_a || '';
+        result.title_245_2_b = (record as any).marc_245_2_b || '';
+        result.title_245_3_a = (record as any).marc_245_3_a || '';
+        result.title_245_3_b = (record as any).marc_245_3_b || '';
+        result.title_246_1_a = (record as any).marc_246_1_a || '';
+        result.title_246_1_b = (record as any).marc_246_1_b || '';
+        result.title_246_2_a = (record as any).marc_246_2_a || '';
+        result.title_246_2_b = (record as any).marc_246_2_b || '';
+        result.title_246_3_a = (record as any).marc_246_3_a || '';
+        result.title_246_3_b = (record as any).marc_246_3_b || '';
+        result.title_242_1_a = (record as any).marc_242_1_a || '';
+        result.title_242_1_b = (record as any).marc_242_1_b || '';
+        result.title_242_2_a = (record as any).marc_242_2_a || '';
+        result.title_242_2_b = (record as any).marc_242_2_b || '';
+        result.title_242_3_a = (record as any).marc_242_3_a || '';
+        result.title_242_3_b = (record as any).marc_242_3_b || '';
         result.language_041 = (record as any).marc_041_a || '';
         if (reportType === 'export_translations_titles_authors') {
           result.author = (record as any).marc_100_a || record.author || '';
@@ -287,11 +335,27 @@ export async function generatePredefinedReport(reportType: string, filters: Quer
         result.author = (record as any).marc_100_a || record.author || '';
         result.author_id = (record as any).marc_100_9 || '';
         
-        // Use pre-extracted additional authors data
+        // Use pre-extracted additional authors data (up to 10 authors)
         result.additional_author = (record as any).marc_700_1_a || '';
         result.additional_author_id = (record as any).marc_700_1_9 || '';
         result.additional_author_2 = (record as any).marc_700_2_a || '';
         result.additional_author_id_2 = (record as any).marc_700_2_9 || '';
+        result.additional_author_3 = (record as any).marc_700_3_a || '';
+        result.additional_author_id_3 = (record as any).marc_700_3_9 || '';
+        result.additional_author_4 = (record as any).marc_700_4_a || '';
+        result.additional_author_id_4 = (record as any).marc_700_4_9 || '';
+        result.additional_author_5 = (record as any).marc_700_5_a || '';
+        result.additional_author_id_5 = (record as any).marc_700_5_9 || '';
+        result.additional_author_6 = (record as any).marc_700_6_a || '';
+        result.additional_author_id_6 = (record as any).marc_700_6_9 || '';
+        result.additional_author_7 = (record as any).marc_700_7_a || '';
+        result.additional_author_id_7 = (record as any).marc_700_7_9 || '';
+        result.additional_author_8 = (record as any).marc_700_8_a || '';
+        result.additional_author_id_8 = (record as any).marc_700_8_9 || '';
+        result.additional_author_9 = (record as any).marc_700_9_a || '';
+        result.additional_author_id_9 = (record as any).marc_700_9_9 || '';
+        result.additional_author_10 = (record as any).marc_700_10_a || '';
+        result.additional_author_id_10 = (record as any).marc_700_10_9 || '';
         break;
         
       case 'export_author_data':
@@ -334,9 +398,9 @@ const MARC_FIELD_CONFIGS: { [key: string]: { subfields: string[], multiValue?: b
   '044': { subfields: ['a', 'b'] }, // Country code
   '100': { subfields: ['a', '9', 'd', 'c'] }, // Main Author
   '110': { subfields: ['a', '9'] }, // Corporate Name
-  '242': { subfields: ['a', 'b', 'c'] }, // Translation of Title
-  '245': { subfields: ['a', 'b', 'c', 'n', 'p'] }, // Title Statement
-  '246': { subfields: ['a', 'b'] }, // Varying Form of Title
+  '242': { subfields: ['a', 'b', 'c'], multiValue: true }, // Translation of Title
+  '245': { subfields: ['a', 'b', 'c', 'n', 'p'], multiValue: true }, // Title Statement
+  '246': { subfields: ['a', 'b'], multiValue: true }, // Varying Form of Title
   '260': { subfields: ['a', 'b', 'c'] }, // Publication
   '300': { subfields: ['a', 'b', 'c'] }, // Physical Description
   '336': { subfields: ['a', 'b'] }, // Content Type
@@ -390,7 +454,7 @@ function buildCustomMarcExtractions(selectedFields: string[], isBiblioSearch = f
         
         if (config.multiValue && fieldTag === '700') {
           // Handle multiple 700 fields (additional authors) - limit for biblio search
-          const maxInstances = isBiblioSearch ? 2 : 5; // Reduce instances for biblio search
+          const maxInstances = isBiblioSearch ? 10 : 15; // Support more authors even for biblio search
           for (let i = 1; i <= maxInstances; i++) {
             if (isBiblioSearch && extractionCount >= maxFieldsForBiblioSearch) break;
             const fieldKey = `marc_${fieldTag}_${i}_${subfield}`;
@@ -401,6 +465,16 @@ function buildCustomMarcExtractions(selectedFields: string[], isBiblioSearch = f
         } else if (config.multiValue && (fieldTag === '653' || fieldTag === '692')) {
           // Handle multiple keyword fields - limit for biblio search
           const maxInstances = isBiblioSearch ? 3 : 10; // Reduce instances for biblio search
+          for (let i = 1; i <= maxInstances; i++) {
+            if (isBiblioSearch && extractionCount >= maxFieldsForBiblioSearch) break;
+            const fieldKey = `marc_${fieldTag}_${i}_${subfield}`;
+            selectFields.push(`EXTRACTVALUE(bm.metadata, '//datafield[@tag="${fieldTag}"][${i}]/subfield[@code="${subfield}"]') AS ${fieldKey}`);
+            fieldMap[fieldKey] = `${fieldTag}_${subfield}_${i}`;
+            extractionCount++;
+          }
+        } else if (config.multiValue && (fieldTag === '242' || fieldTag === '245' || fieldTag === '246')) {
+          // Handle multiple title fields - limit for biblio search
+          const maxInstances = isBiblioSearch ? 3 : 5; // Support multiple title instances
           for (let i = 1; i <= maxInstances; i++) {
             if (isBiblioSearch && extractionCount >= maxFieldsForBiblioSearch) break;
             const fieldKey = `marc_${fieldTag}_${i}_${subfield}`;

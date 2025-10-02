@@ -2,42 +2,71 @@ import ExcelJS from 'exceljs';
 
 // Helper function to apply abstract field filters
 function filterAbstractRecords(data: ExportData[], abstractFilter?: string): ExportData[] {
-  if (!abstractFilter || abstractFilter === '') {
-    return data; // Return all data if no filter selected
-  }
+  try {
+    if (!abstractFilter || abstractFilter === '') {
+      return data; // Return all data if no filter selected
+    }
 
-  return data.filter(row => {
-    switch (abstractFilter) {
-      case 'without_abstract':
-        // Records with no field 520 (no abstract subfields)
-        return !Object.keys(row).some(key => key.startsWith('abstract_520_'));
-      
-      case 'missing_english':
-        // Subfield 'a' is available in field 520 where 'b' and 'f' is empty
-        const hasSubfieldA = row['abstract_520_a'] && row['abstract_520_a'].toString().trim() !== '';
-        const hasSubfieldB = row['abstract_520_b'] && row['abstract_520_b'].toString().trim() !== '';
-        const hasSubfieldF = row['abstract_520_f'] && row['abstract_520_f'].toString().trim() !== '';
-        return hasSubfieldA && !hasSubfieldB && !hasSubfieldF;
-      
-      case 'other_language':
-        // Subfield 'd' is available where all other subfields inside field 520 is empty
-        const hasSubfieldD = row['abstract_520_d'] && row['abstract_520_d'].toString().trim() !== '';
-        const hasOtherSubfields = Object.keys(row)
-          .filter(key => key.startsWith('abstract_520_') && key !== 'abstract_520_d')
-          .some(key => row[key] && row[key].toString().trim() !== '');
-        return hasSubfieldD && !hasOtherSubfields;
+    console.log(`Applying abstract filter: ${abstractFilter} to ${data.length} records`);
+
+    const filteredData = data.filter(row => {
+      try {
+        switch (abstractFilter) {
+          case 'without_abstract':
+            // Records with no field 520 (no abstract subfields)
+            return !Object.keys(row).some(key => key.startsWith('abstract_520_'));
+          
+          case 'missing_english':
+            // Subfield 'a' is available in field 520 where 'b' and 'f' is empty
+            const hasSubfieldA = row['abstract_520_a'] && row['abstract_520_a'].toString().trim() !== '';
+            const hasSubfieldB = row['abstract_520_b'] && row['abstract_520_b'].toString().trim() !== '';
+            const hasSubfieldF = row['abstract_520_f'] && row['abstract_520_f'].toString().trim() !== '';
+            return hasSubfieldA && !hasSubfieldB && !hasSubfieldF;
+          
+          case 'other_language':
+            // Subfield 'd' is available where all other subfields inside field 520 is empty
+            const hasSubfieldD = row['abstract_520_d'] && row['abstract_520_d'].toString().trim() !== '';
+            const hasOtherSubfields = Object.keys(row)
+              .filter(key => key.startsWith('abstract_520_') && key !== 'abstract_520_d')
+              .some(key => row[key] && row[key].toString().trim() !== '');
+            return hasSubfieldD && !hasOtherSubfields;
       
       case 'mandumah_abstract':
-        // Subfield 'a' and 'e' are empty inside field 520
-        const hasSubfieldAEmpty = !row['abstract_520_a'] || row['abstract_520_a'].toString().trim() === '';
-        const hasSubfieldEEmpty = !row['abstract_520_e'] || row['abstract_520_e'].toString().trim() === '';
-        const hasAny520Field = Object.keys(row).some(key => key.startsWith('abstract_520_'));
-        return hasAny520Field && hasSubfieldAEmpty && hasSubfieldEEmpty;
-      
-      default:
-        return true;
-    }
-  });
+        try {
+          // Subfield 'a' and 'e' are empty inside field 520, but abstract exists
+          const hasSubfieldAEmpty = !row['abstract_520_a'] || row['abstract_520_a'].toString().trim() === '';
+          const hasSubfieldEEmpty = !row['abstract_520_e'] || row['abstract_520_e'].toString().trim() === '';
+          
+          // Check for abstract in main field 520 or any database abstract
+          const hasAbstract = (row['abstract_520'] && row['abstract_520'].toString().trim() !== '') ||
+                             (row['abstract'] && row['abstract'].toString().trim() !== '');
+          
+          // Additional check: if both a and e are empty but we have other subfields or database abstract
+          const hasOther520Subfields = Object.keys(row)
+            .filter(key => key.startsWith('abstract_520_') && key !== 'abstract_520_a' && key !== 'abstract_520_e')
+            .some(key => row[key] && row[key].toString().trim() !== '');
+          
+          return hasSubfieldAEmpty && hasSubfieldEEmpty && (hasAbstract || hasOther520Subfields);
+        } catch (error) {
+          console.warn('Error processing mandumah_abstract filter for row:', error);
+          return false; // Exclude problematic rows from mandumah_abstract filter
+        }
+          
+          default:
+            return true;
+        }
+      } catch (error) {
+        console.warn('Error processing filter for row:', error);
+        return false; // Exclude problematic rows
+      }
+    });
+
+    console.log(`Filter result: ${filteredData.length} records after applying ${abstractFilter} filter`);
+    return filteredData;
+  } catch (error) {
+    console.error('Error in filterAbstractRecords:', error);
+    return data; // Return original data if filtering fails
+  }
 }
 
 // Helper function to create safe Excel sheet names (max 31 characters)
@@ -105,9 +134,24 @@ export const reportConfigurations: Record<string, ReportConfig> = {
       { header: "URL", key: "url" },
       { header: "Biblio", key: "biblio" },
       { header: "Biblio Details", key: "biblio_details" },
-      { header: "Title 245", key: "title_245" },
-      { header: "Title 246", key: "title_246" },
-      { header: "Title 242", key: "title_242" },
+      { header: "Title 245 (1)(a)", key: "title_245_1_a" },
+      { header: "Title 245 (1)(b)", key: "title_245_1_b" },
+      { header: "Title 245 (2)(a)", key: "title_245_2_a" },
+      { header: "Title 245 (2)(b)", key: "title_245_2_b" },
+      { header: "Title 245 (3)(a)", key: "title_245_3_a" },
+      { header: "Title 245 (3)(b)", key: "title_245_3_b" },
+      { header: "Title 246 (1)(a)", key: "title_246_1_a" },
+      { header: "Title 246 (1)(b)", key: "title_246_1_b" },
+      { header: "Title 246 (2)(a)", key: "title_246_2_a" },
+      { header: "Title 246 (2)(b)", key: "title_246_2_b" },
+      { header: "Title 246 (3)(a)", key: "title_246_3_a" },
+      { header: "Title 246 (3)(b)", key: "title_246_3_b" },
+      { header: "Title 242 (1)(a)", key: "title_242_1_a" },
+      { header: "Title 242 (1)(b)", key: "title_242_1_b" },
+      { header: "Title 242 (2)(a)", key: "title_242_2_a" },
+      { header: "Title 242 (2)(b)", key: "title_242_2_b" },
+      { header: "Title 242 (3)(a)", key: "title_242_3_a" },
+      { header: "Title 242 (3)(b)", key: "title_242_3_b" },
       { header: "Language 041", key: "language_041" },
     ]
   },
@@ -119,11 +163,26 @@ export const reportConfigurations: Record<string, ReportConfig> = {
   { header: "Biblio Details", key: "biblio_details" },
   { header: "Main Author (100)", key: "author" },
   { header: "Main Author ID", key: "author_id" },
+  { header: "Additional Author", key: "additional_author" },
   { header: "Additional Author ID", key: "additional_author_id" },
+  { header: "Additional Author 2", key: "additional_author_2" },
   { header: "Additional Author ID 2", key: "additional_author_id_2" },
+  { header: "Additional Author 3", key: "additional_author_3" },
   { header: "Additional Author ID 3", key: "additional_author_id_3" },
+  { header: "Additional Author 4", key: "additional_author_4" },
   { header: "Additional Author ID 4", key: "additional_author_id_4" },
-  { header: "Additional Author ID 5", key: "additional_author_id_5" }
+  { header: "Additional Author 5", key: "additional_author_5" },
+  { header: "Additional Author ID 5", key: "additional_author_id_5" },
+  { header: "Additional Author 6", key: "additional_author_6" },
+  { header: "Additional Author ID 6", key: "additional_author_id_6" },
+  { header: "Additional Author 7", key: "additional_author_7" },
+  { header: "Additional Author ID 7", key: "additional_author_id_7" },
+  { header: "Additional Author 8", key: "additional_author_8" },
+  { header: "Additional Author ID 8", key: "additional_author_id_8" },
+  { header: "Additional Author 9", key: "additional_author_9" },
+  { header: "Additional Author ID 9", key: "additional_author_id_9" },
+  { header: "Additional Author 10", key: "additional_author_10" },
+  { header: "Additional Author ID 10", key: "additional_author_id_10" }
     ]
   },
   export_author_data: {
@@ -141,9 +200,24 @@ export const reportConfigurations: Record<string, ReportConfig> = {
   { header: "URL", key: "url" },
   { header: "Biblio", key: "biblio" },
   { header: "Biblio Details", key: "biblio_details" },
-  { header: "Title 245", key: "title_245" },
-  { header: "Title 246", key: "title_246" },
-  { header: "Title 242", key: "title_242" },
+  { header: "Title 245 (1)(a)", key: "title_245_1_a" },
+  { header: "Title 245 (1)(b)", key: "title_245_1_b" },
+  { header: "Title 245 (2)(a)", key: "title_245_2_a" },
+  { header: "Title 245 (2)(b)", key: "title_245_2_b" },
+  { header: "Title 245 (3)(a)", key: "title_245_3_a" },
+  { header: "Title 245 (3)(b)", key: "title_245_3_b" },
+  { header: "Title 246 (1)(a)", key: "title_246_1_a" },
+  { header: "Title 246 (1)(b)", key: "title_246_1_b" },
+  { header: "Title 246 (2)(a)", key: "title_246_2_a" },
+  { header: "Title 246 (2)(b)", key: "title_246_2_b" },
+  { header: "Title 246 (3)(a)", key: "title_246_3_a" },
+  { header: "Title 246 (3)(b)", key: "title_246_3_b" },
+  { header: "Title 242 (1)(a)", key: "title_242_1_a" },
+  { header: "Title 242 (1)(b)", key: "title_242_1_b" },
+  { header: "Title 242 (2)(a)", key: "title_242_2_a" },
+  { header: "Title 242 (2)(b)", key: "title_242_2_b" },
+  { header: "Title 242 (3)(a)", key: "title_242_3_a" },
+  { header: "Title 242 (3)(b)", key: "title_242_3_b" },
   { header: "Author", key: "author" },
   { header: "University 373", key: "university_373" }
     ]
@@ -170,9 +244,24 @@ export const reportConfigurations: Record<string, ReportConfig> = {
     columns: [
   { header: "URL", key: "url" },
   { header: "Biblio", key: "biblio" },
-  { header: "Title 245", key: "title_245" },
-  { header: "Title 246", key: "title_246" },
-  { header: "Title 242", key: "title_242" }
+  { header: "Title 245 (1)(a)", key: "title_245_1_a" },
+  { header: "Title 245 (1)(b)", key: "title_245_1_b" },
+  { header: "Title 245 (2)(a)", key: "title_245_2_a" },
+  { header: "Title 245 (2)(b)", key: "title_245_2_b" },
+  { header: "Title 245 (3)(a)", key: "title_245_3_a" },
+  { header: "Title 245 (3)(b)", key: "title_245_3_b" },
+  { header: "Title 246 (1)(a)", key: "title_246_1_a" },
+  { header: "Title 246 (1)(b)", key: "title_246_1_b" },
+  { header: "Title 246 (2)(a)", key: "title_246_2_a" },
+  { header: "Title 246 (2)(b)", key: "title_246_2_b" },
+  { header: "Title 246 (3)(a)", key: "title_246_3_a" },
+  { header: "Title 246 (3)(b)", key: "title_246_3_b" },
+  { header: "Title 242 (1)(a)", key: "title_242_1_a" },
+  { header: "Title 242 (1)(b)", key: "title_242_1_b" },
+  { header: "Title 242 (2)(a)", key: "title_242_2_a" },
+  { header: "Title 242 (2)(b)", key: "title_242_2_b" },
+  { header: "Title 242 (3)(a)", key: "title_242_3_a" },
+  { header: "Title 242 (3)(b)", key: "title_242_3_b" }
     ],
     isDifferentDatabase: true
   },
@@ -303,8 +392,12 @@ export async function exportToExcel(reportType: string, formData: any): Promise<
 
     // Apply abstract field filter if specified
     let filteredData = data;
-    if (reportType === 'export_abstract_field' && formData?.abstractFilter) {
+    if (reportType === 'export_abstract_field' && formData?.abstractFilter && formData.abstractFilter !== '') {
+      console.log(`Applying abstract filter: ${formData.abstractFilter}`);
+      const beforeCount = data.length;
       filteredData = filterAbstractRecords(data, formData.abstractFilter);
+      const afterCount = filteredData.length;
+      console.log(`Abstract filter applied: ${beforeCount} -> ${afterCount} records`);
     }
 
     // Apply author type filter for research authors report
@@ -315,6 +408,9 @@ export async function exportToExcel(reportType: string, formData: any): Promise<
       finalColumns = finalColumns.filter(col => {
         // Always keep URL and Biblio columns
         if (col.key === 'url' || col.key === 'biblio' || col.key === 'biblio_details') return true;
+        
+        // Keep title columns even if some instances are empty (for consistent structure)
+        if (col.key.startsWith('title_245_') || col.key.startsWith('title_246_') || col.key.startsWith('title_242_')) return true;
         
         // If only 100 (main author) is selected
         if (authorFilter.includes('100') && !authorFilter.includes('700')) {
@@ -335,6 +431,9 @@ export async function exportToExcel(reportType: string, formData: any): Promise<
     finalColumns = finalColumns.filter(col => {
       // Always keep essential columns like URL and Biblio
       if (col.key === 'url' || col.key === 'biblio' || col.key === 'biblio_details') return true;
+      
+      // Keep title columns even if some instances are empty (for consistent structure)
+      if (col.key.startsWith('title_245_') || col.key.startsWith('title_246_') || col.key.startsWith('title_242_')) return true;
       
       // Check if column has any non-empty values
       const hasNonEmptyValue = filteredData.some(row => {
@@ -585,18 +684,20 @@ async function exportCustomReportToExcel(data: ExportData[], formData?: any): Pr
       } else if (marcKey === 'marc_001') {
         header = '001 - Control Number';
       } else if (marcKey.includes('_')) {
-        // Parse dynamic field keys like marc_245_a or marc_700_1_a
+        // Parse dynamic field keys like marc_245_a or marc_700_1_a or marc_245_1_a
         const parts = marcKey.split('_');
         if (parts.length >= 3) {
           const fieldTag = parts[1];
-          const subfield = parts[parts.length - 1];
+          const lastPart = parts[parts.length - 1];
           
           if (parts.length === 4 && /^\d+$/.test(parts[2])) {
-            // Multi-value field like marc_700_1_a
+            // Multi-value field like marc_700_1_a or marc_245_1_a
             const instance = parts[2];
-            header = `${fieldTag}/${subfield} #${instance}`;
-          } else {
-            // Regular field like marc_245_a
+            const subfield = lastPart;
+            header = `${fieldTag} (${instance})(${subfield})`;
+          } else if (parts.length === 3) {
+            // Regular field like marc_245_a (legacy format)
+            const subfield = lastPart;
             header = `${fieldTag}/${subfield}`;
           }
         }

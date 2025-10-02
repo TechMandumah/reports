@@ -119,14 +119,12 @@ export async function POST(request: NextRequest) {
 
     let query = `
       SELECT 
-        b.biblionumber,
-        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="245"]/subfield[@code="a"]') AS marc_245_a,
-        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="242"]/subfield[@code="a"]') AS marc_242_a
-      FROM biblioitems bi
-      INNER JOIN biblio b ON bi.biblionumber = b.biblionumber
-      WHERE b.frameworkcode = 'CIT'
-        AND bi.marcxml IS NOT NULL
-        AND bi.marcxml != ''
+        a.biblionumber,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="245"]/subfield[@code="a"]') AS '245',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="242"]/subfield[@code="a"]') AS '242'
+      FROM biblioitems a
+      WHERE a.marcxml IS NOT NULL
+        AND a.marcxml != ''
     `;
 
     const queryParams: any[] = [];
@@ -147,12 +145,12 @@ export async function POST(request: NextRequest) {
       if (numbers.length > 0) {
         console.log(`📊 [${requestId}] Using publisher codes:`, numbers);
         const placeholders = numbers.map(() => '?').join(', ');
-        query += ` AND bi.publishercode IN (${placeholders})`;
+        query += ` AND a.publishercode IN (${placeholders})`;
         queryParams.push(...numbers);
       }
     }
 
-    query += ' ORDER BY b.biblionumber';
+    query += ' ORDER BY a.biblionumber';
 
     console.log(`🚀 [${requestId}] Executing query...`);
     console.log(`📋 [${requestId}] CitationTitleTranslations: Query params:`, queryParams);

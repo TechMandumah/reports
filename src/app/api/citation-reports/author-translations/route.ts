@@ -113,20 +113,18 @@ export async function POST(request: NextRequest) {
 
     let query = `
       SELECT 
-        b.biblionumber,
-        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="100"]/subfield[@code="a"]') AS marc_100_a,
-        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="100"]/subfield[@code="9"]') AS marc_100_9,
-        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="700"][1]/subfield[@code="a"]') AS marc_700_1_a,
-        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="700"][1]/subfield[@code="9"]') AS marc_700_1_9,
-        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="700"][2]/subfield[@code="a"]') AS marc_700_2_a,
-        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="700"][2]/subfield[@code="9"]') AS marc_700_2_9,
-        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="700"][3]/subfield[@code="a"]') AS marc_700_3_a,
-        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="700"][3]/subfield[@code="9"]') AS marc_700_3_9
-      FROM biblioitems bi
-      INNER JOIN biblio b ON bi.biblionumber = b.biblionumber
-      WHERE b.frameworkcode = 'CIT'
-        AND bi.marcxml IS NOT NULL
-        AND bi.marcxml != ''
+        a.biblionumber,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="100"]/subfield[@code="a"]') AS '100_a',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="100"]/subfield[@code="9"]') AS '100_9',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][1]/subfield[@code="a"]') AS '700_1_a',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][1]/subfield[@code="9"]') AS '700_1_9',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][2]/subfield[@code="a"]') AS '700_2_a',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][2]/subfield[@code="9"]') AS '700_2_9',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][3]/subfield[@code="a"]') AS '700_3_a',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][3]/subfield[@code="9"]') AS '700_3_9'
+      FROM biblioitems a
+      WHERE a.marcxml IS NOT NULL
+        AND a.marcxml != ''
     `;
 
     const queryParams: any[] = [];
@@ -147,12 +145,12 @@ export async function POST(request: NextRequest) {
       if (numbers.length > 0) {
         console.log(`📊 [${requestId}] Using publisher codes:`, numbers);
         const placeholders = numbers.map(() => '?').join(', ');
-        query += ` AND bi.publishercode IN (${placeholders})`;
+        query += ` AND a.publishercode IN (${placeholders})`;
         queryParams.push(...numbers);
       }
     }
 
-    query += ' ORDER BY b.biblionumber';
+    query += ' ORDER BY a.biblionumber';
 
     console.log(`� [${requestId}] Executing query...`);
     const startTime = Date.now();

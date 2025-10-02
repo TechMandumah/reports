@@ -209,52 +209,32 @@ export async function POST(request: NextRequest) {
 
     let query = `
       SELECT 
-        b.biblionumber,
-        b.frameworkcode,
-        b.author as biblio_author,
-        b.title as biblio_title,
-        b.unititle,
-        b.notes,
-        b.serial,
-        b.seriestitle,
-        b.copyrightdate,
-        b.timestamp,
-        b.datecreated,
-        b.abstract,
-        bi.biblioitemnumber,
-        bi.volumedate,
-        bi.illus,
-        bi.size,
-        bi.place,
-        bi.lccn,
-        bi.marc,
-        bi.url,
-        bi.publishercode,
+        a.biblionumber,
+        a.url,
+        a.publishercode,
         -- Extract MARC fields using EXTRACTVALUE for better performance
-        EXTRACTVALUE(bi.marcxml, '//controlfield[@tag="001"]') AS marc_001,
-        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="041"]/subfield[@code="a"]') AS marc_041_a,
-        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="073"]/subfield[@code="a"]') AS marc_073_a,
-        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="100"]/subfield[@code="a"]') AS marc_100_a,
-        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="100"]/subfield[@code="9"]') AS marc_100_9,
-        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="242"]/subfield[@code="a"]') AS marc_242_a,
-        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="245"]/subfield[@code="a"]') AS marc_245_a,
-        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="246"]/subfield[@code="a"]') AS marc_246_a,
-        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="260"]/subfield[@code="c"]') AS marc_260_c,
-        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="300"]/subfield[@code="a"]') AS marc_300_a,
-        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="336"]/subfield[@code="a"]') AS marc_336_a,
-        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="700"][1]/subfield[@code="a"]') AS marc_700_1_a,
-        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="700"][1]/subfield[@code="9"]') AS marc_700_1_9,
-        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="700"][2]/subfield[@code="a"]') AS marc_700_2_a,
-        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="700"][2]/subfield[@code="9"]') AS marc_700_2_9,
-        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="773"]/subfield[@code="t"]') AS marc_773_t,
-        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="773"]/subfield[@code="g"]') AS marc_773_g,
-        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="995"]/subfield[@code="a"]') AS marc_995_a,
-        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="999"]/subfield[@code="c"]') AS marc_999_c
-      FROM biblioitems bi
-      INNER JOIN biblio b ON bi.biblionumber = b.biblionumber
-      WHERE b.frameworkcode = 'CIT'
-        AND bi.marcxml IS NOT NULL
-        AND bi.marcxml != ''
+        EXTRACTVALUE(a.marcxml, '//controlfield[@tag="001"]') AS marc_001,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="041"]/subfield[@code="a"]') AS marc_041_a,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="073"]/subfield[@code="a"]') AS marc_073_a,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="100"]/subfield[@code="a"]') AS marc_100_a,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="100"]/subfield[@code="9"]') AS marc_100_9,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="242"]/subfield[@code="a"]') AS marc_242_a,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="245"]/subfield[@code="a"]') AS marc_245_a,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="246"]/subfield[@code="a"]') AS marc_246_a,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="260"]/subfield[@code="c"]') AS marc_260_c,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="300"]/subfield[@code="a"]') AS marc_300_a,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="336"]/subfield[@code="a"]') AS marc_336_a,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][1]/subfield[@code="a"]') AS marc_700_1_a,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][1]/subfield[@code="9"]') AS marc_700_1_9,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][2]/subfield[@code="a"]') AS marc_700_2_a,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][2]/subfield[@code="9"]') AS marc_700_2_9,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="773"]/subfield[@code="t"]') AS marc_773_t,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="773"]/subfield[@code="g"]') AS marc_773_g,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="995"]/subfield[@code="a"]') AS marc_995_a,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="999"]/subfield[@code="c"]') AS marc_999_c
+      FROM biblioitems a
+      WHERE a.marcxml IS NOT NULL
+        AND a.marcxml != ''
     `;
 
     console.log(`📝 [${requestId}] CustomCitationReport: Generated base SQL query`);
@@ -278,7 +258,7 @@ export async function POST(request: NextRequest) {
       if (numbers.length > 0) {
         console.log(`📊 [${requestId}] Using publisher codes:`, numbers);
         const placeholders = numbers.map(() => '?').join(', ');
-        query += ` AND bi.publishercode IN (${placeholders})`;
+        query += ` AND a.publishercode IN (${placeholders})`;
         queryParams.push(...numbers);
       }
     }
@@ -286,19 +266,19 @@ export async function POST(request: NextRequest) {
     // Add year range filter (optional)
     if (startYear && endYear) {
       console.log(`📅 [${requestId}] Adding year range filter: ${startYear} - ${endYear}`);
-      query += ' AND b.copyrightdate BETWEEN ? AND ?';
-      queryParams.push(parseInt(startYear), parseInt(endYear));
+      query += ' AND EXTRACTVALUE(a.marcxml, \'//datafield[@tag="260"]/subfield[@code="c"]\') BETWEEN ? AND ?';
+      queryParams.push(startYear, endYear);
     } else if (startYear) {
       console.log(`📅 [${requestId}] Adding start year filter: >= ${startYear}`);
-      query += ' AND b.copyrightdate >= ?';
-      queryParams.push(parseInt(startYear));
+      query += ' AND EXTRACTVALUE(a.marcxml, \'//datafield[@tag="260"]/subfield[@code="c"]\') >= ?';
+      queryParams.push(startYear);
     } else if (endYear) {
       console.log(`📅 [${requestId}] Adding end year filter: <= ${endYear}`);
-      query += ' AND b.copyrightdate <= ?';
-      queryParams.push(parseInt(endYear));
+      query += ' AND EXTRACTVALUE(a.marcxml, \'//datafield[@tag="260"]/subfield[@code="c"]\') <= ?';
+      queryParams.push(endYear);
     }
 
-    query += ' ORDER BY b.biblionumber';
+    query += ' ORDER BY a.biblionumber';
 
     console.log(`🔍 [${requestId}] Final query parameters:`, queryParams);
     const queryStart = Date.now();

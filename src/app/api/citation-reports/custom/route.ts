@@ -181,21 +181,14 @@ export async function POST(request: NextRequest) {
   
   try {
     console.log(`🚀 [${requestId}] CustomCitationReport: Starting request processing`);
-    console.log(`📝 [${requestId}] Request timestamp:`, new Date().toISOString());
-    console.log(`🌍 [${requestId}] Environment:`, process.env.NODE_ENV);
     
-    const { magazineNumbers, startYear, endYear, selectedFields, isPreview, biblioNumbers } = await request.json();
+    const { publisherCodes, startYear, endYear, selectedFields, isPreview } = await request.json();
     console.log(`📋 [${requestId}] CustomCitationReport: Request params:`, { 
-      magazineNumbers, 
+      publisherCodes, 
       startYear, 
       endYear, 
       selectedFields, 
-      isPreview,
-      biblioNumbers,
-      magazineNumbersType: typeof magazineNumbers,
-      magazineNumbersIsArray: Array.isArray(magazineNumbers),
-      biblioNumbersType: typeof biblioNumbers,
-      biblioNumbersIsArray: Array.isArray(biblioNumbers)
+      isPreview
     });
 
     // Validate selected fields
@@ -268,43 +261,29 @@ export async function POST(request: NextRequest) {
 
     const queryParams: any[] = [];
 
-    // Add batch/publisher code filter - using publishercode field
-    if (magazineNumbers) {
-      console.log(`🔍 [${requestId}] Processing batch/publisher codes filter...`);
+    // Add publisher code filter
+    if (publisherCodes && publisherCodes.length > 0) {
+      console.log(`🔍 [${requestId}] Processing publisher codes filter...`);
       let numbers: string[] = [];
       
-      // Handle different types of magazineNumbers input
-      if (Array.isArray(magazineNumbers)) {
-        numbers = magazineNumbers.filter((num: any) => num && num.toString().trim()).map(num => num.toString());
-        console.log(`📊 [${requestId}] Publisher codes (array format):`, numbers);
-      } else if (typeof magazineNumbers === 'string') {
-        numbers = magazineNumbers.split(/[,\s\n]+/).filter((num: string) => num.trim());
-        console.log(`📊 [${requestId}] Publisher codes (string format):`, numbers);
+      // Handle different types of publisherCodes input
+      if (Array.isArray(publisherCodes)) {
+        numbers = publisherCodes.filter((num: any) => num && num.toString().trim()).map(num => num.toString());
+      } else if (typeof publisherCodes === 'string') {
+        numbers = publisherCodes.split(/[,\s\n]+/).filter((num: string) => num.trim());
       } else {
-        numbers = [magazineNumbers.toString()].filter((num: string) => num.trim());
-        console.log(`📊 [${requestId}] Publisher codes (other format):`, numbers);
+        numbers = [publisherCodes.toString()].filter((num: string) => num.trim());
       }
       
       if (numbers.length > 0) {
-        console.log(`📊 [${requestId}] Processing ${numbers.length} publisher codes:`, numbers);
-        
-        // Build IN clause for publishercode
+        console.log(`📊 [${requestId}] Using publisher codes:`, numbers);
         const placeholders = numbers.map(() => '?').join(', ');
         query += ` AND bi.publishercode IN (${placeholders})`;
-        
-        // Add parameters for each publisher code
-        for (const number of numbers) {
-          queryParams.push(number.toString());
-        }
-        console.log(`🔍 [${requestId}] Publisher code filter values:`, numbers);
-      } else {
-        console.log(`⚠️ [${requestId}] No valid publisher codes found after filtering`);
+        queryParams.push(...numbers);
       }
-    } else {
-      console.log(`ℹ️ [${requestId}] No publisher code filter provided - will return all records`);
     }
 
-    // Add year range filter
+    // Add year range filter (optional)
     if (startYear && endYear) {
       console.log(`📅 [${requestId}] Adding year range filter: ${startYear} - ${endYear}`);
       query += ' AND b.copyrightdate BETWEEN ? AND ?';
@@ -317,98 +296,21 @@ export async function POST(request: NextRequest) {
       console.log(`📅 [${requestId}] Adding end year filter: <= ${endYear}`);
       query += ' AND b.copyrightdate <= ?';
       queryParams.push(parseInt(endYear));
-    } else {
-      console.log(`ℹ️ [${requestId}] No year filter provided`);
-    }
-
-    // Add biblio numbers filter - CORRECTED: Use MARC field 073 subfield a for journal relationship
-    if (biblioNumbers) {
-      console.log(`🔍 [${requestId}] Processing journal biblio numbers filter...`);
-      let numbers: string[] = [];
-      
-      // Handle different types of biblioNumbers input (similar to magazineNumbers)
-      if (Array.isArray(biblioNumbers)) {
-        numbers = biblioNumbers.filter((num: any) => num && num.toString().trim()).map(num => num.toString());
-        console.log(`📚 [${requestId}] CustomCitationReport: Journal biblio numbers (array format):`, numbers);
-      } else if (typeof biblioNumbers === 'string') {
-        numbers = biblioNumbers.split(/[,\s\n]+/).filter((num: string) => num.trim());
-        console.log(`📚 [${requestId}] CustomCitationReport: Journal biblio numbers (string format):`, numbers);
-      } else {
-        numbers = [biblioNumbers.toString()].filter((num: string) => num.trim());
-        console.log(`📚 [${requestId}] CustomCitationReport: Journal biblio numbers (other format):`, numbers);
-      }
-      
-      if (numbers.length > 0) {
-        console.log(`📚 [${requestId}] CustomCitationReport: Finding citations within ${numbers.length} journals:`, numbers);
-        
-        // CORRECTED: Use MARC field 073 subfield a (batch/journal reference)
-        const journalConditions = numbers.map(() => 'EXTRACTVALUE(bi.marcxml, \'//datafield[@tag="073"]/subfield[@code="a"]\') = ?').join(' OR ');
-        query += ` AND (${journalConditions})`;
-        
-        // Add journal numbers as strings for MARC field matching
-        queryParams.push(...numbers);
-        console.log(`📚 [${requestId}] CustomCitationReport: Looking for citations in journals via MARC 073a:`, numbers);
-      }
     }
 
     query += ' ORDER BY b.biblionumber';
 
-    console.log(`🔍 [${requestId}] Final query:`, query.substring(0, 300) + '...');
-    console.log(`📋 [${requestId}] Query parameters:`, queryParams);
-    console.log(`⏱️ [${requestId}] Executing query at:`, new Date().toISOString());
+    console.log(`🔍 [${requestId}] Final query parameters:`, queryParams);
     const queryStart = Date.now();
 
     const [rows] = await connection.execute(query, queryParams);
     const results = rows as any[];
     
     const queryTime = Date.now() - queryStart;
-    console.log(`✅ [${requestId}] Query completed successfully:`, {
+    console.log(`✅ [${requestId}] Query completed:`, {
       executionTime: `${queryTime}ms`,
-      rowsReturned: results.length,
-      timestamp: new Date().toISOString(),
-      averageTimePerRow: results.length > 0 ? `${(queryTime / results.length).toFixed(2)}ms` : 'N/A'
+      rowsReturned: results.length
     });
-    
-    // Enhanced debugging for journal relationship issue
-    if (biblioNumbers && biblioNumbers.length > 0) {
-      console.log(`🔍 [${requestId}] DEBUGGING: Journal relationship analysis`);
-      console.log(`📚 [${requestId}] Input journals:`, biblioNumbers);
-      console.log(`📝 [${requestId}] Records found:`, results.length);
-      
-      if (results.length === 0) {
-        console.log(`❌ [${requestId}] NO RECORDS FOUND - Checking why...`);
-        
-        // Run diagnostic queries to understand the issue
-        try {
-          const [totalCitations] = await connection.execute(`
-            SELECT COUNT(*) as total 
-            FROM biblioitems bi 
-            INNER JOIN biblio b ON bi.biblionumber = b.biblionumber 
-            WHERE b.frameworkcode = 'CIT'
-          `);
-          console.log(`📊 [${requestId}] Total citations in database:`, (totalCitations as any[])[0]);
-          
-          // Check if journals exist
-          const journalNumbers = Array.isArray(biblioNumbers) ? biblioNumbers : [biblioNumbers];
-          const [journalCheck] = await connection.execute(`
-            SELECT biblionumber, title, frameworkcode 
-            FROM biblio 
-            WHERE biblionumber IN (${journalNumbers.map(() => '?').join(',')})
-          `, journalNumbers.map(num => parseInt(num.toString())));
-          console.log(`📖 [${requestId}] Journal records found:`, journalCheck);
-          
-        } catch (debugError) {
-          console.error(`🚨 [${requestId}] Debug query failed:`, debugError);
-        }
-      } else {
-        console.log(`✅ [${requestId}] SUCCESS: Found ${results.length} citations`);
-        console.log(`📝 [${requestId}] First few biblionumbers:`, results.slice(0, 5).map(r => r.biblionumber));
-        console.log(`📝 [${requestId}] Sample titles:`, results.slice(0, 3).map(r => ({
-          biblionumber: r.biblionumber,
-          title: r.marc_245_a || r.biblio_title
-        })));
-      }
-    }
     
     if (results.length > 0) {
       console.log(`📊 [${requestId}] Sample record structure:`, {

@@ -104,60 +104,16 @@ export async function POST(request: NextRequest) {
   
   try {
     console.log(`🚀 [${requestId}] CitationAuthorTranslations: Starting request processing`);
-    const { magazineNumbers, startYear, endYear, biblioNumbers } = await request.json();
-    console.log(`📋 [${requestId}] CitationAuthorTranslations: Request params:`, { magazineNumbers, startYear, endYear, biblioNumbers });
+    const { publisherCodes } = await request.json();
+    console.log(`📋 [${requestId}] Request params:`, { publisherCodes });
 
-    // Create database connection with timeout
-    console.log(`🔗 [${requestId}] CitationAuthorTranslations: Creating database connection...`);
-    const connectionStart = Date.now();
+    // Create database connection
     connection = await getCitationConnection();
-    const connectionTime = Date.now() - connectionStart;
-    console.log(`✅ [${requestId}] CitationAuthorTranslations: Database connected successfully in ${connectionTime}ms`);
-
-    // First, let's debug what publisher codes are actually available in the database
-    console.log(`🔍 [${requestId}] CitationAuthorTranslations: Checking available publisher codes in database...`);
-    const debugQuery = `
-      SELECT 
-        bi.publishercode,
-        COUNT(*) as count,
-        MIN(b.biblionumber) as first_biblio,
-        MAX(b.biblionumber) as last_biblio
-      FROM biblioitems bi
-      INNER JOIN biblio b ON bi.biblionumber = b.biblionumber
-      WHERE b.frameworkcode = 'CIT'
-        AND bi.publishercode IS NOT NULL
-        AND bi.publishercode != ''
-      GROUP BY bi.publishercode
-      ORDER BY bi.publishercode
-      LIMIT 10
-    `;
-    
-    const [debugRows] = await connection.execute(debugQuery);
-    console.log(`📊 [${requestId}] CitationAuthorTranslations: Available publisher codes:`, debugRows);
-
-    // Also check for NULL/empty publishercode records
-    const nullCodeQuery = `
-      SELECT 
-        COUNT(*) as total_records,
-        COUNT(bi.publishercode) as records_with_code,
-        COUNT(CASE WHEN bi.publishercode = '' THEN 1 END) as empty_code_records,
-        COUNT(CASE WHEN bi.publishercode IS NULL THEN 1 END) as null_code_records
-      FROM biblioitems bi
-      INNER JOIN biblio b ON bi.biblionumber = b.biblionumber
-      WHERE b.frameworkcode = 'CIT'
-    `;
-    
-    const [codeStats] = await connection.execute(nullCodeQuery);
-    console.log(`📊 [${requestId}] CitationAuthorTranslations: Publisher code field statistics:`, codeStats);
+    console.log(`✅ [${requestId}] Database connected`);
 
     let query = `
       SELECT 
         b.biblionumber,
-        b.author as biblio_author,
-        b.title as biblio_title,
-        b.copyrightdate,
-        bi.url,
-        -- Extract MARC fields using EXTRACTVALUE for better performance
         EXTRACTVALUE(bi.marcxml, '//datafield[@tag="100"]/subfield[@code="a"]') AS marc_100_a,
         EXTRACTVALUE(bi.marcxml, '//datafield[@tag="100"]/subfield[@code="9"]') AS marc_100_9,
         EXTRACTVALUE(bi.marcxml, '//datafield[@tag="700"][1]/subfield[@code="a"]') AS marc_700_1_a,
@@ -165,10 +121,7 @@ export async function POST(request: NextRequest) {
         EXTRACTVALUE(bi.marcxml, '//datafield[@tag="700"][2]/subfield[@code="a"]') AS marc_700_2_a,
         EXTRACTVALUE(bi.marcxml, '//datafield[@tag="700"][2]/subfield[@code="9"]') AS marc_700_2_9,
         EXTRACTVALUE(bi.marcxml, '//datafield[@tag="700"][3]/subfield[@code="a"]') AS marc_700_3_a,
-        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="700"][3]/subfield[@code="9"]') AS marc_700_3_9,
-        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="245"]/subfield[@code="a"]') AS marc_245_a,
-        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="260"]/subfield[@code="c"]') AS marc_260_c,
-        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="773"]/subfield[@code="t"]') AS marc_773_t
+        EXTRACTVALUE(bi.marcxml, '//datafield[@tag="700"][3]/subfield[@code="9"]') AS marc_700_3_9
       FROM biblioitems bi
       INNER JOIN biblio b ON bi.biblionumber = b.biblionumber
       WHERE b.frameworkcode = 'CIT'
@@ -178,122 +131,37 @@ export async function POST(request: NextRequest) {
 
     const queryParams: any[] = [];
 
-    // Add batch/publisher code filter - using publishercode field
-    if (magazineNumbers) {
-      console.log(`🔍 [${requestId}] Processing batch/publisher codes filter...`);
-      
-      // Handle both string and array formats
+    // Add publisher code filter
+    if (publisherCodes && publisherCodes.length > 0) {
+      console.log(`🔍 [${requestId}] Processing publisher codes filter...`);
       let numbers: string[] = [];
-      if (Array.isArray(magazineNumbers)) {
-        numbers = magazineNumbers.filter((num: string) => num && num.trim());
-        console.log(`📊 [${requestId}] Publisher codes (array format):`, numbers);
-      } else if (typeof magazineNumbers === 'string') {
-        numbers = magazineNumbers.split(/[,\s\n]+/).filter((num: string) => num.trim());
-        console.log(`📊 [${requestId}] Publisher codes (string format):`, numbers);
+      
+      if (Array.isArray(publisherCodes)) {
+        numbers = publisherCodes.filter((num: any) => num && num.toString().trim()).map(num => num.toString());
+      } else if (typeof publisherCodes === 'string') {
+        numbers = publisherCodes.split(/[,\s\n]+/).filter((num: string) => num.trim());
+      } else {
+        numbers = [publisherCodes.toString()].filter((num: string) => num.trim());
       }
       
       if (numbers.length > 0) {
-        console.log(`📊 [${requestId}] Processing ${numbers.length} publisher codes:`, numbers);
-        
-        // Build IN clause for publishercode
+        console.log(`📊 [${requestId}] Using publisher codes:`, numbers);
         const placeholders = numbers.map(() => '?').join(', ');
         query += ` AND bi.publishercode IN (${placeholders})`;
-        
-        // Add parameters for each publisher code
-        for (const number of numbers) {
-          queryParams.push(number.toString());
-        }
-        console.log(`🔍 [${requestId}] Publisher code filter values:`, numbers);
-        
-        // Let's also test if any records match our publisher codes
-        const testQuery = `
-          SELECT COUNT(*) as matching_count, bi.publishercode
-          FROM biblioitems bi
-          INNER JOIN biblio b ON bi.biblionumber = b.biblionumber
-          WHERE b.frameworkcode = 'CIT'
-            AND bi.publishercode IN (${placeholders})
-          GROUP BY bi.publishercode
-          LIMIT 5
-        `;
-        
-        try {
-          const [testRows] = await connection.execute(testQuery, numbers);
-          console.log(`🧪 [${requestId}] Test query results for publisher codes:`, testRows);
-        } catch (testError) {
-          console.warn(`⚠️ [${requestId}] Test query failed:`, testError);
-        }
-        
-        console.log(`🔍 [${requestId}] Testing publisher code matching with sample data...`);
-      } else {
-        console.log(`⚠️ [${requestId}] No valid magazine numbers found after filtering`);
-      }
-    } else {
-      console.log(`ℹ️ [${requestId}] No magazine numbers filter provided - will return all records`);
-    }
-
-    // Add year range filter
-    if (startYear && endYear) {
-      console.log(`📅 [${requestId}] Adding year range filter: ${startYear} - ${endYear}`);
-      query += ' AND b.copyrightdate BETWEEN ? AND ?';
-      queryParams.push(parseInt(startYear), parseInt(endYear));
-    } else if (startYear) {
-      console.log(`📅 [${requestId}] Adding start year filter: >= ${startYear}`);
-      query += ' AND b.copyrightdate >= ?';
-      queryParams.push(parseInt(startYear));
-    } else if (endYear) {
-      console.log(`📅 [${requestId}] Adding end year filter: <= ${endYear}`);
-      query += ' AND b.copyrightdate <= ?';
-      queryParams.push(parseInt(endYear));
-    } else {
-      console.log(`ℹ️ [${requestId}] No year filter provided`);
-    }
-
-    // Add biblio numbers filter - CORRECTED: Use MARC field 073 subfield a for journal relationship
-    if (biblioNumbers) {
-      console.log(`🔍 [${requestId}] Processing journal biblio numbers filter...`);
-      let numbers: string[] = [];
-      
-      // Handle different types of biblioNumbers input (similar to magazineNumbers)
-      if (Array.isArray(biblioNumbers)) {
-        numbers = biblioNumbers.filter((num: any) => num && num.toString().trim()).map(num => num.toString());
-        console.log(`📚 [${requestId}] CitationAuthorTranslations: Journal biblio numbers (array format):`, numbers);
-      } else if (typeof biblioNumbers === 'string') {
-        numbers = biblioNumbers.split(/[,\s\n]+/).filter((num: string) => num.trim());
-        console.log(`📚 [${requestId}] CitationAuthorTranslations: Journal biblio numbers (string format):`, numbers);
-      } else {
-        numbers = [biblioNumbers.toString()].filter((num: string) => num.trim());
-        console.log(`📚 [${requestId}] CitationAuthorTranslations: Journal biblio numbers (other format):`, numbers);
-      }
-      
-      if (numbers.length > 0) {
-        console.log(`📚 [${requestId}] Finding citations within ${numbers.length} journals`);
-        
-        // CORRECTED: Use MARC field 073 subfield a (batch/journal reference)
-        const journalConditions = numbers.map(() => 'EXTRACTVALUE(bi.marcxml, \'//datafield[@tag="073"]/subfield[@code="a"]\') = ?').join(' OR ');
-        query += ` AND (${journalConditions})`;
-        
-        // Add journal numbers as strings for MARC field matching
         queryParams.push(...numbers);
-        console.log(`📚 [${requestId}] Looking for citations in journals via MARC 073a:`, numbers);
-      } else {
-        console.log(`ℹ️ [${requestId}] No valid journal biblio numbers found to filter`);
       }
-    } else {
-      console.log(`ℹ️ [${requestId}] No biblio numbers filter provided`);
     }
 
     query += ' ORDER BY b.biblionumber';
 
-    console.log(`🔍 [${requestId}] Final query:`, query.substring(0, 300) + '...');
-    console.log(`📋 [${requestId}] Query parameters:`, queryParams);
-    console.log(`⏱️ [${requestId}] Executing query at:`, new Date().toISOString());
+    console.log(`� [${requestId}] Executing query...`);
     const startTime = Date.now();
 
     const [rows] = await connection.execute(query, queryParams);
     const results = rows as any[];
 
     const queryTime = Date.now() - startTime;
-    console.log(`✅ [${requestId}] Query completed successfully:`, {
+    console.log(`✅ [${requestId}] Query completed:`, {
       executionTime: `${queryTime}ms`,
       rowsReturned: results.length,
       timestamp: new Date().toISOString(),

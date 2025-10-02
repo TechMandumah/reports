@@ -268,43 +268,40 @@ export async function POST(request: NextRequest) {
 
     const queryParams: any[] = [];
 
-    // Add magazine numbers filter - get all versions and builds under magazine
+    // Add batch/publisher code filter - using publishercode field
     if (magazineNumbers) {
-      console.log(`🔍 [${requestId}] Processing magazine numbers filter...`);
+      console.log(`🔍 [${requestId}] Processing batch/publisher codes filter...`);
       let numbers: string[] = [];
       
       // Handle different types of magazineNumbers input
       if (Array.isArray(magazineNumbers)) {
         numbers = magazineNumbers.filter((num: any) => num && num.toString().trim()).map(num => num.toString());
-        console.log(`📊 [${requestId}] Magazine numbers (array format):`, numbers);
+        console.log(`📊 [${requestId}] Publisher codes (array format):`, numbers);
       } else if (typeof magazineNumbers === 'string') {
         numbers = magazineNumbers.split(/[,\s\n]+/).filter((num: string) => num.trim());
-        console.log(`📊 [${requestId}] Magazine numbers (string format):`, numbers);
+        console.log(`📊 [${requestId}] Publisher codes (string format):`, numbers);
       } else {
         numbers = [magazineNumbers.toString()].filter((num: string) => num.trim());
-        console.log(`📊 [${requestId}] Magazine numbers (other format):`, numbers);
+        console.log(`📊 [${requestId}] Publisher codes (other format):`, numbers);
       }
       
       if (numbers.length > 0) {
-        console.log(`📊 [${requestId}] Processing ${numbers.length} magazine numbers:`, numbers);
+        console.log(`📊 [${requestId}] Processing ${numbers.length} publisher codes:`, numbers);
         
-        // Build LIKE conditions for each magazine number to get all versions (e.g., 0005-*)
-        const likeConditions = numbers.map(() => 'bi.url LIKE ?').join(' OR ');
-        query += ` AND (${likeConditions})`;
+        // Build IN clause for publishercode
+        const placeholders = numbers.map(() => '?').join(', ');
+        query += ` AND bi.publishercode IN (${placeholders})`;
         
-        // Add parameters with wildcard pattern for each magazine number
-        const patterns: string[] = [];
+        // Add parameters for each publisher code
         for (const number of numbers) {
-          const pattern = `${number.toString().padStart(4, '0')}-%`;
-          patterns.push(pattern);
-          queryParams.push(pattern);
+          queryParams.push(number.toString());
         }
-        console.log(`🔍 [${requestId}] Magazine filter patterns:`, patterns);
+        console.log(`🔍 [${requestId}] Publisher code filter values:`, numbers);
       } else {
-        console.log(`⚠️ [${requestId}] No valid magazine numbers found after filtering`);
+        console.log(`⚠️ [${requestId}] No valid publisher codes found after filtering`);
       }
     } else {
-      console.log(`ℹ️ [${requestId}] No magazine numbers filter provided - will return all records`);
+      console.log(`ℹ️ [${requestId}] No publisher code filter provided - will return all records`);
     }
 
     // Add year range filter

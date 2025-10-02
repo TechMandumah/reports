@@ -202,10 +202,6 @@ export async function getBiblioRecords(filters: QueryFilters = {}): Promise<Bibl
       bi.issuenumber,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="245"][1]/subfield[@code="a"]') AS marc_245_1_a,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="245"][1]/subfield[@code="b"]') AS marc_245_1_b,
-      EXTRACTVALUE(bm.metadata, '//datafield[@tag="245"][2]/subfield[@code="a"]') AS marc_245_2_a,
-      EXTRACTVALUE(bm.metadata, '//datafield[@tag="245"][2]/subfield[@code="b"]') AS marc_245_2_b,
-      EXTRACTVALUE(bm.metadata, '//datafield[@tag="245"][3]/subfield[@code="a"]') AS marc_245_3_a,
-      EXTRACTVALUE(bm.metadata, '//datafield[@tag="245"][3]/subfield[@code="b"]') AS marc_245_3_b,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="246"][1]/subfield[@code="a"]') AS marc_246_1_a,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="246"][1]/subfield[@code="b"]') AS marc_246_1_b,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="246"][2]/subfield[@code="a"]') AS marc_246_2_a,
@@ -214,10 +210,6 @@ export async function getBiblioRecords(filters: QueryFilters = {}): Promise<Bibl
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="246"][3]/subfield[@code="b"]') AS marc_246_3_b,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="242"][1]/subfield[@code="a"]') AS marc_242_1_a,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="242"][1]/subfield[@code="b"]') AS marc_242_1_b,
-      EXTRACTVALUE(bm.metadata, '//datafield[@tag="242"][2]/subfield[@code="a"]') AS marc_242_2_a,
-      EXTRACTVALUE(bm.metadata, '//datafield[@tag="242"][2]/subfield[@code="b"]') AS marc_242_2_b,
-      EXTRACTVALUE(bm.metadata, '//datafield[@tag="242"][3]/subfield[@code="a"]') AS marc_242_3_a,
-      EXTRACTVALUE(bm.metadata, '//datafield[@tag="242"][3]/subfield[@code="b"]') AS marc_242_3_b,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="041"]/subfield[@code="a"]') AS marc_041_a,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="100"]/subfield[@code="a"]') AS marc_100_a,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="100"]/subfield[@code="9"]') AS marc_100_9,
@@ -232,16 +224,6 @@ export async function getBiblioRecords(filters: QueryFilters = {}): Promise<Bibl
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][4]/subfield[@code="9"]') AS marc_700_4_9,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][5]/subfield[@code="a"]') AS marc_700_5_a,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][5]/subfield[@code="9"]') AS marc_700_5_9,
-      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][6]/subfield[@code="a"]') AS marc_700_6_a,
-      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][6]/subfield[@code="9"]') AS marc_700_6_9,
-      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][7]/subfield[@code="a"]') AS marc_700_7_a,
-      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][7]/subfield[@code="9"]') AS marc_700_7_9,
-      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][8]/subfield[@code="a"]') AS marc_700_8_a,
-      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][8]/subfield[@code="9"]') AS marc_700_8_9,
-      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][9]/subfield[@code="a"]') AS marc_700_9_a,
-      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][9]/subfield[@code="9"]') AS marc_700_9_9,
-      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][10]/subfield[@code="a"]') AS marc_700_10_a,
-      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][10]/subfield[@code="9"]') AS marc_700_10_9,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="a"]') AS marc_520_a,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="b"]') AS marc_520_b,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="d"]') AS marc_520_d,
@@ -309,10 +291,6 @@ export async function generatePredefinedReport(reportType: string, filters: Quer
         // Use multi-instance, multi-subfield title extractions
         result.title_245_1_a = (record as any).marc_245_1_a || '';
         result.title_245_1_b = (record as any).marc_245_1_b || '';
-        result.title_245_2_a = (record as any).marc_245_2_a || '';
-        result.title_245_2_b = (record as any).marc_245_2_b || '';
-        result.title_245_3_a = (record as any).marc_245_3_a || '';
-        result.title_245_3_b = (record as any).marc_245_3_b || '';
         result.title_246_1_a = (record as any).marc_246_1_a || '';
         result.title_246_1_b = (record as any).marc_246_1_b || '';
         result.title_246_2_a = (record as any).marc_246_2_a || '';
@@ -321,10 +299,6 @@ export async function generatePredefinedReport(reportType: string, filters: Quer
         result.title_246_3_b = (record as any).marc_246_3_b || '';
         result.title_242_1_a = (record as any).marc_242_1_a || '';
         result.title_242_1_b = (record as any).marc_242_1_b || '';
-        result.title_242_2_a = (record as any).marc_242_2_a || '';
-        result.title_242_2_b = (record as any).marc_242_2_b || '';
-        result.title_242_3_a = (record as any).marc_242_3_a || '';
-        result.title_242_3_b = (record as any).marc_242_3_b || '';
         result.language_041 = (record as any).marc_041_a || '';
         if (reportType === 'export_translations_titles_authors') {
           result.author = (record as any).marc_100_a || record.author || '';
@@ -348,16 +322,6 @@ export async function generatePredefinedReport(reportType: string, filters: Quer
         result.additional_author_id_4 = (record as any).marc_700_4_9 || '';
         result.additional_author_5 = (record as any).marc_700_5_a || '';
         result.additional_author_id_5 = (record as any).marc_700_5_9 || '';
-        result.additional_author_6 = (record as any).marc_700_6_a || '';
-        result.additional_author_id_6 = (record as any).marc_700_6_9 || '';
-        result.additional_author_7 = (record as any).marc_700_7_a || '';
-        result.additional_author_id_7 = (record as any).marc_700_7_9 || '';
-        result.additional_author_8 = (record as any).marc_700_8_a || '';
-        result.additional_author_id_8 = (record as any).marc_700_8_9 || '';
-        result.additional_author_9 = (record as any).marc_700_9_a || '';
-        result.additional_author_id_9 = (record as any).marc_700_9_9 || '';
-        result.additional_author_10 = (record as any).marc_700_10_a || '';
-        result.additional_author_id_10 = (record as any).marc_700_10_9 || '';
         break;
         
       case 'export_author_data':

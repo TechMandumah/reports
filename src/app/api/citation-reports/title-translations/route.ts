@@ -120,41 +120,41 @@ export async function POST(request: NextRequest) {
     const connectionTime = Date.now() - connectionStart;
     console.log(`✅ [${requestId}] CitationTitleTranslations: Database connected successfully in ${connectionTime}ms`);
 
-    // First, let's debug what magazines are actually available in the database
-    console.log(`🔍 [${requestId}] CitationTitleTranslations: Checking available magazine patterns in database...`);
+    // First, let's debug what publisher codes are actually available in the database
+    console.log(`🔍 [${requestId}] CitationTitleTranslations: Checking available publisher codes in database...`);
     const debugQuery = `
       SELECT 
-        SUBSTRING_INDEX(bi.url, '-', 1) as magazine_prefix,
+        bi.publishercode,
         COUNT(*) as count,
-        MIN(bi.url) as sample_url,
-        MAX(bi.url) as last_url
+        MIN(b.biblionumber) as first_biblio,
+        MAX(b.biblionumber) as last_biblio
       FROM biblioitems bi
       INNER JOIN biblio b ON bi.biblionumber = b.biblionumber
       WHERE b.frameworkcode = 'CIT'
-        AND bi.url IS NOT NULL
-        AND bi.url != ''
-      GROUP BY SUBSTRING_INDEX(bi.url, '-', 1)
-      ORDER BY magazine_prefix
+        AND bi.publishercode IS NOT NULL
+        AND bi.publishercode != ''
+      GROUP BY bi.publishercode
+      ORDER BY bi.publishercode
       LIMIT 10
     `;
     
     const [debugRows] = await connection.execute(debugQuery);
-    console.log(`📊 [${requestId}] CitationTitleTranslations: Available magazine prefixes:`, debugRows);
+    console.log(`📊 [${requestId}] CitationTitleTranslations: Available publisher codes:`, debugRows);
 
-    // Also check for NULL/empty URL records
-    const nullUrlQuery = `
+    // Also check for NULL/empty publishercode records
+    const nullCodeQuery = `
       SELECT 
         COUNT(*) as total_records,
-        COUNT(bi.url) as records_with_url,
-        COUNT(CASE WHEN bi.url = '' THEN 1 END) as empty_url_records,
-        COUNT(CASE WHEN bi.url IS NULL THEN 1 END) as null_url_records
+        COUNT(bi.publishercode) as records_with_code,
+        COUNT(CASE WHEN bi.publishercode = '' THEN 1 END) as empty_code_records,
+        COUNT(CASE WHEN bi.publishercode IS NULL THEN 1 END) as null_code_records
       FROM biblioitems bi
       INNER JOIN biblio b ON bi.biblionumber = b.biblionumber
       WHERE b.frameworkcode = 'CIT'
     `;
     
-    const [urlStats] = await connection.execute(nullUrlQuery);
-    console.log(`📊 [${requestId}] CitationTitleTranslations: URL field statistics:`, urlStats);
+    const [codeStats] = await connection.execute(nullCodeQuery);
+    console.log(`📊 [${requestId}] CitationTitleTranslations: Publisher code field statistics:`, codeStats);
 
     let query = `
       SELECT 
@@ -180,55 +180,52 @@ export async function POST(request: NextRequest) {
 
     const queryParams: any[] = [];
 
-    // Add magazine numbers filter - get all versions and builds under magazine
+    // Add batch/publisher code filter - using publishercode field
     if (magazineNumbers) {
-      console.log(`🔍 [${requestId}] CitationTitleTranslations: Processing magazine numbers filter...`);
+      console.log(`🔍 [${requestId}] CitationTitleTranslations: Processing batch/publisher codes filter...`);
       
       // Handle both string and array formats
       let numbers: string[] = [];
       if (Array.isArray(magazineNumbers)) {
         numbers = magazineNumbers.filter((num: any) => num && num.toString().trim()).map(num => num.toString());
-        console.log(`📝 [${requestId}] CitationTitleTranslations: Magazine numbers (array format):`, numbers);
+        console.log(`📝 [${requestId}] CitationTitleTranslations: Publisher codes (array format):`, numbers);
       } else if (typeof magazineNumbers === 'string') {
         numbers = magazineNumbers.split(/[,\s\n]+/).filter((num: string) => num.trim());
-        console.log(`📝 [${requestId}] CitationTitleTranslations: Magazine numbers (string format):`, numbers);
+        console.log(`📝 [${requestId}] CitationTitleTranslations: Publisher codes (string format):`, numbers);
       }
       
       if (numbers.length > 0) {
-        console.log(`🎯 [${requestId}] CitationTitleTranslations: Processing ${numbers.length} magazine numbers:`, numbers);
+        console.log(`🎯 [${requestId}] CitationTitleTranslations: Processing ${numbers.length} publisher codes:`, numbers);
         
-        // Build LIKE conditions for each magazine number to get all versions (e.g., 0005-*)
-        const likeConditions = numbers.map(() => 'bi.url LIKE ?').join(' OR ');
-        query += ` AND (${likeConditions})`;
+        // Build IN clause for publishercode
+        const placeholders = numbers.map(() => '?').join(', ');
+        query += ` AND bi.publishercode IN (${placeholders})`;
         
-        // Add parameters with wildcard pattern for each magazine number
-        const patterns: string[] = [];
+        // Add parameters for each publisher code
         for (const number of numbers) {
-          const pattern = `${number.toString().padStart(4, '0')}-%`;
-          patterns.push(pattern);
-          queryParams.push(pattern);
+          queryParams.push(number.toString());
         }
-        console.log(`🔎 [${requestId}] CitationTitleTranslations: Magazine filter patterns:`, patterns);
+        console.log(`🔎 [${requestId}] CitationTitleTranslations: Publisher code filter values:`, numbers);
         
-        // Let's also test if any URLs match our patterns
+        // Let's also test if any records match our publisher codes
         const testQuery = `
-          SELECT COUNT(*) as matching_count, bi.url
+          SELECT COUNT(*) as matching_count, bi.publishercode
           FROM biblioitems bi
           INNER JOIN biblio b ON bi.biblionumber = b.biblionumber
           WHERE b.frameworkcode = 'CIT'
-            AND (${likeConditions})
-          GROUP BY bi.url
+            AND bi.publishercode IN (${placeholders})
+          GROUP BY bi.publishercode
           LIMIT 5
         `;
         
         try {
-          const [testRows] = await connection.execute(testQuery, patterns);
-          console.log(`🧪 [${requestId}] CitationTitleTranslations: Test query results for patterns:`, testRows);
+          const [testRows] = await connection.execute(testQuery, numbers);
+          console.log(`🧪 [${requestId}] CitationTitleTranslations: Test query results for publisher codes:`, testRows);
         } catch (testError) {
           console.warn(`⚠️ [${requestId}] CitationTitleTranslations: Test query failed:`, testError);
         }
       } else {
-        console.log(`❌ [${requestId}] CitationTitleTranslations: No valid magazine numbers found after filtering`);
+        console.log(`❌ [${requestId}] CitationTitleTranslations: No valid publisher codes found after filtering`);
       }
     } else {
       console.log(`📄 [${requestId}] CitationTitleTranslations: No magazine numbers filter provided - will return all records`);

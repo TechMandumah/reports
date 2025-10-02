@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Abstract Filter</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .result { background: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .error { background: #ffebee; color: #c62828; }
+        .success { background: #e8f5e8; color: #2e7d32; }
+        button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0056b3; }
+        .sample-data { margin-top: 10px; }
+        .record { background: white; padding: 10px; margin: 5px 0; border-left: 3px solid #007bff; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Abstract Filter Debug Tool</h1>
+        <p>Use this tool to test the different abstract filters and see how many records each returns.</p>
+        
+        <div>
+            <button onclick="testFilter('without_abstract')">Test without_abstract</button>
+            <button onclick="testFilter('missing_english')">Test missing_english</button>
+            <button onclick="testFilter('other_language')">Test other_language</button>
+            <button onclick="testFilter('mandumah_abstract')">Test mandumah_abstract</button>
+        </div>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        async function testFilter(filterType) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<div class="result">Testing filter: ' + filterType + '...</div>';
+            
+            try {
+                const response = await fetch('/api/debug-abstract-filter', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        abstractFilter: filterType
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    let html = `
+                        <div class="result success">
+                            <h3>Filter: ${data.filter}</h3>
+                            <p><strong>Records found: ${data.count}</strong></p>
+                            
+                            <div class="sample-data">
+                                <h4>Sample Records:</h4>
+                    `;
+                    
+                    if (data.sampleData && data.sampleData.length > 0) {
+                        data.sampleData.forEach((record, index) => {
+                            html += `
+                                <div class="record">
+                                    <strong>Record ${index + 1}:</strong><br>
+                                    Biblio: ${record.biblionumber}<br>
+                                    Title: ${record.title || 'N/A'}<br>
+                                    Author: ${record.author || 'N/A'}<br>
+                                    Abstract: ${record.abstract || 'N/A'}
+                                </div>
+                            `;
+                        });
+                    } else {
+                        html += '<p>No sample data available</p>';
+                    }
+                    
+                    html += '</div></div>';
+                    resultsDiv.innerHTML = html;
+                } else {
+                    resultsDiv.innerHTML = `
+                        <div class="result error">
+                            <h3>Error testing filter: ${filterType}</h3>
+                            <p>${data.error}</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <div class="result error">
+                        <h3>Network Error</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

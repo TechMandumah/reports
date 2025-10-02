@@ -33,20 +33,21 @@ function filterAbstractRecords(data: ExportData[], abstractFilter?: string): Exp
       
       case 'mandumah_abstract':
         try {
-          // Subfield 'a' and 'e' are empty inside field 520, but abstract exists
+          // More inclusive: records with abstract content but missing/empty key subfields
           const hasSubfieldAEmpty = !row['abstract_520_a'] || row['abstract_520_a'].toString().trim() === '';
           const hasSubfieldEEmpty = !row['abstract_520_e'] || row['abstract_520_e'].toString().trim() === '';
           
-          // Check for abstract in main field 520 or any database abstract
+          // Check for any abstract content - database or MARC field
           const hasAbstract = (row['abstract_520'] && row['abstract_520'].toString().trim() !== '') ||
                              (row['abstract'] && row['abstract'].toString().trim() !== '');
           
-          // Additional check: if both a and e are empty but we have other subfields or database abstract
-          const hasOther520Subfields = Object.keys(row)
-            .filter(key => key.startsWith('abstract_520_') && key !== 'abstract_520_a' && key !== 'abstract_520_e')
+          // Check for any 520 subfields (indicating MARC abstract structure)
+          const hasAny520Subfields = Object.keys(row)
+            .filter(key => key.startsWith('abstract_520_'))
             .some(key => row[key] && row[key].toString().trim() !== '');
           
-          return hasSubfieldAEmpty && hasSubfieldEEmpty && (hasAbstract || hasOther520Subfields);
+          // Include if we have abstract content AND either subfield a or e is empty (more inclusive)
+          return (hasAbstract || hasAny520Subfields) && (hasSubfieldAEmpty || hasSubfieldEEmpty);
         } catch (error) {
           console.warn('Error processing mandumah_abstract filter for row:', error);
           return false; // Exclude problematic rows from mandumah_abstract filter
@@ -311,6 +312,72 @@ export const reportConfigurations: Record<string, ReportConfig> = {
     '995': { name: 'Recommendation', property: 'marc_995' },
   };
 
+// Function to create empty Excel file when no data is found
+async function createEmptyExcelFile(reportType: string, formData: any): Promise<void> {
+  try {
+    console.log('Creating empty Excel file for report type:', reportType);
+    
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('No Data Found');
+    
+    // Get configuration for the report type
+    const config = reportConfigurations[reportType as keyof typeof reportConfigurations];
+    
+    if (config) {
+      // Add headers from the configuration
+      const headers = config.columns.map(col => col.header);
+      worksheet.addRow(headers);
+      
+      // Style the header row
+      styleHeaderRow(worksheet, headers.length);
+      
+      // Add a row indicating no data was found
+      const noDataRow = new Array(headers.length).fill('');
+      noDataRow[0] = 'No data found for the specified criteria';
+      worksheet.addRow(noDataRow);
+      
+      // Auto-fit columns
+      worksheet.columns.forEach((column, index) => {
+        column.width = Math.max(headers[index]?.length || 10, 20);
+      });
+    } else {
+      // Fallback for unknown report types
+      worksheet.addRow(['Report Type', 'Status']);
+      styleHeaderRow(worksheet, 2);
+      worksheet.addRow([reportType, 'No data found for the specified criteria']);
+      worksheet.columns.forEach(column => {
+        column.width = 25;
+      });
+    }
+    
+    // Generate filename
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
+    const filterInfo = formData?.abstractFilter ? `_${formData.abstractFilter}` : '';
+    const filename = `${reportType}${filterInfo}_${timestamp}_empty.xlsx`;
+    
+    // Write file
+    const buffer = await workbook.xlsx.writeBuffer();
+    
+    // Create and trigger download
+    const blob = new Blob([buffer], { 
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+    });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    
+    console.log('Empty Excel file created and downloaded:', filename);
+  } catch (error) {
+    console.error('Error creating empty Excel file:', error);
+    throw error;
+  }
+}
+
 // Function to fetch report data from API
 export async function fetchReportData(reportType: string, formData: any): Promise<ExportData[]> {
   try {
@@ -352,8 +419,12 @@ export async function exportToExcel(reportType: string, formData: any): Promise<
     // Fetch data from database via API
     const data = await fetchReportData(reportType, formData);
     
+    console.log(`Fetched ${data.length} records for report type: ${reportType}`);
+    
+    // Handle empty data by creating empty Excel file instead of throwing error
     if (data.length === 0) {
-      throw Error('No data found for the specified criteria');
+      console.log('No data found, creating empty Excel file');
+      return await createEmptyExcelFile(reportType, formData);
     }
 
     // Handle custom reports differently

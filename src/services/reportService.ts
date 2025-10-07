@@ -138,16 +138,13 @@ function buildAbstractFilter(abstractFilter?: string): { clause: string; params:
       };
       
     case 'mandumah_abstract':
-      // More inclusive: records with database abstract but missing or empty 520 subfields 'a' and 'e'
-      // This captures Mandumah-generated abstracts or abstracts not in standard MARC subfields
       return {
+        //a and e are both empty null or both empty
         clause: `
-                 AND (
-                   (EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="a"]') = "" 
-                    OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="a"]') IS NULL)
-                   OR (EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="e"]') = "" 
-                       OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="e"]') IS NULL)
-                 )`,
+                  AND (EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="a"]') != ""
+                      OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="a"]') IS NULL)
+                  AND (EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="e"]') != ""
+                      OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="e"]') IS NULL)`,
         params: []
       };
     

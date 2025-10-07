@@ -112,7 +112,7 @@ export default function Sidebar({ activeReport, setActiveReport }: SidebarProps)
           ))}
         </div>
       </nav>
-      <p className="text-xs text-gray-500 mb-1 text-center">Version 1.1.1</p>
+      <p className="text-xs text-gray-500 mb-1 text-center">Version 1.1.2</p>
 
       {/* Sidebar Footer */}
       {/* <div className="p-4 border-t border-gray-200 bg-gray-50">

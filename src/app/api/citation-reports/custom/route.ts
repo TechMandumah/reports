@@ -258,7 +258,9 @@ export async function POST(request: NextRequest) {
       if (numbers.length > 0) {
         console.log(`📊 [${requestId}] Using publisher codes:`, numbers);
         const placeholders = numbers.map(() => '?').join(', ');
-        query += ` AND a.publishercode IN (${placeholders})`;
+        //I want to convert the list of numbers above [1232,323434,] to list of strings '1232','323434'
+        const stringifiedNumbers = numbers.map(num => `'${num}'`).join(', ');
+        query += ` AND a.publishercode IN (${stringifiedNumbers})`;
         queryParams.push(...numbers);
       }
     }

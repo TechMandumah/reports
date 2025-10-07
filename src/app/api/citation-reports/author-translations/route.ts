@@ -184,11 +184,10 @@ export async function POST(request: NextRequest) {
     } else {
       console.log(`📊 [${requestId}] Sample record structure:`, {
         biblionumber: results[0].biblionumber,
-        hasAuthor: !!results[0].biblio_author,
-        hasTitle: !!results[0].biblio_title,
-        hasMarcxml: !!results[0].marcxml,
-        marcxmlLength: results[0].marcxml?.length || 0,
-        hasUrl: !!results[0].url
+        '100_a': results[0]['100_a'],
+        '100_9': results[0]['100_9'], 
+        '700_1_a': results[0]['700_1_a'],
+        '700_1_9': results[0]['700_1_9']
       });
     }
 
@@ -201,24 +200,25 @@ export async function POST(request: NextRequest) {
     for (let i = 0; i < results.length; i++) {
       const row = results[i];
       try {
-        // Use pre-extracted MARC data from EXTRACTVALUE - much faster than client-side parsing
-        const additionalAuthors = [row.marc_700_1_a, row.marc_700_2_a, row.marc_700_3_a].filter(a => a);
-        const additionalAuthorIds = [row.marc_700_1_9, row.marc_700_2_9, row.marc_700_3_9].filter(a => a);
-        const mainAuthor = row.marc_100_a || row.biblio_author || '';
+        // Use EXTRACTVALUE results directly - column names match the AS aliases in query
+        const mainAuthor = row['100_a'] || '';
+        const mainAuthorId = row['100_9'] || '';
+        const additionalAuthors = [row['700_1_a'], row['700_2_a'], row['700_3_a']].filter(a => a);
+        const additionalAuthorIds = [row['700_1_9'], row['700_2_9'], row['700_3_9']].filter(a => a);
         const allAuthors = [mainAuthor, ...additionalAuthors].filter(a => a).join('; ');
 
         authorData.push({
           biblionumber: row.biblionumber,
           mainAuthor: mainAuthor,
-          mainAuthorId: row.marc_100_9 || '',
+          mainAuthorId: mainAuthorId,
           additionalAuthors: additionalAuthors,
           additionalAuthorIds: additionalAuthorIds,
           allAuthors: allAuthors,
-          title: row.marc_245_a || row.biblio_title || '',
-          year: row.marc_260_c || row.copyrightdate?.toString() || '',
-          journal: row.marc_773_t || '',
-          url: row.url || '',
-          pdfUrl: constructPdfUrl(row.url || ''),
+          title: '', // Not queried in this simple version
+          year: '', // Not queried in this simple version
+          journal: '', // Not queried in this simple version
+          url: '',
+          pdfUrl: '',
         });
 
         // Log progress for large datasets
@@ -228,31 +228,31 @@ export async function POST(request: NextRequest) {
         
         // More frequent logging for first few and last few records
         if (i < 5 || i >= results.length - 5) {
-          console.log(`📝 [${requestId}] Record ${i + 1}: biblionumber=${row.biblionumber}, mainAuthor="${mainAuthor}", hasExtractedData=${!!(row.marc_100_a || row.marc_245_a)}`);
+          console.log(`📝 [${requestId}] Record ${i + 1}: biblionumber=${row.biblionumber}, mainAuthor="${mainAuthor}", hasExtractedData=${!!(row['100_a'] || row['700_1_a'])}`);
         }
       } catch (error) {
         console.error(`❌ [${requestId}] Error processing record ${i + 1} (biblionumber: ${row.biblionumber}):`, error);
         console.error(`❌ [${requestId}] Problematic record data:`, {
           biblionumber: row.biblionumber,
-          hasMArcxml: !!row.marcxml,
-          marcxmlLength: row.marcxml?.length || 0,
-          marcxmlPreview: row.marcxml?.substring(0, 100) || 'No MARC XML'
+          extracted_100_a: row['100_a'],
+          extracted_100_9: row['100_9'],
+          extracted_700_1_a: row['700_1_a']
         });
         processingErrors.push(`Row ${row.biblionumber}: ${error instanceof Error ? error.message : 'Unknown error'}`);
         
-        // Continue with basic data if MARC parsing fails
+        // Continue with basic data if processing fails
         authorData.push({
           biblionumber: row.biblionumber,
-          mainAuthor: row.biblio_author || '',
+          mainAuthor: '',
           mainAuthorId: '',
           additionalAuthors: [],
           additionalAuthorIds: [],
-          allAuthors: row.biblio_author || '',
-          title: row.biblio_title || '',
-          year: row.copyrightdate?.toString() || '',
+          allAuthors: '',
+          title: '',
+          year: '',
           journal: '',
-          url: row.url || '',
-          pdfUrl: constructPdfUrl(row.url || ''),
+          url: '',
+          pdfUrl: '',
         });
       }
     }

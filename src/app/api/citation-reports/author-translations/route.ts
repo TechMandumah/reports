@@ -111,47 +111,52 @@ export async function POST(request: NextRequest) {
     connection = await getCitationConnection();
     console.log(`✅ [${requestId}] Database connected`);
 
-    let query = '';
-
-    // Add publisher code filter - build query directly like MySQL command
-    if (publisherCodes && publisherCodes.length > 0) {
-      console.log(`🔍 [${requestId}] Processing publisher codes filter...`);
-      let numbers: string[] = [];
-      
-      if (Array.isArray(publisherCodes)) {
-        numbers = publisherCodes.filter((num: any) => num && num.toString().trim()).map(num => num.toString());
-      } else if (typeof publisherCodes === 'string') {
-        numbers = publisherCodes.split(/[,\s\n]+/).filter((num: string) => num.trim());
-      } else {
-        numbers = [publisherCodes.toString()].filter((num: string) => num.trim());
-      }
-      
-      if (numbers.length > 0) {
-        console.log(`📊 [${requestId}] Using publisher codes:`, numbers);
-        const stringifiedNumbers = numbers.map(num => `'${num}'`).join(', ');
-        
-        // Build exact query like the working MySQL command
-        query = `
-          SELECT 
-            a.biblionumber,
-            EXTRACTVALUE(a.marcxml, '//datafield[@tag="100"]/subfield[@code="a"]') AS '100_a',
-            EXTRACTVALUE(a.marcxml, '//datafield[@tag="100"]/subfield[@code="9"]') AS '100_9',
-            EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][1]/subfield[@code="a"]') AS '700_1_a',
-            EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][1]/subfield[@code="9"]') AS '700_1_9',
-            EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][2]/subfield[@code="a"]') AS '700_2_a',
-            EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][2]/subfield[@code="9"]') AS '700_2_9',
-            EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][3]/subfield[@code="a"]') AS '700_3_a',
-            EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][3]/subfield[@code="9"]') AS '700_3_9'
-          FROM biblioitems a
-          WHERE a.publishercode IN (${stringifiedNumbers})
-          ORDER BY a.biblionumber
-        `;
-      }
-    } else {
-      // No publisher codes provided
-      console.log(`⚠️ [${requestId}] No publisher codes provided`);
+    // Validate and process publisher codes (biblio numbers)
+    console.log(`🔍 [${requestId}] Processing publisher codes filter...`);
+    console.log(`📋 [${requestId}] Received publisherCodes:`, publisherCodes);
+    console.log(`📋 [${requestId}] Type:`, typeof publisherCodes, 'IsArray:', Array.isArray(publisherCodes));
+    
+    let numbers: string[] = [];
+    
+    if (!publisherCodes) {
+      console.log(`⚠️ [${requestId}] publisherCodes is null or undefined`);
       return NextResponse.json({ error: 'Publisher codes are required' }, { status: 400 });
     }
+    
+    if (Array.isArray(publisherCodes)) {
+      numbers = publisherCodes.filter((num: any) => num && num.toString().trim()).map(num => num.toString());
+    } else if (typeof publisherCodes === 'string') {
+      numbers = publisherCodes.split(/[,\s\n]+/).filter((num: string) => num.trim());
+    } else {
+      numbers = [publisherCodes.toString()].filter((num: string) => num.trim());
+    }
+    
+    console.log(`📊 [${requestId}] Processed numbers:`, numbers);
+    
+    if (numbers.length === 0) {
+      console.log(`⚠️ [${requestId}] No valid publisher codes after processing`);
+      return NextResponse.json({ error: 'Publisher codes are required' }, { status: 400 });
+    }
+    
+    console.log(`✅ [${requestId}] Using ${numbers.length} publisher codes:`, numbers);
+    const stringifiedNumbers = numbers.map(num => `'${num}'`).join(', ');
+    
+    // Build exact query like the working MySQL command
+    const query = `
+      SELECT 
+        a.biblionumber,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="100"]/subfield[@code="a"]') AS '100_a',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="100"]/subfield[@code="9"]') AS '100_9',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][1]/subfield[@code="a"]') AS '700_1_a',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][1]/subfield[@code="9"]') AS '700_1_9',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][2]/subfield[@code="a"]') AS '700_2_a',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][2]/subfield[@code="9"]') AS '700_2_9',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][3]/subfield[@code="a"]') AS '700_3_a',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][3]/subfield[@code="9"]') AS '700_3_9'
+      FROM biblioitems a
+      WHERE a.publishercode IN (${stringifiedNumbers})
+      ORDER BY a.biblionumber
+    `;
 
     console.log(`🚀 [${requestId}] Executing query...`);
     console.log(`📋 [${requestId}] Full query:`, query);

@@ -104,8 +104,12 @@ export async function POST(request: NextRequest) {
   
   try {
     console.log(`🚀 [${requestId}] CitationAuthorTranslations: Starting request processing`);
-    const { publisherCodes } = await request.json();
-    console.log(`📋 [${requestId}] Request params:`, { publisherCodes });
+    const body = await request.json();
+    console.log(`📋 [${requestId}] Full request body:`, body);
+    
+    // Accept both 'publisherCodes' and 'biblioNumbers' field names
+    const publisherCodes = body.publisherCodes || body.biblioNumbers;
+    console.log(`📋 [${requestId}] Extracted codes:`, publisherCodes);
 
     // Create database connection
     connection = await getCitationConnection();
@@ -120,7 +124,7 @@ export async function POST(request: NextRequest) {
     
     if (!publisherCodes) {
       console.log(`⚠️ [${requestId}] publisherCodes is null or undefined`);
-      return NextResponse.json({ error: 'Publisher codes are required' }, { status: 400 });
+      return NextResponse.json({ error: 'Publisher codes (biblioNumbers) are required' }, { status: 400 });
     }
     
     if (Array.isArray(publisherCodes)) {

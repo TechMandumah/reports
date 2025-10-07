@@ -182,7 +182,13 @@ export async function POST(request: NextRequest) {
   try {
     console.log(`🚀 [${requestId}] CustomCitationReport: Starting request processing`);
     
-    const { publisherCodes, startYear, endYear, selectedFields, isPreview } = await request.json();
+    const body = await request.json();
+    console.log(`📋 [${requestId}] Full request body:`, body);
+    
+    // Accept both 'publisherCodes' and 'biblioNumbers' field names
+    const publisherCodes = body.publisherCodes || body.biblioNumbers;
+    const { startYear, endYear, selectedFields, isPreview } = body;
+    
     console.log(`📋 [${requestId}] CustomCitationReport: Request params:`, { 
       publisherCodes, 
       startYear, 

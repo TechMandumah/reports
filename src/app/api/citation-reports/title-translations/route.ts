@@ -117,19 +117,9 @@ export async function POST(request: NextRequest) {
     connection = await getCitationConnection();
     console.log(`✅ [${requestId}] Database connected`);
 
-    let query = `
-      SELECT 
-        a.biblionumber,
-        EXTRACTVALUE(a.marcxml, '//datafield[@tag="245"]/subfield[@code="a"]') AS '245',
-        EXTRACTVALUE(a.marcxml, '//datafield[@tag="242"]/subfield[@code="a"]') AS '242'
-      FROM biblioitems a
-      WHERE a.marcxml IS NOT NULL
-        AND a.marcxml != ''
-    `;
+    let query = '';
 
-    const queryParams: any[] = [];
-
-    // Add publisher code filter
+    // Add publisher code filter - build query directly like MySQL command
     if (publisherCodes && publisherCodes.length > 0) {
       console.log(`🔍 [${requestId}] Processing publisher codes filter...`);
       let numbers: string[] = [];
@@ -144,21 +134,31 @@ export async function POST(request: NextRequest) {
       
       if (numbers.length > 0) {
         console.log(`📊 [${requestId}] Using publisher codes:`, numbers);
-        const placeholders = numbers.map(() => '?').join(', ');
-        //I want to convert the list of numbers above [1232,323434,] to list of strings '1232','323434'
         const stringifiedNumbers = numbers.map(num => `'${num}'`).join(', ');
-        query += ` AND a.publishercode IN (${stringifiedNumbers})`;
-        queryParams.push(...numbers);
+        
+        // Build exact query like the working MySQL command
+        query = `
+          SELECT 
+            a.biblionumber,
+            EXTRACTVALUE(a.marcxml, '//datafield[@tag="245"]/subfield[@code="a"]') AS '245',
+            EXTRACTVALUE(a.marcxml, '//datafield[@tag="242"]/subfield[@code="a"]') AS '242'
+          FROM biblioitems a
+          WHERE a.publishercode IN (${stringifiedNumbers})
+          ORDER BY a.biblionumber
+        `;
       }
+    } else {
+      // No publisher codes provided
+      console.log(`⚠️ [${requestId}] No publisher codes provided`);
+      return NextResponse.json({ error: 'Publisher codes are required' }, { status: 400 });
     }
 
-    query += ' ORDER BY a.biblionumber';
-
     console.log(`🚀 [${requestId}] Executing query...`);
-    console.log(`📋 [${requestId}] CitationTitleTranslations: Query params:`, queryParams);
+    console.log(`📋 [${requestId}] Full query:`, query);
     const startTime = Date.now();
 
-    const [rows] = await connection.execute(query, queryParams);
+    // Use query() instead of execute() since we're not using parameterized queries
+    const [rows] = await connection.query(query);
     const results = rows as any[];
 
     const queryTime = Date.now() - startTime;
@@ -179,24 +179,23 @@ export async function POST(request: NextRequest) {
     for (let i = 0; i < results.length; i++) {
       const row = results[i];
       try {
-        // Use pre-extracted MARC data from EXTRACTVALUE - much faster than client-side parsing
-        const titles_245 = row.marc_245_a ? [row.marc_245_a] : [];
-        const titles_242 = row.marc_242_a ? [row.marc_242_a] : [];
-        const titles_246 = row.marc_246_a ? [row.marc_246_a] : [];
-        const allTitles = [...titles_245, ...titles_242, ...titles_246].filter(t => t).join(' | ') || row.biblio_title || '';
+        // Use EXTRACTVALUE results directly - column names are '245' and '242'
+        const titles_245 = row['245'] ? [row['245']] : [];
+        const titles_242 = row['242'] ? [row['242']] : [];
+        const allTitles = [...titles_245, ...titles_242].filter(t => t).join(' | ');
 
         titleData.push({
           biblionumber: row.biblionumber,
           titles_245: titles_245,
           titles_242: titles_242,
-          titles_246: titles_246,
+          titles_246: [], // Not queried in this simple version
           allTitles: allTitles,
-          author: row.marc_100_a || row.biblio_author || '',
-          year: row.marc_260_c || row.copyrightdate?.toString() || '',
-          journal: row.marc_773_t || '',
-          url: row.url || '',
-          pdfUrl: constructPdfUrl(row.url || ''),
-          authorId: row.marc_100_9,
+          author: '', // Not queried in this simple version
+          year: '', // Not queried in this simple version
+          journal: '', // Not queried in this simple version
+          url: '',
+          pdfUrl: '',
+          authorId: undefined,
         });
 
         // Log progress for large datasets
@@ -207,18 +206,18 @@ export async function POST(request: NextRequest) {
         console.error(`CitationTitleTranslations: Error processing row ${row.biblionumber}:`, error);
         processingErrors.push(`Row ${row.biblionumber}: ${error instanceof Error ? error.message : 'Unknown error'}`);
         
-        // Continue with basic data if MARC parsing fails
+        // Continue with basic data if processing fails
         titleData.push({
           biblionumber: row.biblionumber,
           titles_245: [],
           titles_242: [],
           titles_246: [],
-          allTitles: row.biblio_title || '',
-          author: row.biblio_author || '',
-          year: row.copyrightdate?.toString() || '',
+          allTitles: '',
+          author: '',
+          year: '',
           journal: '',
-          url: row.url || '',
-          pdfUrl: constructPdfUrl(row.url || ''),
+          url: '',
+          pdfUrl: '',
           authorId: undefined,
         });
       }
@@ -240,14 +239,10 @@ export async function POST(request: NextRequest) {
       console.log('CitationTitleTranslations: Sample record:', JSON.stringify(titleData[0], null, 2));
     }
 
-    // Filter out entries without any title data
-    const translationData = titleData.filter((item: CitationTitleData) => {
-      const hasTitles = item.titles_245.length > 0 || item.titles_242.length > 0 || 
-                       item.titles_246.length > 0 || item.allTitles.trim().length > 0;
-      return hasTitles;
-    });
+    // Use all title data without filtering
+    const translationData = titleData;
 
-    console.log(`CitationTitleTranslations: Found ${translationData.length} records with translations after filtering`);
+    console.log(`CitationTitleTranslations: Found ${translationData.length} records after processing`);
 
     // If no records with translations found, include all records but mark the issue
     let finalData = translationData;

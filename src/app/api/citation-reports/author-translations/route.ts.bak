@@ -161,6 +161,38 @@ export async function POST(request: NextRequest) {
     const [rows] = await connection.query(query);
     const results = rows as any[];
 
+    const queryParams: any[] = [];
+
+    // Add publisher code filter
+    if (publisherCodes && publisherCodes.length > 0) {
+      console.log(`🔍 [${requestId}] Processing publisher codes filter...`);
+      let numbers: string[] = [];
+      
+      if (Array.isArray(publisherCodes)) {
+        numbers = publisherCodes.filter((num: any) => num && num.toString().trim()).map(num => num.toString());
+      } else if (typeof publisherCodes === 'string') {
+        numbers = publisherCodes.split(/[,\s\n]+/).filter((num: string) => num.trim());
+      } else {
+        numbers = [publisherCodes.toString()].filter((num: string) => num.trim());
+      }
+      
+      if (numbers.length > 0) {
+        console.log(`📊 [${requestId}] Using publisher codes:`, numbers);
+        const placeholders = numbers.map(() => '?').join(', ');
+        //I want to convert the list of numbers above [1232,323434,] to list of strings '1232','323434'
+        const stringifiedNumbers = numbers.map(num => `'${num}'`).join(', ');
+        query += ` AND a.publishercode IN (${stringifiedNumbers})`;
+        queryParams.push(...numbers);
+      }
+    }
+
+    query += ' ORDER BY a.biblionumber';
+
+    console.log(`� [${requestId}] Executing query...`);
+    const startTime = Date.now();
+
+    const [rows] = await connection.execute(query, queryParams);
+    const results = rows as any[];
 
     const queryTime = Date.now() - startTime;
     console.log(`✅ [${requestId}] Query completed:`, {

@@ -224,18 +224,46 @@ export async function POST(request: NextRequest) {
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="073"]/subfield[@code="a"]') AS marc_073_a,
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="100"]/subfield[@code="a"]') AS marc_100_a,
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="100"]/subfield[@code="9"]') AS marc_100_9,
+        -- Extract 110 subfields (a,q)
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="110"]/subfield[@code="a"]') AS marc_110_a,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="110"]/subfield[@code="q"]') AS marc_110_q,
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="242"]/subfield[@code="a"]') AS marc_242_a,
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="245"]/subfield[@code="a"]') AS marc_245_a,
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="246"]/subfield[@code="a"]') AS marc_246_a,
+        -- Extract 250 subfield (a)
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="250"]/subfield[@code="a"]') AS marc_250_a,
+        -- Extract all 260 subfields (a,b,c,m,g)
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="260"]/subfield[@code="a"]') AS marc_260_a,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="260"]/subfield[@code="b"]') AS marc_260_b,
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="260"]/subfield[@code="c"]') AS marc_260_c,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="260"]/subfield[@code="m"]') AS marc_260_m,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="260"]/subfield[@code="g"]') AS marc_260_g,
+        -- Extract all 300 subfields (a,b)
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="300"]/subfield[@code="a"]') AS marc_300_a,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="300"]/subfield[@code="b"]') AS marc_300_b,
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="336"]/subfield[@code="a"]') AS marc_336_a,
+        -- Extract 502 subfields (c,b,f)
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="502"]/subfield[@code="c"]') AS marc_502_c,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="502"]/subfield[@code="b"]') AS marc_502_b,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="502"]/subfield[@code="f"]') AS marc_502_f,
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][1]/subfield[@code="a"]') AS marc_700_1_a,
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][1]/subfield[@code="9"]') AS marc_700_1_9,
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][2]/subfield[@code="a"]') AS marc_700_2_a,
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][2]/subfield[@code="9"]') AS marc_700_2_9,
+        -- Extract all 773 subfields (b,d,e,f,i,s,u,v,w)
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="773"]/subfield[@code="b"]') AS marc_773_b,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="773"]/subfield[@code="d"]') AS marc_773_d,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="773"]/subfield[@code="e"]') AS marc_773_e,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="773"]/subfield[@code="f"]') AS marc_773_f,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="773"]/subfield[@code="i"]') AS marc_773_i,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="773"]/subfield[@code="s"]') AS marc_773_s,
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="773"]/subfield[@code="t"]') AS marc_773_t,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="773"]/subfield[@code="u"]') AS marc_773_u,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="773"]/subfield[@code="v"]') AS marc_773_v,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="773"]/subfield[@code="w"]') AS marc_773_w,
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="773"]/subfield[@code="g"]') AS marc_773_g,
+        -- Extract 856 subfield (a)
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="856"]/subfield[@code="a"]') AS marc_856_a,
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="995"]/subfield[@code="a"]') AS marc_995_a,
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="999"]/subfield[@code="c"]') AS marc_999_c
       FROM biblioitems a
@@ -331,14 +359,42 @@ export async function POST(request: NextRequest) {
       const marcData = {
         author: row.marc_100_a || '',
         authorId: row.marc_100_9 || '',
+        // 110 subfields (a,q)
+        corporate_author: row.marc_110_a || '',      // 110$a - Corporate name
+        corporate_author_fuller: row.marc_110_q || '', // 110$q - Fuller form of name
         title: row.marc_245_a || '',
         translatedTitle: row.marc_242_a || '',
         alternativeTitle: row.marc_246_a || '',
-        year: row.marc_260_c || '',
-        journal: row.marc_773_t || '',
+        // 250 subfield (a)
+        edition_statement: row.marc_250_a || '',     // 250$a - Edition statement
+        // 260 subfields (a,b,c,m,g)
+        publication_place: row.marc_260_a || '',    // 260$a - Place of publication
+        publisher: row.marc_260_b || '',            // 260$b - Publisher name
+        year: row.marc_260_c || '',                 // 260$c - Publication date
+        manufacture_place: row.marc_260_m || '',    // 260$m - Place of manufacture
+        manufacture_date: row.marc_260_g || '',     // 260$g - Date of manufacture
+        // 300 subfields (a,b)
+        pages: row.marc_300_a || '',                // 300$a - Extent (pages)
+        physical_details: row.marc_300_b || '',     // 300$b - Other physical details
+        // 502 subfields (c,b,f)
+        dissertation_degree: row.marc_502_c || '',  // 502$c - Degree type
+        dissertation_granting: row.marc_502_b || '', // 502$b - Degree granting institution
+        dissertation_year: row.marc_502_f || '',    // 502$f - Year degree granted
+        // 773 subfields (b,d,e,f,i,s,u,v,w)
+        edition: row.marc_773_b || '',              // 773$b - Edition
+        place_date: row.marc_773_d || '',           // 773$d - Place, publisher, and date
+        enumeration: row.marc_773_e || '',          // 773$e - Enumeration and first page
+        country_code: row.marc_773_f || '',         // 773$f - Country code
+        relationship: row.marc_773_i || '',         // 773$i - Relationship information
+        uniform_title: row.marc_773_s || '',        // 773$s - Uniform title
+        journal: row.marc_773_t || '',              // 773$t - Title
+        standard_number: row.marc_773_u || '',      // 773$u - Standard Technical Report Number
+        volume_number: row.marc_773_v || '',        // 773$v - Volume number
+        record_control: row.marc_773_w || '',       // 773$w - Record control number
+        // 856 subfield (a)
+        host_name: row.marc_856_a || '',            // 856$a - Host name
         volume: '',
         issue: '',
-        pages: row.marc_300_a || '',
         additionalAuthors: [row.marc_700_1_a, row.marc_700_2_a].filter(a => a).join('; '),
         additionalAuthorIds: [row.marc_700_1_9, row.marc_700_2_9].filter(a => a).join('; '),
         contentType: row.marc_336_a || '',
@@ -367,14 +423,42 @@ export async function POST(request: NextRequest) {
         frameworkcode: row.frameworkcode || '',
         author: marcData.author || row.biblio_author || '',
         authorId: marcData.authorId || '',
+        // 110 subfields
+        corporate_author: marcData.corporate_author || '',
+        corporate_author_fuller: marcData.corporate_author_fuller || '',
         title: marcData.title || row.biblio_title || '',
         translatedTitle: marcData.translatedTitle || '',
         alternativeTitle: marcData.alternativeTitle || '',
+        // 250 subfield
+        edition_statement: marcData.edition_statement || '',
         year: marcData.year || row.copyrightdate?.toString() || '',
+        // 260 subfields
+        publication_place: marcData.publication_place || '',
+        publisher: marcData.publisher || '',
+        manufacture_place: marcData.manufacture_place || '',
+        manufacture_date: marcData.manufacture_date || '',
+        // 300 subfields
+        pages: marcData.pages || row.pages || '',
+        physical_details: marcData.physical_details || '',
+        // 502 subfields
+        dissertation_degree: marcData.dissertation_degree || '',
+        dissertation_granting: marcData.dissertation_granting || '',
+        dissertation_year: marcData.dissertation_year || '',
+        // 773 subfields
         journal: marcData.journal || '',
+        edition: marcData.edition || '',
+        place_date: marcData.place_date || '',
+        enumeration: marcData.enumeration || '',
+        country_code: marcData.country_code || '',
+        relationship: marcData.relationship || '',
+        uniform_title: marcData.uniform_title || '',
+        standard_number: marcData.standard_number || '',
+        volume_number: marcData.volume_number || '',
+        record_control: marcData.record_control || '',
+        // 856 subfield
+        host_name: marcData.host_name || '',
         volume: marcData.volume || row.volume || '',
         issue: marcData.issue || '',
-        pages: marcData.pages || row.pages || '',
         additionalAuthors: marcData.additionalAuthors || '',
         additionalAuthorIds: marcData.additionalAuthorIds || '',
         languageCode: marcData.languageCode || '',
@@ -427,6 +511,11 @@ export async function POST(request: NextRequest) {
             filteredData['authorId'] = completeData.authorId || '';
             console.log(`CustomCitationReport: Field 100 mapped to author: ${filteredData['author']}, authorId: ${filteredData['authorId']}`);
             break;
+          case '110':
+            filteredData['corporate_author'] = completeData.corporate_author || '';
+            filteredData['corporate_author_fuller'] = completeData.corporate_author_fuller || '';
+            console.log(`CustomCitationReport: Field 110 mapped to corporate_author: ${filteredData['corporate_author']}, corporate_author_fuller: ${filteredData['corporate_author_fuller']}`);
+            break;
           case '242':
             filteredData['translatedTitle'] = completeData.translatedTitle || '';
             console.log(`CustomCitationReport: Field 242 mapped to translatedTitle: ${filteredData['translatedTitle']}`);
@@ -439,17 +528,32 @@ export async function POST(request: NextRequest) {
             filteredData['alternativeTitle'] = completeData.alternativeTitle || '';
             console.log(`CustomCitationReport: Field 246 mapped to alternativeTitle: ${filteredData['alternativeTitle']}`);
             break;
+          case '250':
+            filteredData['edition_statement'] = completeData.edition_statement || '';
+            console.log(`CustomCitationReport: Field 250 mapped to edition_statement: ${filteredData['edition_statement']}`);
+            break;
           case '260':
+            filteredData['publication_place'] = completeData.publication_place || '';
+            filteredData['publisher'] = completeData.publisher || '';
             filteredData['year'] = completeData.year || '';
-            console.log(`CustomCitationReport: Field 260 mapped to year: ${filteredData['year']}`);
+            filteredData['manufacture_place'] = completeData.manufacture_place || '';
+            filteredData['manufacture_date'] = completeData.manufacture_date || '';
+            console.log(`CustomCitationReport: Field 260 mapped to publication_place: ${filteredData['publication_place']}, publisher: ${filteredData['publisher']}, year: ${filteredData['year']}, manufacture_place: ${filteredData['manufacture_place']}, manufacture_date: ${filteredData['manufacture_date']}`);
             break;
           case '300':
             filteredData['pages'] = completeData.pages || '';
-            console.log(`CustomCitationReport: Field 300 mapped to pages: ${filteredData['pages']}`);
+            filteredData['physical_details'] = completeData.physical_details || '';
+            console.log(`CustomCitationReport: Field 300 mapped to pages: ${filteredData['pages']}, physical_details: ${filteredData['physical_details']}`);
             break;
           case '336':
             filteredData['contentType'] = completeData.contentType || '';
             console.log(`CustomCitationReport: Field 336 mapped to contentType: ${filteredData['contentType']}`);
+            break;
+          case '502':
+            filteredData['dissertation_degree'] = completeData.dissertation_degree || '';
+            filteredData['dissertation_granting'] = completeData.dissertation_granting || '';
+            filteredData['dissertation_year'] = completeData.dissertation_year || '';
+            console.log(`CustomCitationReport: Field 502 mapped to dissertation_degree: ${filteredData['dissertation_degree']}, dissertation_granting: ${filteredData['dissertation_granting']}, dissertation_year: ${filteredData['dissertation_year']}`);
             break;
           case '700':
             filteredData['additionalAuthors'] = completeData.additionalAuthors || '';
@@ -457,10 +561,23 @@ export async function POST(request: NextRequest) {
             console.log(`CustomCitationReport: Field 700 mapped to additionalAuthors: ${filteredData['additionalAuthors']}, additionalAuthorIds: ${filteredData['additionalAuthorIds']}`);
             break;
           case '773':
+            filteredData['edition'] = completeData.edition || '';
+            filteredData['place_date'] = completeData.place_date || '';
+            filteredData['enumeration'] = completeData.enumeration || '';
+            filteredData['country_code'] = completeData.country_code || '';
+            filteredData['relationship'] = completeData.relationship || '';
+            filteredData['uniform_title'] = completeData.uniform_title || '';
             filteredData['journal'] = completeData.journal || '';
+            filteredData['standard_number'] = completeData.standard_number || '';
+            filteredData['volume_number'] = completeData.volume_number || '';
+            filteredData['record_control'] = completeData.record_control || '';
             filteredData['volume'] = completeData.volume || '';
             filteredData['issue'] = completeData.issue || '';
-            console.log(`CustomCitationReport: Field 773 mapped to journal: ${filteredData['journal']}, volume: ${filteredData['volume']}, issue: ${filteredData['issue']}`);
+            console.log(`CustomCitationReport: Field 773 mapped to all subfields including journal: ${filteredData['journal']}, volume_number: ${filteredData['volume_number']}, edition: ${filteredData['edition']}`);
+            break;
+          case '856':
+            filteredData['host_name'] = completeData.host_name || '';
+            console.log(`CustomCitationReport: Field 856 mapped to host_name: ${filteredData['host_name']}`);
             break;
           case '995':
             filteredData['citation'] = completeData.citation || '';
@@ -509,17 +626,45 @@ export async function POST(request: NextRequest) {
       publisherCode: 'Publisher Code (073)',
       author: 'Main Author (100)',
       authorId: 'Main Author ID (100)',
+      // 110 subfields
+      corporate_author: 'Corporate Author (110a)',
+      corporate_author_fuller: 'Corporate Author Fuller (110q)',
       translatedTitle: 'Translated Title (242)',
       title: 'Title (245)',
       alternativeTitle: 'Alternative Title (246)',
-      year: 'Publication Year (260)',
-      pages: 'Pages (300)',
+      // 250 subfield
+      edition_statement: 'Edition Statement (250a)',
+      // 260 subfields
+      publication_place: 'Publication Place (260a)',
+      publisher: 'Publisher (260b)',
+      year: 'Publication Year (260c)',
+      manufacture_place: 'Manufacture Place (260m)',
+      manufacture_date: 'Manufacture Date (260g)',
+      // 300 subfields
+      pages: 'Pages (300a)',
+      physical_details: 'Physical Details (300b)',
       contentType: 'Content Type (336)',
+      // 502 subfields
+      dissertation_degree: 'Dissertation Degree (502c)',
+      dissertation_granting: 'Dissertation Institution (502b)',
+      dissertation_year: 'Dissertation Year (502f)',
       additionalAuthors: 'Additional Authors (700)',
       additionalAuthorIds: 'Additional Author IDs (700)',
-      journal: 'Journal (773)',
+      // 773 subfields
+      edition: 'Edition (773b)',
+      place_date: 'Place/Date (773d)',
+      enumeration: 'Enumeration (773e)',
+      country_code: 'Country Code (773f)',
+      relationship: 'Relationship (773i)',
+      uniform_title: 'Uniform Title (773s)',
+      journal: 'Journal (773t)',
+      standard_number: 'Standard Number (773u)',
+      volume_number: 'Volume Number (773v)',
+      record_control: 'Record Control (773w)',
       volume: 'Volume (773)',
       issue: 'Issue (773)',
+      // 856 subfield
+      host_name: 'Host Name (856a)',
       citation: 'Citation (995)',
       // Legacy field mappings for backward compatibility
       frameworkcode: 'Framework Code',
@@ -573,6 +718,14 @@ export async function POST(request: NextRequest) {
               row[fieldLabels['authorId']] = item['authorId'];
             }
             break;
+          case '110':
+            if (item['corporate_author']) {
+              row[fieldLabels['corporate_author']] = item['corporate_author'];
+            }
+            if (item['corporate_author_fuller']) {
+              row[fieldLabels['corporate_author_fuller']] = item['corporate_author_fuller'];
+            }
+            break;
           case '242':
             if (item['translatedTitle']) {
               row[fieldLabels['translatedTitle']] = item['translatedTitle'];
@@ -588,14 +741,45 @@ export async function POST(request: NextRequest) {
               row[fieldLabels['alternativeTitle']] = item['alternativeTitle'];
             }
             break;
+          case '250':
+            if (item['edition_statement']) {
+              row[fieldLabels['edition_statement']] = item['edition_statement'];
+            }
+            break;
           case '260':
+            if (item['publication_place']) {
+              row[fieldLabels['publication_place']] = item['publication_place'];
+            }
+            if (item['publisher']) {
+              row[fieldLabels['publisher']] = item['publisher'];
+            }
             if (item['year']) {
               row[fieldLabels['year']] = item['year'];
+            }
+            if (item['manufacture_place']) {
+              row[fieldLabels['manufacture_place']] = item['manufacture_place'];
+            }
+            if (item['manufacture_date']) {
+              row[fieldLabels['manufacture_date']] = item['manufacture_date'];
             }
             break;
           case '300':
             if (item['pages']) {
               row[fieldLabels['pages']] = item['pages'];
+            }
+            if (item['physical_details']) {
+              row[fieldLabels['physical_details']] = item['physical_details'];
+            }
+            break;
+          case '502':
+            if (item['dissertation_degree']) {
+              row[fieldLabels['dissertation_degree']] = item['dissertation_degree'];
+            }
+            if (item['dissertation_granting']) {
+              row[fieldLabels['dissertation_granting']] = item['dissertation_granting'];
+            }
+            if (item['dissertation_year']) {
+              row[fieldLabels['dissertation_year']] = item['dissertation_year'];
             }
             break;
           case '700':
@@ -607,8 +791,35 @@ export async function POST(request: NextRequest) {
             }
             break;
           case '773':
+            if (item['edition']) {
+              row[fieldLabels['edition']] = item['edition'];
+            }
+            if (item['place_date']) {
+              row[fieldLabels['place_date']] = item['place_date'];
+            }
+            if (item['enumeration']) {
+              row[fieldLabels['enumeration']] = item['enumeration'];
+            }
+            if (item['country_code']) {
+              row[fieldLabels['country_code']] = item['country_code'];
+            }
+            if (item['relationship']) {
+              row[fieldLabels['relationship']] = item['relationship'];
+            }
+            if (item['uniform_title']) {
+              row[fieldLabels['uniform_title']] = item['uniform_title'];
+            }
             if (item['journal']) {
               row[fieldLabels['journal']] = item['journal'];
+            }
+            if (item['standard_number']) {
+              row[fieldLabels['standard_number']] = item['standard_number'];
+            }
+            if (item['volume_number']) {
+              row[fieldLabels['volume_number']] = item['volume_number'];
+            }
+            if (item['record_control']) {
+              row[fieldLabels['record_control']] = item['record_control'];
             }
             if (item['volume']) {
               row[fieldLabels['volume']] = item['volume'];
@@ -620,6 +831,11 @@ export async function POST(request: NextRequest) {
           case '336':
             if (item['contentType']) {
               row[fieldLabels['contentType']] = item['contentType'];
+            }
+            break;
+          case '856':
+            if (item['host_name']) {
+              row[fieldLabels['host_name']] = item['host_name'];
             }
             break;
           case '995':

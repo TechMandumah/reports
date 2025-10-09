@@ -101,11 +101,17 @@ function buildAbstractFilter(abstractFilter?: string): { clause: string; params:
   
   switch (abstractFilter) {
     case 'without_abstract':
-      // Records with no abstract - check database field and MARC field 520
+      // Records with no abstract - more inclusive OR logic to catch any missing abstract scenario
       return {
-        clause: `AND (b.abstract IS NULL OR b.abstract = "" OR TRIM(b.abstract) = "" 
-                 OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="a"]') = "" 
-                 OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="a"]') IS NULL)`,
+        clause: `AND (
+                   (b.abstract IS NULL OR b.abstract = "" OR TRIM(b.abstract) = "") 
+                   OR 
+                   (EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="a"]') = "" 
+                    OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="a"]') IS NULL)
+                   OR
+                   (EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]') = ""
+                    OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]') IS NULL)
+                 )`,
         params: []
       };
     
@@ -209,17 +215,35 @@ export async function getBiblioRecords(filters: QueryFilters = {}): Promise<Bibl
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="242"][1]/subfield[@code="b"]') AS marc_242_1_b,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="041"]/subfield[@code="a"]') AS marc_041_a,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="100"]/subfield[@code="a"]') AS marc_100_a,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="100"]/subfield[@code="g"]') AS marc_100_g,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="100"]/subfield[@code="q"]') AS marc_100_q,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="100"]/subfield[@code="e"]') AS marc_100_e,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="100"]/subfield[@code="9"]') AS marc_100_9,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="260"]/subfield[@code="b"]') AS marc_260_b,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][1]/subfield[@code="a"]') AS marc_700_1_a,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][1]/subfield[@code="g"]') AS marc_700_1_g,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][1]/subfield[@code="q"]') AS marc_700_1_q,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][1]/subfield[@code="e"]') AS marc_700_1_e,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][1]/subfield[@code="9"]') AS marc_700_1_9,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][2]/subfield[@code="a"]') AS marc_700_2_a,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][2]/subfield[@code="g"]') AS marc_700_2_g,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][2]/subfield[@code="q"]') AS marc_700_2_q,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][2]/subfield[@code="e"]') AS marc_700_2_e,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][2]/subfield[@code="9"]') AS marc_700_2_9,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][3]/subfield[@code="a"]') AS marc_700_3_a,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][3]/subfield[@code="g"]') AS marc_700_3_g,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][3]/subfield[@code="q"]') AS marc_700_3_q,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][3]/subfield[@code="e"]') AS marc_700_3_e,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][3]/subfield[@code="9"]') AS marc_700_3_9,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][4]/subfield[@code="a"]') AS marc_700_4_a,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][4]/subfield[@code="g"]') AS marc_700_4_g,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][4]/subfield[@code="q"]') AS marc_700_4_q,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][4]/subfield[@code="e"]') AS marc_700_4_e,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][4]/subfield[@code="9"]') AS marc_700_4_9,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][5]/subfield[@code="a"]') AS marc_700_5_a,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][5]/subfield[@code="g"]') AS marc_700_5_g,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][5]/subfield[@code="q"]') AS marc_700_5_q,
+      EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][5]/subfield[@code="e"]') AS marc_700_5_e,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="700"][5]/subfield[@code="9"]') AS marc_700_5_9,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="a"]') AS marc_520_a,
       EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="b"]') AS marc_520_b,
@@ -277,7 +301,7 @@ export async function generatePredefinedReport(reportType: string, filters: Quer
       url: record.url || '', // Use the PDF filename from biblioitems
       biblio: String(record.biblionumber).padStart(4, '0'),
       link: `https://cataloging.mandumah.com/cgi-bin/koha/catalogue/detail.pl?biblionumber=${record.biblionumber}`,
-      biblio_details: `https://citationadmin.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${record.biblionumber}`
+      biblio_details: `https://cataloging.mandumah.com/cgi-bin/koha/catalogue/addbiblio.pl?biblionumber=${record.biblionumber}`
     };
     
     // Add specific fields based on report type using pre-extracted MARC fields
@@ -299,41 +323,89 @@ export async function generatePredefinedReport(reportType: string, filters: Quer
         result.language_041 = (record as any).marc_041_a || '';
         if (reportType === 'export_translations_titles_authors') {
           result.author = (record as any).marc_100_a || record.author || '';
+          result.author_g = (record as any).marc_100_g || '';
+          result.author_q = (record as any).marc_100_q || '';
+          result.author_e = (record as any).marc_100_e || '';
+          result.author_id = (record as any).marc_100_9 || '';
           result.university_373 = (record as any).marc_260_b || '';
         }
         break;
         
       case 'export_research_authors':
-        // Use pre-extracted author data from EXTRACTVALUE
+        // Use pre-extracted author data from EXTRACTVALUE - all subfields (a, g, q, e, 9)
         result.author = (record as any).marc_100_a || record.author || '';
+        result.author_g = (record as any).marc_100_g || '';
+        result.author_q = (record as any).marc_100_q || '';
+        result.author_e = (record as any).marc_100_e || '';
         result.author_id = (record as any).marc_100_9 || '';
         
-        // Use pre-extracted additional authors data (up to 10 authors)
+        // Use pre-extracted additional authors data (up to 5 authors with all subfields)
         result.additional_author = (record as any).marc_700_1_a || '';
+        result.additional_author_g = (record as any).marc_700_1_g || '';
+        result.additional_author_q = (record as any).marc_700_1_q || '';
+        result.additional_author_e = (record as any).marc_700_1_e || '';
         result.additional_author_id = (record as any).marc_700_1_9 || '';
         result.additional_author_2 = (record as any).marc_700_2_a || '';
+        result.additional_author_2_g = (record as any).marc_700_2_g || '';
+        result.additional_author_2_q = (record as any).marc_700_2_q || '';
+        result.additional_author_2_e = (record as any).marc_700_2_e || '';
         result.additional_author_id_2 = (record as any).marc_700_2_9 || '';
         result.additional_author_3 = (record as any).marc_700_3_a || '';
+        result.additional_author_3_g = (record as any).marc_700_3_g || '';
+        result.additional_author_3_q = (record as any).marc_700_3_q || '';
+        result.additional_author_3_e = (record as any).marc_700_3_e || '';
         result.additional_author_id_3 = (record as any).marc_700_3_9 || '';
         result.additional_author_4 = (record as any).marc_700_4_a || '';
+        result.additional_author_4_g = (record as any).marc_700_4_g || '';
+        result.additional_author_4_q = (record as any).marc_700_4_q || '';
+        result.additional_author_4_e = (record as any).marc_700_4_e || '';
         result.additional_author_id_4 = (record as any).marc_700_4_9 || '';
         result.additional_author_5 = (record as any).marc_700_5_a || '';
+        result.additional_author_5_g = (record as any).marc_700_5_g || '';
+        result.additional_author_5_q = (record as any).marc_700_5_q || '';
+        result.additional_author_5_e = (record as any).marc_700_5_e || '';
         result.additional_author_id_5 = (record as any).marc_700_5_9 || '';
         break;
         
       case 'export_author_data':
+        // Use pre-extracted author data with all subfields (a, g, q, e, 9)
+        result.author = (record as any).marc_100_a || record.author || '';
+        result.author_g = (record as any).marc_100_g || '';
+        result.author_q = (record as any).marc_100_q || '';
+        result.author_e = (record as any).marc_100_e || '';
+        result.author_id = (record as any).marc_100_9 || '';
+        break;
       case 'export_translations_citation_author':
         result.author = (record as any).marc_100_a || record.author || '';
         break;
         
       case 'export_abstract_field':
         // Use pre-extracted abstract subfields
+        console.log('Processing export_abstract_field for record:', record.biblionumber);
+        console.log('Available MARC 520 fields:', {
+          marc_520_a: (record as any).marc_520_a,
+          marc_520_b: (record as any).marc_520_b,
+          marc_520_d: (record as any).marc_520_d,
+          marc_520_e: (record as any).marc_520_e,
+          marc_520_f: (record as any).marc_520_f,
+          abstract: record.abstract
+        });
+        
         result.abstract_520_a = (record as any).marc_520_a || '';
         result.abstract_520_b = (record as any).marc_520_b || '';
         result.abstract_520_d = (record as any).marc_520_d || '';
         result.abstract_520_e = (record as any).marc_520_e || '';
         result.abstract_520_f = (record as any).marc_520_f || '';
         result.abstract_520 = record.abstract || '';
+        
+        console.log('Mapped abstract fields:', {
+          abstract_520_a: result.abstract_520_a,
+          abstract_520_b: result.abstract_520_b,
+          abstract_520_d: result.abstract_520_d,
+          abstract_520_e: result.abstract_520_e,
+          abstract_520_f: result.abstract_520_f,
+          abstract_520: result.abstract_520
+        });
         break;
         
       case 'export_citation_entry':
@@ -359,7 +431,7 @@ const MARC_FIELD_CONFIGS: { [key: string]: { subfields: string[], multiValue?: b
   '024': { subfields: ['a', 'c', '2'] }, // Other Standard Identifier
   '041': { subfields: ['a', 'b'] }, // Language Code
   '044': { subfields: ['a', 'b'] }, // Country code
-  '100': { subfields: ['a', '9', 'd', 'c'] }, // Main Author
+  '100': { subfields: ['a', 'g', 'q', 'e', '9'] }, // Main Author
   '110': { subfields: ['a', '9'] }, // Corporate Name
   '242': { subfields: ['a', 'b', 'c'], multiValue: true }, // Translation of Title
   '245': { subfields: ['a', 'b', 'c', 'n', 'p'], multiValue: true }, // Title Statement
@@ -371,7 +443,7 @@ const MARC_FIELD_CONFIGS: { [key: string]: { subfields: string[], multiValue?: b
   '520': { subfields: ['a', 'b', 'd', 'e', 'f'] }, // Summary/Abstract
   '653': { subfields: ['a'], multiValue: true }, // Index Term
   '692': { subfields: ['a'], multiValue: true }, // Keywords
-  '700': { subfields: ['a', '9', 'd', 'c'], multiValue: true }, // Additional Authors
+  '700': { subfields: ['a', 'g', 'q', 'e', '9'], multiValue: true }, // Additional Authors
   '773': { subfields: ['t', 'g', 'd', 'x'] }, // Host Item
   '856': { subfields: ['u', 'y', 'z'] }, // Electronic Location
   '930': { subfields: ['a'] }, // Equivalence
@@ -646,7 +718,7 @@ export async function generateCustomReport(filters: QueryFilters): Promise<Repor
       url: record.url || '',
       biblio: String(record.biblionumber).padStart(4, '0'),
       link: `https://cataloging.mandumah.com/cgi-bin/koha/catalogue/detail.pl?biblionumber=${record.biblionumber}`,
-      biblio_details: `https://citationadmin.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${record.biblionumber}`
+      biblio_details: `https://cataloging.mandumah.com/cgi-bin/koha/catalogue/addbiblio.pl?biblionumber=${record.biblionumber}`
     };
     
     // Add all extracted MARC fields with proper field names for export/display

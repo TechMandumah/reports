@@ -14,7 +14,15 @@ function filterAbstractRecords(data: ExportData[], abstractFilter?: string): Exp
         switch (abstractFilter) {
           case 'without_abstract':
             // Records with no field 520 (no abstract subfields)
-            return !Object.keys(row).some(key => key.startsWith('abstract_520_'));
+            const hasAnyAbstractFields = Object.keys(row).some(key => key.startsWith('abstract_520_'));
+            console.log(`without_abstract filter for biblio ${row['biblio']}:`, {
+              hasAnyAbstractFields,
+              abstract_520_a: row['abstract_520_a'],
+              abstract_520_b: row['abstract_520_b'],
+              abstract_520: row['abstract_520'],
+              shouldInclude: !hasAnyAbstractFields
+            });
+            return !hasAnyAbstractFields;
           
           case 'missing_english':
             // Subfield 'a' is available in field 520 where 'b' and 'f' is empty
@@ -45,6 +53,17 @@ function filterAbstractRecords(data: ExportData[], abstractFilter?: string): Exp
           const hasAny520Subfields = Object.keys(row)
             .filter(key => key.startsWith('abstract_520_'))
             .some(key => row[key] && row[key].toString().trim() !== '');
+          
+          console.log(`mandumah_abstract filter for biblio ${row['biblio']}:`, {
+            hasSubfieldAEmpty,
+            hasSubfieldEEmpty,
+            hasAbstract,
+            hasAny520Subfields,
+            abstract_520_a: row['abstract_520_a'],
+            abstract_520_e: row['abstract_520_e'],
+            abstract_520: row['abstract_520'],
+            shouldInclude: (hasAbstract || hasAny520Subfields) && (hasSubfieldAEmpty || hasSubfieldEEmpty)
+          });
           
           // Include if we have abstract content AND either subfield a or e is empty (more inclusive)
           return (hasAbstract || hasAny520Subfields) && (hasSubfieldAEmpty || hasSubfieldEEmpty);
@@ -136,15 +155,15 @@ export const reportConfigurations: Record<string, ReportConfig> = {
       { header: "Biblio", key: "biblio" },
       { header: "Biblio Details", key: "biblio_details" },
       { header: "Title 245 (1)(a)", key: "title_245_1_a" },
-      { header: "Title 245 (1)(b)", key: "title_245_1_b" },
+      // { header: "Title 245 (1)(b)", key: "title_245_1_b" },
       { header: "Title 246 (1)(a)", key: "title_246_1_a" },
-      { header: "Title 246 (1)(b)", key: "title_246_1_b" },
+      // { header: "Title 246 (1)(b)", key: "title_246_1_b" },
       { header: "Title 246 (2)(a)", key: "title_246_2_a" },
-      { header: "Title 246 (2)(b)", key: "title_246_2_b" },
+      // { header: "Title 246 (2)(b)", key: "title_246_2_b" },
       { header: "Title 246 (3)(a)", key: "title_246_3_a" },
-      { header: "Title 246 (3)(b)", key: "title_246_3_b" },
+      // { header: "Title 246 (3)(b)", key: "title_246_3_b" },
       { header: "Title 242 (1)(a)", key: "title_242_1_a" },
-      { header: "Title 242 (1)(b)", key: "title_242_1_b" },
+      // { header: "Title 242 (1)(b)", key: "title_242_1_b" },
       { header: "Language 041", key: "language_041" },
     ]
   },
@@ -154,28 +173,42 @@ export const reportConfigurations: Record<string, ReportConfig> = {
   { header: "URL", key: "url" },
   { header: "Biblio", key: "biblio" },
   { header: "Biblio Details", key: "biblio_details" },
-  { header: "Main Author (100)", key: "author" },
-  { header: "Main Author ID", key: "author_id" },
-  { header: "Additional Author", key: "additional_author" },
-  { header: "Additional Author ID", key: "additional_author_id" },
-  { header: "Additional Author 2", key: "additional_author_2" },
-  { header: "Additional Author ID 2", key: "additional_author_id_2" },
-  { header: "Additional Author 3", key: "additional_author_3" },
-  { header: "Additional Author ID 3", key: "additional_author_id_3" },
-  { header: "Additional Author 4", key: "additional_author_4" },
-  { header: "Additional Author ID 4", key: "additional_author_id_4" },
-  { header: "Additional Author 5", key: "additional_author_5" },
-  { header: "Additional Author ID 5", key: "additional_author_id_5" },
-  { header: "Additional Author 6", key: "additional_author_6" },
-  { header: "Additional Author ID 6", key: "additional_author_id_6" },
-  { header: "Additional Author 7", key: "additional_author_7" },
-  { header: "Additional Author ID 7", key: "additional_author_id_7" },
-  { header: "Additional Author 8", key: "additional_author_8" },
-  { header: "Additional Author ID 8", key: "additional_author_id_8" },
-  { header: "Additional Author 9", key: "additional_author_9" },
-  { header: "Additional Author ID 9", key: "additional_author_id_9" },
-  { header: "Additional Author 10", key: "additional_author_10" },
-  { header: "Additional Author ID 10", key: "additional_author_id_10" }
+  // Main Author (100) - all subfields
+  { header: "100_a (Main Author)", key: "author" },
+  { header: "100_g (Main Author Dates)", key: "author_g" },
+  { header: "100_q (Main Author Fuller Form)", key: "author_q" },
+  { header: "100_e (Main Author Relator)", key: "author_e" },
+  { header: "100_9 (Main Author ID)", key: "author_id" },
+  // Additional Author 1 (700_1) - all subfields
+  { header: "700_1_a (Add Author 1)", key: "additional_author" },
+  { header: "700_1_g (Add Author 1 Dates)", key: "additional_author_g" },
+  { header: "700_1_q (Add Author 1 Fuller Form)", key: "additional_author_q" },
+  { header: "700_1_e (Add Author 1 Relator)", key: "additional_author_e" },
+  { header: "700_1_9 (Add Author 1 ID)", key: "additional_author_id" },
+  // Additional Author 2 (700_2) - all subfields
+  { header: "700_2_a (Add Author 2)", key: "additional_author_2" },
+  { header: "700_2_g (Add Author 2 Dates)", key: "additional_author_2_g" },
+  { header: "700_2_q (Add Author 2 Fuller Form)", key: "additional_author_2_q" },
+  { header: "700_2_e (Add Author 2 Relator)", key: "additional_author_2_e" },
+  { header: "700_2_9 (Add Author 2 ID)", key: "additional_author_id_2" },
+  // Additional Author 3 (700_3) - all subfields
+  { header: "700_3_a (Add Author 3)", key: "additional_author_3" },
+  { header: "700_3_g (Add Author 3 Dates)", key: "additional_author_3_g" },
+  { header: "700_3_q (Add Author 3 Fuller Form)", key: "additional_author_3_q" },
+  { header: "700_3_e (Add Author 3 Relator)", key: "additional_author_3_e" },
+  { header: "700_3_9 (Add Author 3 ID)", key: "additional_author_id_3" },
+  // Additional Author 4 (700_4) - all subfields
+  { header: "700_4_a (Add Author 4)", key: "additional_author_4" },
+  { header: "700_4_g (Add Author 4 Dates)", key: "additional_author_4_g" },
+  { header: "700_4_q (Add Author 4 Fuller Form)", key: "additional_author_4_q" },
+  { header: "700_4_e (Add Author 4 Relator)", key: "additional_author_4_e" },
+  { header: "700_4_9 (Add Author 4 ID)", key: "additional_author_id_4" },
+  // Additional Author 5 (700_5) - all subfields
+  { header: "700_5_a (Add Author 5)", key: "additional_author_5" },
+  { header: "700_5_g (Add Author 5 Dates)", key: "additional_author_5_g" },
+  { header: "700_5_q (Add Author 5 Fuller Form)", key: "additional_author_5_q" },
+  { header: "700_5_e (Add Author 5 Relator)", key: "additional_author_5_e" },
+  { header: "700_5_9 (Add Author 5 ID)", key: "additional_author_id_5" }
     ]
   },
   export_author_data: {
@@ -184,7 +217,12 @@ export const reportConfigurations: Record<string, ReportConfig> = {
   { header: "URL", key: "url" },
   { header: "Biblio", key: "biblio" },
   { header: "Biblio Details", key: "biblio_details" },
-  { header: "Author", key: "author" }
+  // Main Author (100) - all subfields
+  { header: "100_a (Main Author)", key: "author" },
+  { header: "100_g (Main Author Dates)", key: "author_g" },
+  { header: "100_q (Main Author Fuller Form)", key: "author_q" },
+  { header: "100_e (Main Author Relator)", key: "author_e" },
+  { header: "100_9 (Main Author ID)", key: "author_id" }
     ]
   },
   export_translations_titles_authors: {
@@ -211,7 +249,12 @@ export const reportConfigurations: Record<string, ReportConfig> = {
   { header: "Title 242 (2)(b)", key: "title_242_2_b" },
   { header: "Title 242 (3)(a)", key: "title_242_3_a" },
   { header: "Title 242 (3)(b)", key: "title_242_3_b" },
-  { header: "Author", key: "author" },
+  // Main Author (100) - all subfields
+  { header: "100_a (Main Author)", key: "author" },
+  { header: "100_g (Main Author Dates)", key: "author_g" },
+  { header: "100_q (Main Author Fuller Form)", key: "author_q" },
+  { header: "100_e (Main Author Relator)", key: "author_e" },
+  { header: "100_9 (Main Author ID)", key: "author_id" },
   { header: "University 373", key: "university_373" }
     ]
   },
@@ -457,10 +500,12 @@ export async function exportToExcel(reportType: string, formData: any): Promise<
     let filteredData = data;
     if (reportType === 'export_abstract_field' && formData?.abstractFilter && formData.abstractFilter !== '') {
       console.log(`Applying abstract filter: ${formData.abstractFilter}`);
+      console.log('Sample data before filtering:', data.slice(0, 2));
       const beforeCount = data.length;
       filteredData = filterAbstractRecords(data, formData.abstractFilter);
       const afterCount = filteredData.length;
       console.log(`Abstract filter applied: ${beforeCount} -> ${afterCount} records`);
+      console.log('Sample data after filtering:', filteredData.slice(0, 2));
     }
 
     // Apply author type filter for research authors report
@@ -490,13 +535,18 @@ export async function exportToExcel(reportType: string, formData: any): Promise<
       });
     }
 
-    // Remove completely empty columns from all reports
+    // Remove completely empty columns from all reports (but preserve important columns for specific report types)
     finalColumns = finalColumns.filter(col => {
       // Always keep essential columns like URL and Biblio
       if (col.key === 'url' || col.key === 'biblio' || col.key === 'biblio_details') return true;
       
       // Keep title columns even if some instances are empty (for consistent structure)
       if (col.key.startsWith('title_245_') || col.key.startsWith('title_246_') || col.key.startsWith('title_242_')) return true;
+      
+      // For abstract field reports, ALWAYS keep abstract columns even if empty (that's the point of the report)
+      if (reportType === 'export_abstract_field' && col.key.startsWith('abstract_520_')) {
+        return true;
+      }
       
       // Check if column has any non-empty values
       const hasNonEmptyValue = filteredData.some(row => {

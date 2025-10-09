@@ -9,11 +9,38 @@ export const dynamic = 'force-dynamic';
 
 interface CitationAuthorData {
   biblionumber: number;
-  mainAuthor: string;
-  mainAuthorId: string;
-  additionalAuthors: string[];
-  additionalAuthorIds: string[];
-  allAuthors: string;
+  // Main author fields (100)
+  main_100_a: string;
+  main_100_g: string;
+  main_100_q: string;
+  main_100_e: string;
+  main_100_9: string;
+  // Additional authors fields (700)
+  add_700_1_a: string;
+  add_700_1_g: string;
+  add_700_1_q: string;
+  add_700_1_e: string;
+  add_700_1_9: string;
+  add_700_2_a: string;
+  add_700_2_g: string;
+  add_700_2_q: string;
+  add_700_2_e: string;
+  add_700_2_9: string;
+  add_700_3_a: string;
+  add_700_3_g: string;
+  add_700_3_q: string;
+  add_700_3_e: string;
+  add_700_3_9: string;
+  add_700_4_a: string;
+  add_700_4_g: string;
+  add_700_4_q: string;
+  add_700_4_e: string;
+  add_700_4_9: string;
+  add_700_5_a: string;
+  add_700_5_g: string;
+  add_700_5_q: string;
+  add_700_5_e: string;
+  add_700_5_9: string;
   title: string;
   year: string;
   journal: string;
@@ -150,13 +177,35 @@ export async function POST(request: NextRequest) {
       SELECT 
         a.biblionumber,
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="100"]/subfield[@code="a"]') AS '100_a',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="100"]/subfield[@code="g"]') AS '100_g',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="100"]/subfield[@code="q"]') AS '100_q',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="100"]/subfield[@code="e"]') AS '100_e',
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="100"]/subfield[@code="9"]') AS '100_9',
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][1]/subfield[@code="a"]') AS '700_1_a',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][1]/subfield[@code="g"]') AS '700_1_g',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][1]/subfield[@code="q"]') AS '700_1_q',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][1]/subfield[@code="e"]') AS '700_1_e',
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][1]/subfield[@code="9"]') AS '700_1_9',
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][2]/subfield[@code="a"]') AS '700_2_a',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][2]/subfield[@code="g"]') AS '700_2_g',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][2]/subfield[@code="q"]') AS '700_2_q',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][2]/subfield[@code="e"]') AS '700_2_e',
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][2]/subfield[@code="9"]') AS '700_2_9',
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][3]/subfield[@code="a"]') AS '700_3_a',
-        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][3]/subfield[@code="9"]') AS '700_3_9'
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][3]/subfield[@code="g"]') AS '700_3_g',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][3]/subfield[@code="q"]') AS '700_3_q',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][3]/subfield[@code="e"]') AS '700_3_e',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][3]/subfield[@code="9"]') AS '700_3_9',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][4]/subfield[@code="a"]') AS '700_4_a',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][4]/subfield[@code="g"]') AS '700_4_g',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][4]/subfield[@code="q"]') AS '700_4_q',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][4]/subfield[@code="e"]') AS '700_4_e',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][4]/subfield[@code="9"]') AS '700_4_9',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][5]/subfield[@code="a"]') AS '700_5_a',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][5]/subfield[@code="g"]') AS '700_5_g',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][5]/subfield[@code="q"]') AS '700_5_q',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][5]/subfield[@code="e"]') AS '700_5_e',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][5]/subfield[@code="9"]') AS '700_5_9',
       FROM biblioitems a
       WHERE a.publishercode IN (${stringifiedNumbers})
       ORDER BY a.biblionumber
@@ -201,19 +250,40 @@ export async function POST(request: NextRequest) {
       const row = results[i];
       try {
         // Use EXTRACTVALUE results directly - column names match the AS aliases in query
-        const mainAuthor = row['100_a'] || '';
-        const mainAuthorId = row['100_9'] || '';
-        const additionalAuthors = [row['700_1_a'], row['700_2_a'], row['700_3_a']].filter(a => a);
-        const additionalAuthorIds = [row['700_1_9'], row['700_2_9'], row['700_3_9']].filter(a => a);
-        const allAuthors = [mainAuthor, ...additionalAuthors].filter(a => a).join('; ');
-
         authorData.push({
           biblionumber: row.biblionumber,
-          mainAuthor: mainAuthor,
-          mainAuthorId: mainAuthorId,
-          additionalAuthors: additionalAuthors,
-          additionalAuthorIds: additionalAuthorIds,
-          allAuthors: allAuthors,
+          // Main author fields (100)
+          main_100_a: row['100_a'] || '',
+          main_100_g: row['100_g'] || '',
+          main_100_q: row['100_q'] || '',
+          main_100_e: row['100_e'] || '',
+          main_100_9: row['100_9'] || '',
+          // Additional authors fields (700)
+          add_700_1_a: row['700_1_a'] || '',
+          add_700_1_g: row['700_1_g'] || '',
+          add_700_1_q: row['700_1_q'] || '',
+          add_700_1_e: row['700_1_e'] || '',
+          add_700_1_9: row['700_1_9'] || '',
+          add_700_2_a: row['700_2_a'] || '',
+          add_700_2_g: row['700_2_g'] || '',
+          add_700_2_q: row['700_2_q'] || '',
+          add_700_2_e: row['700_2_e'] || '',
+          add_700_2_9: row['700_2_9'] || '',
+          add_700_3_a: row['700_3_a'] || '',
+          add_700_3_g: row['700_3_g'] || '',
+          add_700_3_q: row['700_3_q'] || '',
+          add_700_3_e: row['700_3_e'] || '',
+          add_700_3_9: row['700_3_9'] || '',
+          add_700_4_a: row['700_4_a'] || '',
+          add_700_4_g: row['700_4_g'] || '',
+          add_700_4_q: row['700_4_q'] || '',
+          add_700_4_e: row['700_4_e'] || '',
+          add_700_4_9: row['700_4_9'] || '',
+          add_700_5_a: row['700_5_a'] || '',
+          add_700_5_g: row['700_5_g'] || '',
+          add_700_5_q: row['700_5_q'] || '',
+          add_700_5_e: row['700_5_e'] || '',
+          add_700_5_9: row['700_5_9'] || '',
           title: '', // Not queried in this simple version
           year: '', // Not queried in this simple version
           journal: '', // Not queried in this simple version
@@ -228,7 +298,7 @@ export async function POST(request: NextRequest) {
         
         // More frequent logging for first few and last few records
         if (i < 5 || i >= results.length - 5) {
-          console.log(`📝 [${requestId}] Record ${i + 1}: biblionumber=${row.biblionumber}, mainAuthor="${mainAuthor}", hasExtractedData=${!!(row['100_a'] || row['700_1_a'])}`);
+          console.log(`📝 [${requestId}] Record ${i + 1}: biblionumber=${row.biblionumber}, main_100_a="${row['100_a'] || ''}", hasExtractedData=${!!(row['100_a'] || row['700_1_a'])}`);
         }
       } catch (error) {
         console.error(`❌ [${requestId}] Error processing record ${i + 1} (biblionumber: ${row.biblionumber}):`, error);
@@ -243,11 +313,38 @@ export async function POST(request: NextRequest) {
         // Continue with basic data if processing fails
         authorData.push({
           biblionumber: row.biblionumber,
-          mainAuthor: '',
-          mainAuthorId: '',
-          additionalAuthors: [],
-          additionalAuthorIds: [],
-          allAuthors: '',
+          // Main author fields (100)
+          main_100_a: '',
+          main_100_g: '',
+          main_100_q: '',
+          main_100_e: '',
+          main_100_9: '',
+          // Additional authors fields (700)
+          add_700_1_a: '',
+          add_700_1_g: '',
+          add_700_1_q: '',
+          add_700_1_e: '',
+          add_700_1_9: '',
+          add_700_2_a: '',
+          add_700_2_g: '',
+          add_700_2_q: '',
+          add_700_2_e: '',
+          add_700_2_9: '',
+          add_700_3_a: '',
+          add_700_3_g: '',
+          add_700_3_q: '',
+          add_700_3_e: '',
+          add_700_3_9: '',
+          add_700_4_a: '',
+          add_700_4_g: '',
+          add_700_4_q: '',
+          add_700_4_e: '',
+          add_700_4_9: '',
+          add_700_5_a: '',
+          add_700_5_g: '',
+          add_700_5_q: '',
+          add_700_5_e: '',
+          add_700_5_9: '',
           title: '',
           year: '',
           journal: '',
@@ -288,14 +385,42 @@ export async function POST(request: NextRequest) {
     console.log(`📝 [${requestId}] Preparing Excel data for ${authorData.length} records...`);
     const excelData = authorData.map(item => ({
       'Biblio Number': item.biblionumber,
-      'Main Author (100a)': item.mainAuthor,
-      'Main Author ID': item.mainAuthorId,
-      'Additional Authors (700a)': formatMultipleValues(item.additionalAuthors),
-      'Additional Author IDs': formatMultipleValues(item.additionalAuthorIds),
-      // 'All Authors': item.allAuthors,
-      // 'Title': item.title,
-      // 'Year': item.year,
-      // 'Journal': item.journal,
+      // Main author fields (100)
+      '100_a (Main Author)': item.main_100_a,
+      '100_g (Main Author Dates)': item.main_100_g,
+      '100_q (Main Author Fuller Form)': item.main_100_q,
+      '100_e (Main Author Relator)': item.main_100_e,
+      '100_9 (Main Author ID)': item.main_100_9,
+      // Additional author 1 fields (700)
+      '700_1_a (Add Author 1)': item.add_700_1_a,
+      '700_1_g (Add Author 1 Dates)': item.add_700_1_g,
+      '700_1_q (Add Author 1 Fuller Form)': item.add_700_1_q,
+      '700_1_e (Add Author 1 Relator)': item.add_700_1_e,
+      '700_1_9 (Add Author 1 ID)': item.add_700_1_9,
+      // Additional author 2 fields (700)
+      '700_2_a (Add Author 2)': item.add_700_2_a,
+      '700_2_g (Add Author 2 Dates)': item.add_700_2_g,
+      '700_2_q (Add Author 2 Fuller Form)': item.add_700_2_q,
+      '700_2_e (Add Author 2 Relator)': item.add_700_2_e,
+      '700_2_9 (Add Author 2 ID)': item.add_700_2_9,
+      // Additional author 3 fields (700)
+      '700_3_a (Add Author 3)': item.add_700_3_a,
+      '700_3_g (Add Author 3 Dates)': item.add_700_3_g,
+      '700_3_q (Add Author 3 Fuller Form)': item.add_700_3_q,
+      '700_3_e (Add Author 3 Relator)': item.add_700_3_e,
+      '700_3_9 (Add Author 3 ID)': item.add_700_3_9,
+      // Additional author 4 fields (700)
+      '700_4_a (Add Author 4)': item.add_700_4_a,
+      '700_4_g (Add Author 4 Dates)': item.add_700_4_g,
+      '700_4_q (Add Author 4 Fuller Form)': item.add_700_4_q,
+      '700_4_e (Add Author 4 Relator)': item.add_700_4_e,
+      '700_4_9 (Add Author 4 ID)': item.add_700_4_9,
+      // Additional author 5 fields (700)
+      '700_5_a (Add Author 5)': item.add_700_5_a,
+      '700_5_g (Add Author 5 Dates)': item.add_700_5_g,
+      '700_5_q (Add Author 5 Fuller Form)': item.add_700_5_q,
+      '700_5_e (Add Author 5 Relator)': item.add_700_5_e,
+      '700_5_9 (Add Author 5 ID)': item.add_700_5_9,
       'PDF URL': item.pdfUrl,
     }));
 
@@ -315,24 +440,40 @@ export async function POST(request: NextRequest) {
         biblioNumberCell.l = { Target: catalogingUrl, Tooltip: "Click to open in cataloging system" };
       }
 
-      // Add hyperlink for Main Author if mainAuthorId exists
-      const mainAuthorCellRef = xlsx.utils.encode_cell({ r: row, c: 1 });
+      // Add hyperlink for Main Author if main_100_9 exists
+      const mainAuthorCellRef = xlsx.utils.encode_cell({ r: row, c: 1 }); // 100_a column
       const mainAuthorCell = worksheet[mainAuthorCellRef];
-      if (mainAuthorCell && mainAuthorCell.v && item.mainAuthorId && item.mainAuthorId.trim()) {
-        const authorUrl = `https://cataloging.mandumah.com/cgi-bin/koha/authorities/authorities.pl?authid=${item.mainAuthorId}`;
+      if (mainAuthorCell && mainAuthorCell.v && item.main_100_9 && item.main_100_9.trim()) {
+        const authorUrl = `https://cataloging.mandumah.com/cgi-bin/koha/authorities/authorities.pl?authid=${item.main_100_9}`;
         mainAuthorCell.l = { Target: authorUrl, Tooltip: "Click to view author authority record" };
       }
 
       // Add hyperlink for Main Author ID if exists
-      const mainAuthorIdCellRef = xlsx.utils.encode_cell({ r: row, c: 2 });
+      const mainAuthorIdCellRef = xlsx.utils.encode_cell({ r: row, c: 5 }); // 100_9 column
       const mainAuthorIdCell = worksheet[mainAuthorIdCellRef];
-      if (mainAuthorIdCell && mainAuthorIdCell.v && item.mainAuthorId && item.mainAuthorId.trim()) {
-        const authorUrl = `https://cataloging.mandumah.com/cgi-bin/koha/authorities/authorities.pl?authid=${item.mainAuthorId}`;
+      if (mainAuthorIdCell && mainAuthorIdCell.v && item.main_100_9 && item.main_100_9.trim()) {
+        const authorUrl = `https://cataloging.mandumah.com/cgi-bin/koha/authorities/authorities.pl?authid=${item.main_100_9}`;
         mainAuthorIdCell.l = { Target: authorUrl, Tooltip: "Click to view author authority record" };
       }
 
-      // Add hyperlink for PDF URL if exists
-      const pdfUrlCellRef = xlsx.utils.encode_cell({ r: row, c: 5 });
+      // Add hyperlinks for additional author IDs (700_1_9, 700_2_9, etc.)
+      const additionalAuthorIdColumns = [10, 15, 20, 25, 30]; // Columns for 700_1_9, 700_2_9, 700_3_9, 700_4_9, 700_5_9
+      const additionalAuthorIds = [item.add_700_1_9, item.add_700_2_9, item.add_700_3_9, item.add_700_4_9, item.add_700_5_9];
+      
+      additionalAuthorIdColumns.forEach((colIndex, index) => {
+        const authorId = additionalAuthorIds[index];
+        if (authorId && authorId.trim()) {
+          const cellRef = xlsx.utils.encode_cell({ r: row, c: colIndex });
+          const cell = worksheet[cellRef];
+          if (cell && cell.v) {
+            const authorUrl = `https://cataloging.mandumah.com/cgi-bin/koha/authorities/authorities.pl?authid=${authorId}`;
+            cell.l = { Target: authorUrl, Tooltip: "Click to view author authority record" };
+          }
+        }
+      });
+
+      // Add hyperlink for PDF URL if exists (last column)
+      const pdfUrlCellRef = xlsx.utils.encode_cell({ r: row, c: 31 }); // PDF URL column
       const pdfUrlCell = worksheet[pdfUrlCellRef];
       if (pdfUrlCell && pdfUrlCell.v && item.pdfUrl && item.pdfUrl.trim()) {
         pdfUrlCell.l = { Target: item.pdfUrl, Tooltip: "Click to open PDF document" };
@@ -348,10 +489,42 @@ export async function POST(request: NextRequest) {
     console.log(`📏 [${requestId}] Setting column widths...`);
     const columnWidths = [
       { wch: 15 }, // Biblio Number
-      { wch: 30 }, // Main Author
-      { wch: 15 }, // Main Author ID
-      { wch: 40 }, // Additional Authors
-      { wch: 40 }, // Additional Author IDs
+      // Main author fields (100)
+      { wch: 30 }, // 100_a (Main Author)
+      { wch: 20 }, // 100_g (Main Author Dates)
+      { wch: 25 }, // 100_q (Main Author Fuller Form)
+      { wch: 20 }, // 100_e (Main Author Relator)
+      { wch: 15 }, // 100_9 (Main Author ID)
+      // Additional author 1 fields (700)
+      { wch: 30 }, // 700_1_a (Add Author 1)
+      { wch: 20 }, // 700_1_g (Add Author 1 Dates)
+      { wch: 25 }, // 700_1_q (Add Author 1 Fuller Form)
+      { wch: 20 }, // 700_1_e (Add Author 1 Relator)
+      { wch: 15 }, // 700_1_9 (Add Author 1 ID)
+      // Additional author 2 fields (700)
+      { wch: 30 }, // 700_2_a (Add Author 2)
+      { wch: 20 }, // 700_2_g (Add Author 2 Dates)
+      { wch: 25 }, // 700_2_q (Add Author 2 Fuller Form)
+      { wch: 20 }, // 700_2_e (Add Author 2 Relator)
+      { wch: 15 }, // 700_2_9 (Add Author 2 ID)
+      // Additional author 3 fields (700)
+      { wch: 30 }, // 700_3_a (Add Author 3)
+      { wch: 20 }, // 700_3_g (Add Author 3 Dates)
+      { wch: 25 }, // 700_3_q (Add Author 3 Fuller Form)
+      { wch: 20 }, // 700_3_e (Add Author 3 Relator)
+      { wch: 15 }, // 700_3_9 (Add Author 3 ID)
+      // Additional author 4 fields (700)
+      { wch: 30 }, // 700_4_a (Add Author 4)
+      { wch: 20 }, // 700_4_g (Add Author 4 Dates)
+      { wch: 25 }, // 700_4_q (Add Author 4 Fuller Form)
+      { wch: 20 }, // 700_4_e (Add Author 4 Relator)
+      { wch: 15 }, // 700_4_9 (Add Author 4 ID)
+      // Additional author 5 fields (700)
+      { wch: 30 }, // 700_5_a (Add Author 5)
+      { wch: 20 }, // 700_5_g (Add Author 5 Dates)
+      { wch: 25 }, // 700_5_q (Add Author 5 Fuller Form)
+      { wch: 20 }, // 700_5_e (Add Author 5 Relator)
+      { wch: 15 }, // 700_5_9 (Add Author 5 ID)
       { wch: 60 }, // PDF URL
     ];
     worksheet['!cols'] = columnWidths;

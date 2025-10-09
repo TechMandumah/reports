@@ -205,7 +205,7 @@ export async function POST(request: NextRequest) {
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][5]/subfield[@code="g"]') AS '700_5_g',
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][5]/subfield[@code="q"]') AS '700_5_q',
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][5]/subfield[@code="e"]') AS '700_5_e',
-        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][5]/subfield[@code="9"]') AS '700_5_9',
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][5]/subfield[@code="9"]') AS '700_5_9'
       FROM biblioitems a
       WHERE a.publishercode IN (${stringifiedNumbers})
       ORDER BY a.biblionumber

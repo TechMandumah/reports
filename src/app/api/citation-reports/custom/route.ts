@@ -222,7 +222,11 @@ export async function POST(request: NextRequest) {
         EXTRACTVALUE(a.marcxml, '//controlfield[@tag="001"]') AS marc_001,
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="041"]/subfield[@code="a"]') AS marc_041_a,
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="073"]/subfield[@code="a"]') AS marc_073_a,
+        -- Extract all 100 subfields (a,g,q,e,9) like author-translations
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="100"]/subfield[@code="a"]') AS marc_100_a,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="100"]/subfield[@code="g"]') AS marc_100_g,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="100"]/subfield[@code="q"]') AS marc_100_q,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="100"]/subfield[@code="e"]') AS marc_100_e,
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="100"]/subfield[@code="9"]') AS marc_100_9,
         -- Extract 110 subfields (a,q)
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="110"]/subfield[@code="a"]') AS marc_110_a,
@@ -246,10 +250,32 @@ export async function POST(request: NextRequest) {
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="502"]/subfield[@code="c"]') AS marc_502_c,
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="502"]/subfield[@code="b"]') AS marc_502_b,
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="502"]/subfield[@code="f"]') AS marc_502_f,
+        -- Extract all 700 subfields (a,g,q,e,9) for up to 5 additional authors like author-translations
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][1]/subfield[@code="a"]') AS marc_700_1_a,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][1]/subfield[@code="g"]') AS marc_700_1_g,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][1]/subfield[@code="q"]') AS marc_700_1_q,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][1]/subfield[@code="e"]') AS marc_700_1_e,
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][1]/subfield[@code="9"]') AS marc_700_1_9,
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][2]/subfield[@code="a"]') AS marc_700_2_a,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][2]/subfield[@code="g"]') AS marc_700_2_g,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][2]/subfield[@code="q"]') AS marc_700_2_q,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][2]/subfield[@code="e"]') AS marc_700_2_e,
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][2]/subfield[@code="9"]') AS marc_700_2_9,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][3]/subfield[@code="a"]') AS marc_700_3_a,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][3]/subfield[@code="g"]') AS marc_700_3_g,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][3]/subfield[@code="q"]') AS marc_700_3_q,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][3]/subfield[@code="e"]') AS marc_700_3_e,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][3]/subfield[@code="9"]') AS marc_700_3_9,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][4]/subfield[@code="a"]') AS marc_700_4_a,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][4]/subfield[@code="g"]') AS marc_700_4_g,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][4]/subfield[@code="q"]') AS marc_700_4_q,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][4]/subfield[@code="e"]') AS marc_700_4_e,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][4]/subfield[@code="9"]') AS marc_700_4_9,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][5]/subfield[@code="a"]') AS marc_700_5_a,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][5]/subfield[@code="g"]') AS marc_700_5_g,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][5]/subfield[@code="q"]') AS marc_700_5_q,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][5]/subfield[@code="e"]') AS marc_700_5_e,
+        EXTRACTVALUE(a.marcxml, '//datafield[@tag="700"][5]/subfield[@code="9"]') AS marc_700_5_9,
         -- Extract all 773 subfields (b,d,e,f,i,s,u,v,w)
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="773"]/subfield[@code="b"]') AS marc_773_b,
         EXTRACTVALUE(a.marcxml, '//datafield[@tag="773"]/subfield[@code="d"]') AS marc_773_d,
@@ -357,8 +383,12 @@ export async function POST(request: NextRequest) {
 
       // Use pre-extracted MARC data from EXTRACTVALUE - much faster than client-side parsing
       const marcData = {
-        author: row.marc_100_a || '',
-        authorId: row.marc_100_9 || '',
+        // 100 subfields (a,g,q,e,9) - Main author with all details like author-translations
+        author: row.marc_100_a || '',              // 100$a - Personal name
+        author_dates: row.marc_100_g || '',        // 100$g - Miscellaneous information
+        author_fuller: row.marc_100_q || '',       // 100$q - Fuller form of name
+        author_relator: row.marc_100_e || '',      // 100$e - Relator term
+        authorId: row.marc_100_9 || '',            // 100$9 - Author ID
         // 110 subfields (a,q)
         corporate_author: row.marc_110_a || '',      // 110$a - Corporate name
         corporate_author_fuller: row.marc_110_q || '', // 110$q - Fuller form of name
@@ -395,8 +425,35 @@ export async function POST(request: NextRequest) {
         host_name: row.marc_856_a || '',            // 856$a - Host name
         volume: '',
         issue: '',
-        additionalAuthors: [row.marc_700_1_a, row.marc_700_2_a].filter(a => a).join('; '),
-        additionalAuthorIds: [row.marc_700_1_9, row.marc_700_2_9].filter(a => a).join('; '),
+        // 700 subfields (a,g,q,e,9) for up to 5 additional authors like author-translations
+        additionalAuthor1: row.marc_700_1_a || '',        // 700[1]$a - Additional author 1 name
+        additionalAuthor1_dates: row.marc_700_1_g || '',  // 700[1]$g - Additional author 1 dates
+        additionalAuthor1_fuller: row.marc_700_1_q || '', // 700[1]$q - Additional author 1 fuller form
+        additionalAuthor1_relator: row.marc_700_1_e || '',// 700[1]$e - Additional author 1 relator
+        additionalAuthor1Id: row.marc_700_1_9 || '',      // 700[1]$9 - Additional author 1 ID
+        additionalAuthor2: row.marc_700_2_a || '',        // 700[2]$a - Additional author 2 name
+        additionalAuthor2_dates: row.marc_700_2_g || '',  // 700[2]$g - Additional author 2 dates
+        additionalAuthor2_fuller: row.marc_700_2_q || '', // 700[2]$q - Additional author 2 fuller form
+        additionalAuthor2_relator: row.marc_700_2_e || '',// 700[2]$e - Additional author 2 relator
+        additionalAuthor2Id: row.marc_700_2_9 || '',      // 700[2]$9 - Additional author 2 ID
+        additionalAuthor3: row.marc_700_3_a || '',        // 700[3]$a - Additional author 3 name
+        additionalAuthor3_dates: row.marc_700_3_g || '',  // 700[3]$g - Additional author 3 dates
+        additionalAuthor3_fuller: row.marc_700_3_q || '', // 700[3]$q - Additional author 3 fuller form
+        additionalAuthor3_relator: row.marc_700_3_e || '',// 700[3]$e - Additional author 3 relator
+        additionalAuthor3Id: row.marc_700_3_9 || '',      // 700[3]$9 - Additional author 3 ID
+        additionalAuthor4: row.marc_700_4_a || '',        // 700[4]$a - Additional author 4 name
+        additionalAuthor4_dates: row.marc_700_4_g || '',  // 700[4]$g - Additional author 4 dates
+        additionalAuthor4_fuller: row.marc_700_4_q || '', // 700[4]$q - Additional author 4 fuller form
+        additionalAuthor4_relator: row.marc_700_4_e || '',// 700[4]$e - Additional author 4 relator
+        additionalAuthor4Id: row.marc_700_4_9 || '',      // 700[4]$9 - Additional author 4 ID
+        additionalAuthor5: row.marc_700_5_a || '',        // 700[5]$a - Additional author 5 name
+        additionalAuthor5_dates: row.marc_700_5_g || '',  // 700[5]$g - Additional author 5 dates
+        additionalAuthor5_fuller: row.marc_700_5_q || '', // 700[5]$q - Additional author 5 fuller form
+        additionalAuthor5_relator: row.marc_700_5_e || '',// 700[5]$e - Additional author 5 relator
+        additionalAuthor5Id: row.marc_700_5_9 || '',      // 700[5]$9 - Additional author 5 ID
+        // Legacy combined fields for backward compatibility
+        additionalAuthors: [row.marc_700_1_a, row.marc_700_2_a, row.marc_700_3_a, row.marc_700_4_a, row.marc_700_5_a].filter(a => a).join('; '),
+        additionalAuthorIds: [row.marc_700_1_9, row.marc_700_2_9, row.marc_700_3_9, row.marc_700_4_9, row.marc_700_5_9].filter(a => a).join('; '),
         contentType: row.marc_336_a || '',
         citation: row.marc_995_a || '',
         languageCode: row.marc_041_a || ''
@@ -423,6 +480,10 @@ export async function POST(request: NextRequest) {
         frameworkcode: row.frameworkcode || '',
         author: marcData.author || row.biblio_author || '',
         authorId: marcData.authorId || '',
+        // 100 subfields - all author details like author-translations
+        author_dates: marcData.author_dates || '',
+        author_fuller: marcData.author_fuller || '',
+        author_relator: marcData.author_relator || '',
         // 110 subfields
         corporate_author: marcData.corporate_author || '',
         corporate_author_fuller: marcData.corporate_author_fuller || '',
@@ -459,6 +520,33 @@ export async function POST(request: NextRequest) {
         host_name: marcData.host_name || '',
         volume: marcData.volume || row.volume || '',
         issue: marcData.issue || '',
+        // 700 subfields - all additional authors with details like author-translations
+        additionalAuthor1: marcData.additionalAuthor1 || '',
+        additionalAuthor1_dates: marcData.additionalAuthor1_dates || '',
+        additionalAuthor1_fuller: marcData.additionalAuthor1_fuller || '',
+        additionalAuthor1_relator: marcData.additionalAuthor1_relator || '',
+        additionalAuthor1Id: marcData.additionalAuthor1Id || '',
+        additionalAuthor2: marcData.additionalAuthor2 || '',
+        additionalAuthor2_dates: marcData.additionalAuthor2_dates || '',
+        additionalAuthor2_fuller: marcData.additionalAuthor2_fuller || '',
+        additionalAuthor2_relator: marcData.additionalAuthor2_relator || '',
+        additionalAuthor2Id: marcData.additionalAuthor2Id || '',
+        additionalAuthor3: marcData.additionalAuthor3 || '',
+        additionalAuthor3_dates: marcData.additionalAuthor3_dates || '',
+        additionalAuthor3_fuller: marcData.additionalAuthor3_fuller || '',
+        additionalAuthor3_relator: marcData.additionalAuthor3_relator || '',
+        additionalAuthor3Id: marcData.additionalAuthor3Id || '',
+        additionalAuthor4: marcData.additionalAuthor4 || '',
+        additionalAuthor4_dates: marcData.additionalAuthor4_dates || '',
+        additionalAuthor4_fuller: marcData.additionalAuthor4_fuller || '',
+        additionalAuthor4_relator: marcData.additionalAuthor4_relator || '',
+        additionalAuthor4Id: marcData.additionalAuthor4Id || '',
+        additionalAuthor5: marcData.additionalAuthor5 || '',
+        additionalAuthor5_dates: marcData.additionalAuthor5_dates || '',
+        additionalAuthor5_fuller: marcData.additionalAuthor5_fuller || '',
+        additionalAuthor5_relator: marcData.additionalAuthor5_relator || '',
+        additionalAuthor5Id: marcData.additionalAuthor5Id || '',
+        // Legacy combined fields for backward compatibility
         additionalAuthors: marcData.additionalAuthors || '',
         additionalAuthorIds: marcData.additionalAuthorIds || '',
         languageCode: marcData.languageCode || '',
@@ -508,8 +596,11 @@ export async function POST(request: NextRequest) {
             break;
           case '100':
             filteredData['author'] = completeData.author || '';
+            filteredData['author_dates'] = completeData.author_dates || '';
+            filteredData['author_fuller'] = completeData.author_fuller || '';
+            filteredData['author_relator'] = completeData.author_relator || '';
             filteredData['authorId'] = completeData.authorId || '';
-            console.log(`CustomCitationReport: Field 100 mapped to author: ${filteredData['author']}, authorId: ${filteredData['authorId']}`);
+            console.log(`CustomCitationReport: Field 100 mapped to author: ${filteredData['author']}, dates: ${filteredData['author_dates']}, fuller: ${filteredData['author_fuller']}, relator: ${filteredData['author_relator']}, authorId: ${filteredData['authorId']}`);
             break;
           case '110':
             filteredData['corporate_author'] = completeData.corporate_author || '';
@@ -556,9 +647,36 @@ export async function POST(request: NextRequest) {
             console.log(`CustomCitationReport: Field 502 mapped to dissertation_degree: ${filteredData['dissertation_degree']}, dissertation_granting: ${filteredData['dissertation_granting']}, dissertation_year: ${filteredData['dissertation_year']}`);
             break;
           case '700':
+            // Individual additional authors with all subfields like author-translations
+            filteredData['additionalAuthor1'] = completeData.additionalAuthor1 || '';
+            filteredData['additionalAuthor1_dates'] = completeData.additionalAuthor1_dates || '';
+            filteredData['additionalAuthor1_fuller'] = completeData.additionalAuthor1_fuller || '';
+            filteredData['additionalAuthor1_relator'] = completeData.additionalAuthor1_relator || '';
+            filteredData['additionalAuthor1Id'] = completeData.additionalAuthor1Id || '';
+            filteredData['additionalAuthor2'] = completeData.additionalAuthor2 || '';
+            filteredData['additionalAuthor2_dates'] = completeData.additionalAuthor2_dates || '';
+            filteredData['additionalAuthor2_fuller'] = completeData.additionalAuthor2_fuller || '';
+            filteredData['additionalAuthor2_relator'] = completeData.additionalAuthor2_relator || '';
+            filteredData['additionalAuthor2Id'] = completeData.additionalAuthor2Id || '';
+            filteredData['additionalAuthor3'] = completeData.additionalAuthor3 || '';
+            filteredData['additionalAuthor3_dates'] = completeData.additionalAuthor3_dates || '';
+            filteredData['additionalAuthor3_fuller'] = completeData.additionalAuthor3_fuller || '';
+            filteredData['additionalAuthor3_relator'] = completeData.additionalAuthor3_relator || '';
+            filteredData['additionalAuthor3Id'] = completeData.additionalAuthor3Id || '';
+            filteredData['additionalAuthor4'] = completeData.additionalAuthor4 || '';
+            filteredData['additionalAuthor4_dates'] = completeData.additionalAuthor4_dates || '';
+            filteredData['additionalAuthor4_fuller'] = completeData.additionalAuthor4_fuller || '';
+            filteredData['additionalAuthor4_relator'] = completeData.additionalAuthor4_relator || '';
+            filteredData['additionalAuthor4Id'] = completeData.additionalAuthor4Id || '';
+            filteredData['additionalAuthor5'] = completeData.additionalAuthor5 || '';
+            filteredData['additionalAuthor5_dates'] = completeData.additionalAuthor5_dates || '';
+            filteredData['additionalAuthor5_fuller'] = completeData.additionalAuthor5_fuller || '';
+            filteredData['additionalAuthor5_relator'] = completeData.additionalAuthor5_relator || '';
+            filteredData['additionalAuthor5Id'] = completeData.additionalAuthor5Id || '';
+            // Legacy combined fields for backward compatibility
             filteredData['additionalAuthors'] = completeData.additionalAuthors || '';
             filteredData['additionalAuthorIds'] = completeData.additionalAuthorIds || '';
-            console.log(`CustomCitationReport: Field 700 mapped to additionalAuthors: ${filteredData['additionalAuthors']}, additionalAuthorIds: ${filteredData['additionalAuthorIds']}`);
+            console.log(`CustomCitationReport: Field 700 mapped to 25 individual author subfields and 2 legacy combined fields`);
             break;
           case '773':
             filteredData['edition'] = completeData.edition || '';
@@ -624,8 +742,11 @@ export async function POST(request: NextRequest) {
       controlNumber: 'Control Number (001)',
       languageCode: 'Language Code (041)',
       publisherCode: 'Publisher Code (073)',
-      author: 'Main Author (100)',
-      authorId: 'Main Author ID (100)',
+      author: 'Main Author (100a)',
+      author_dates: 'Main Author Dates (100g)',
+      author_fuller: 'Main Author Fuller (100q)',
+      author_relator: 'Main Author Relator (100e)',
+      authorId: 'Main Author ID (100-9)',
       // 110 subfields
       corporate_author: 'Corporate Author (110a)',
       corporate_author_fuller: 'Corporate Author Fuller (110q)',
@@ -648,6 +769,33 @@ export async function POST(request: NextRequest) {
       dissertation_degree: 'Dissertation Degree (502c)',
       dissertation_granting: 'Dissertation Institution (502b)',
       dissertation_year: 'Dissertation Year (502f)',
+      // 700 subfields - individual additional authors like author-translations
+      additionalAuthor1: 'Additional Author 1 (700_1_a)',
+      additionalAuthor1_dates: 'Additional Author 1 Dates (700_1_g)',
+      additionalAuthor1_fuller: 'Additional Author 1 Fuller (700_1_q)',
+      additionalAuthor1_relator: 'Additional Author 1 Relator (700_1_e)',
+      additionalAuthor1Id: 'Additional Author 1 ID (700_1_9)',
+      additionalAuthor2: 'Additional Author 2 (700_2_a)',
+      additionalAuthor2_dates: 'Additional Author 2 Dates (700_2_g)',
+      additionalAuthor2_fuller: 'Additional Author 2 Fuller (700_2_q)',
+      additionalAuthor2_relator: 'Additional Author 2 Relator (700_2_e)',
+      additionalAuthor2Id: 'Additional Author 2 ID (700_2_9)',
+      additionalAuthor3: 'Additional Author 3 (700_3_a)',
+      additionalAuthor3_dates: 'Additional Author 3 Dates (700_3_g)',
+      additionalAuthor3_fuller: 'Additional Author 3 Fuller (700_3_q)',
+      additionalAuthor3_relator: 'Additional Author 3 Relator (700_3_e)',
+      additionalAuthor3Id: 'Additional Author 3 ID (700_3_9)',
+      additionalAuthor4: 'Additional Author 4 (700_4_a)',
+      additionalAuthor4_dates: 'Additional Author 4 Dates (700_4_g)',
+      additionalAuthor4_fuller: 'Additional Author 4 Fuller (700_4_q)',
+      additionalAuthor4_relator: 'Additional Author 4 Relator (700_4_e)',
+      additionalAuthor4Id: 'Additional Author 4 ID (700_4_9)',
+      additionalAuthor5: 'Additional Author 5 (700_5_a)',
+      additionalAuthor5_dates: 'Additional Author 5 Dates (700_5_g)',
+      additionalAuthor5_fuller: 'Additional Author 5 Fuller (700_5_q)',
+      additionalAuthor5_relator: 'Additional Author 5 Relator (700_5_e)',
+      additionalAuthor5Id: 'Additional Author 5 ID (700_5_9)',
+      // Legacy combined fields for backward compatibility
       additionalAuthors: 'Additional Authors (700)',
       additionalAuthorIds: 'Additional Author IDs (700)',
       // 773 subfields
@@ -713,6 +861,15 @@ export async function POST(request: NextRequest) {
           case '100':
             if (item['author']) {
               row[fieldLabels['author']] = item['author'];
+            }
+            if (item['author_dates']) {
+              row[fieldLabels['author_dates']] = item['author_dates'];
+            }
+            if (item['author_fuller']) {
+              row[fieldLabels['author_fuller']] = item['author_fuller'];
+            }
+            if (item['author_relator']) {
+              row[fieldLabels['author_relator']] = item['author_relator'];
             }
             if (item['authorId']) {
               row[fieldLabels['authorId']] = item['authorId'];
@@ -783,6 +940,83 @@ export async function POST(request: NextRequest) {
             }
             break;
           case '700':
+            // Individual additional author fields like author-translations
+            if (item['additionalAuthor1']) {
+              row[fieldLabels['additionalAuthor1']] = item['additionalAuthor1'];
+            }
+            if (item['additionalAuthor1_dates']) {
+              row[fieldLabels['additionalAuthor1_dates']] = item['additionalAuthor1_dates'];
+            }
+            if (item['additionalAuthor1_fuller']) {
+              row[fieldLabels['additionalAuthor1_fuller']] = item['additionalAuthor1_fuller'];
+            }
+            if (item['additionalAuthor1_relator']) {
+              row[fieldLabels['additionalAuthor1_relator']] = item['additionalAuthor1_relator'];
+            }
+            if (item['additionalAuthor1Id']) {
+              row[fieldLabels['additionalAuthor1Id']] = item['additionalAuthor1Id'];
+            }
+            if (item['additionalAuthor2']) {
+              row[fieldLabels['additionalAuthor2']] = item['additionalAuthor2'];
+            }
+            if (item['additionalAuthor2_dates']) {
+              row[fieldLabels['additionalAuthor2_dates']] = item['additionalAuthor2_dates'];
+            }
+            if (item['additionalAuthor2_fuller']) {
+              row[fieldLabels['additionalAuthor2_fuller']] = item['additionalAuthor2_fuller'];
+            }
+            if (item['additionalAuthor2_relator']) {
+              row[fieldLabels['additionalAuthor2_relator']] = item['additionalAuthor2_relator'];
+            }
+            if (item['additionalAuthor2Id']) {
+              row[fieldLabels['additionalAuthor2Id']] = item['additionalAuthor2Id'];
+            }
+            if (item['additionalAuthor3']) {
+              row[fieldLabels['additionalAuthor3']] = item['additionalAuthor3'];
+            }
+            if (item['additionalAuthor3_dates']) {
+              row[fieldLabels['additionalAuthor3_dates']] = item['additionalAuthor3_dates'];
+            }
+            if (item['additionalAuthor3_fuller']) {
+              row[fieldLabels['additionalAuthor3_fuller']] = item['additionalAuthor3_fuller'];
+            }
+            if (item['additionalAuthor3_relator']) {
+              row[fieldLabels['additionalAuthor3_relator']] = item['additionalAuthor3_relator'];
+            }
+            if (item['additionalAuthor3Id']) {
+              row[fieldLabels['additionalAuthor3Id']] = item['additionalAuthor3Id'];
+            }
+            if (item['additionalAuthor4']) {
+              row[fieldLabels['additionalAuthor4']] = item['additionalAuthor4'];
+            }
+            if (item['additionalAuthor4_dates']) {
+              row[fieldLabels['additionalAuthor4_dates']] = item['additionalAuthor4_dates'];
+            }
+            if (item['additionalAuthor4_fuller']) {
+              row[fieldLabels['additionalAuthor4_fuller']] = item['additionalAuthor4_fuller'];
+            }
+            if (item['additionalAuthor4_relator']) {
+              row[fieldLabels['additionalAuthor4_relator']] = item['additionalAuthor4_relator'];
+            }
+            if (item['additionalAuthor4Id']) {
+              row[fieldLabels['additionalAuthor4Id']] = item['additionalAuthor4Id'];
+            }
+            if (item['additionalAuthor5']) {
+              row[fieldLabels['additionalAuthor5']] = item['additionalAuthor5'];
+            }
+            if (item['additionalAuthor5_dates']) {
+              row[fieldLabels['additionalAuthor5_dates']] = item['additionalAuthor5_dates'];
+            }
+            if (item['additionalAuthor5_fuller']) {
+              row[fieldLabels['additionalAuthor5_fuller']] = item['additionalAuthor5_fuller'];
+            }
+            if (item['additionalAuthor5_relator']) {
+              row[fieldLabels['additionalAuthor5_relator']] = item['additionalAuthor5_relator'];
+            }
+            if (item['additionalAuthor5Id']) {
+              row[fieldLabels['additionalAuthor5Id']] = item['additionalAuthor5Id'];
+            }
+            // Legacy combined fields for backward compatibility
             if (item['additionalAuthors']) {
               row[fieldLabels['additionalAuthors']] = item['additionalAuthors'];
             }

@@ -1197,6 +1197,31 @@ export async function exportCustomEstenadToExcel(data: ExportData[], formData?: 
     worksheet.addRow(rowData);
   });
 
+  // Make Auth ID column clickable (column 1)
+  const authIdColumnIndex = 1; // First column
+  for (let rowIndex = 2; rowIndex <= filteredData.length + 1; rowIndex++) {
+    const cell = worksheet.getCell(rowIndex, authIdColumnIndex);
+    const authId = cell.value;
+    
+    if (authId && authId.toString().trim() !== '') {
+      // Create hyperlink to Koha authorities page
+      const authoritiesUrl = `https://cataloging.mandumah.com/cgi-bin/koha/authorities/authorities.pl?authid=${authId}`;
+      
+      // Set cell as hyperlink
+      cell.value = {
+        text: authId.toString(),
+        hyperlink: authoritiesUrl,
+        tooltip: `Open authority record ${authId}`
+      };
+      
+      // Apply default Excel hyperlink styling (blue color, underline)
+      cell.font = {
+        color: { argb: 'FF0563C1' },
+        underline: true
+      };
+    }
+  }
+
   // Apply borders to all cells
   worksheet.eachRow((row, rowNumber) => {
     row.eachCell((cell) => {

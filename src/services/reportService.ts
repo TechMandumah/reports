@@ -301,7 +301,7 @@ export async function generatePredefinedReport(reportType: string, filters: Quer
       url: record.url || '', // Use the PDF filename from biblioitems
       biblio: String(record.biblionumber).padStart(4, '0'),
       link: `https://cataloging.mandumah.com/cgi-bin/koha/catalogue/detail.pl?biblionumber=${record.biblionumber}`,
-      biblio_details: `https://cataloging.mandumah.com/cgi-bin/koha/catalogue/addbiblio.pl?biblionumber=${record.biblionumber}`
+      biblio_details: `https://cataloging.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${record.biblionumber}`
     };
     
     // Add specific fields based on report type using pre-extracted MARC fields
@@ -718,7 +718,7 @@ export async function generateCustomReport(filters: QueryFilters): Promise<Repor
       url: record.url || '',
       biblio: String(record.biblionumber).padStart(4, '0'),
       link: `https://cataloging.mandumah.com/cgi-bin/koha/catalogue/detail.pl?biblionumber=${record.biblionumber}`,
-      biblio_details: `https://cataloging.mandumah.com/cgi-bin/koha/catalogue/addbiblio.pl?biblionumber=${record.biblionumber}`
+      biblio_details: `https://cataloging.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${record.biblionumber}`
     };
     
     // Add all extracted MARC fields with proper field names for export/display
@@ -738,6 +738,104 @@ export async function generateCustomReport(filters: QueryFilters): Promise<Repor
   return reportData;
 }
 
+// Interface for hierarchical author structure
+export interface HierarchicalAuthorRow {
+  subfield_9: string;
+  subfield_a: string;
+  subfield_g: string;
+  subfield_q: string;
+  // isHeaderRow?: boolean;
+  // headerText?: string;
+}
+
+// Generate hierarchical author report with merged 100 and 700 fields
+export async function generateHierarchicalAuthorsReport(filters: QueryFilters): Promise<HierarchicalAuthorRow[]> {
+  // Get base bibliographic records with MARC data already extracted using EXTRACTVALUE
+  const biblioRecords = await getBiblioRecords(filters);
+  
+  if (biblioRecords.length === 0) {
+    return [];
+  }
+
+  const hierarchicalData: HierarchicalAuthorRow[] = [];
+
+  // Process each record
+  biblioRecords.forEach(record => {
+    // Collect all authors (100 and 700 fields)
+    const mainAuthors: HierarchicalAuthorRow[] = [];
+    const additionalAuthors: HierarchicalAuthorRow[] = [];
+
+    // Add main author (100 field) if exists
+    const main_100_a = (record as any).marc_100_a || '';
+    const main_100_g = (record as any).marc_100_g || '';
+    const main_100_q = (record as any).marc_100_q || '';
+    const main_100_9 = (record as any).marc_100_9 || '';
+
+    if (main_100_a || main_100_9) {
+      mainAuthors.push({
+        subfield_9: main_100_9,
+        subfield_a: main_100_a,
+        subfield_g: main_100_g,
+        subfield_q: main_100_q
+      });
+    }
+
+    // Add additional authors (700 fields) - up to 5 authors
+    const additionalAuthorFields = [
+      { a: (record as any).marc_700_1_a, g: (record as any).marc_700_1_g, q: (record as any).marc_700_1_q, id: (record as any).marc_700_1_9 },
+      { a: (record as any).marc_700_2_a, g: (record as any).marc_700_2_g, q: (record as any).marc_700_2_q, id: (record as any).marc_700_2_9 },
+      { a: (record as any).marc_700_3_a, g: (record as any).marc_700_3_g, q: (record as any).marc_700_3_q, id: (record as any).marc_700_3_9 },
+      { a: (record as any).marc_700_4_a, g: (record as any).marc_700_4_g, q: (record as any).marc_700_4_q, id: (record as any).marc_700_4_9 },
+      { a: (record as any).marc_700_5_a, g: (record as any).marc_700_5_g, q: (record as any).marc_700_5_q, id: (record as any).marc_700_5_9 }
+    ];
+
+    additionalAuthorFields.forEach(author => {
+      if (author.a || author.id) {
+        additionalAuthors.push({
+          subfield_9: author.id || '',
+          subfield_a: author.a || '',
+          subfield_g: author.g || '',
+          subfield_q: author.q || ''
+        });
+      }
+    });
+
+    // Add to hierarchical structure
+    // Only add sections if there are authors
+    if (mainAuthors.length > 0) {
+      // Add header row for 100 Authors
+      // hierarchicalData.push({
+      //   subfield_9: '100 Authors',
+      //   subfield_a: '',
+      //   subfield_g: '',
+      //   subfield_q: '',
+      //   // isHeaderRow: true,
+      //   // headerText: '100 Authors'
+      // });
+
+      // Add all main authors
+      hierarchicalData.push(...mainAuthors);
+    }
+
+    if (additionalAuthors.length > 0) {
+      // Add header row for 700 Additional Authors
+      // hierarchicalData.push({
+      //   subfield_9: '700 Additional Authors',
+      //   subfield_a: '',
+      //   subfield_g: '',
+      //   subfield_q: '',
+      //   // isHeaderRow: true,
+      //   // headerText: '700 Additional Authors'
+      // });
+
+      // Add all additional authors
+      hierarchicalData.push(...additionalAuthors);
+    }
+  });
+
+  return hierarchicalData;
+}
+
 // Test database connection and return sample data
 export async function testDatabaseConnection(): Promise<{ success: boolean; sampleCount: number; error?: string }> {
   try {
@@ -754,5 +852,179 @@ export async function testDatabaseConnection(): Promise<{ success: boolean; samp
       sampleCount: 0,
       error: error instanceof Error ? error.message : 'Unknown error'
     };
+  }
+}
+
+// ============= AUTH_HEADER TABLE FUNCTIONS (ESTENAD REPORTS) =============
+
+// MARC field configurations for auth_header table with subfields
+const AUTH_MARC_FIELD_CONFIGS: { [key: string]: { subfields: string[], multiValue?: boolean } } = {
+  '000': { subfields: [''] }, // Leader - control field
+  '001': { subfields: [''] }, // Control number - control field
+  '003': { subfields: [''] }, // Control number identifier - control field
+  '005': { subfields: [''] }, // Date and time - control field
+  '008': { subfields: [''] }, // Fixed length data - control field
+  '040': { subfields: ['a', '6', '8', 'b', 'd', 'e', 'f'] }, // Cataloging source
+  '100': { subfields: ['a', 'g', 'q'] }, // Heading personal name
+  '370': { subfields: ['c', 'e'] }, // Associated place
+  '371': { subfields: ['a', 'e', 'm', 'q'] }, // Address
+  '373': { subfields: ['a', 'q'] }, // Associated group
+  '374': { subfields: ['9', 'a', 'b'] }, // Occupation
+  '381': { subfields: ['a'] }, // Other characteristics
+};
+
+// Build dynamic EXTRACTVALUE queries for auth_header table
+function buildAuthMarcExtractions(selectedFields: string[]): { selectFields: string[], fieldMap: { [key: string]: string } } {
+  const selectFields: string[] = [];
+  const fieldMap: { [key: string]: string } = {};
+  
+  // Control fields (no subfields)
+  const controlFields = ['000', '001', '003', '005', '008'];
+  
+  selectedFields.forEach(fieldTag => {
+    const config = AUTH_MARC_FIELD_CONFIGS[fieldTag];
+    if (!config) return;
+    
+    // Handle control fields differently (they have no datafield wrapper)
+    if (controlFields.includes(fieldTag)) {
+      const columnName = `marc_${fieldTag}`;
+      if (fieldTag === '000') {
+        selectFields.push(`ah.marc as ${columnName}`); // Leader is stored directly
+      } else {
+        selectFields.push(`EXTRACTVALUE(ah.marcxml, '//controlfield[@tag="${fieldTag}"]') AS ${columnName}`);
+      }
+      fieldMap[columnName] = columnName;
+    } else {
+      // Regular datafields with subfields
+      config.subfields.forEach(subfield => {
+        const columnName = `marc_${fieldTag}_${subfield}`;
+        selectFields.push(
+          `EXTRACTVALUE(ah.marcxml, '//datafield[@tag="${fieldTag}"]/subfield[@code="${subfield}"]') AS ${columnName}`
+        );
+        fieldMap[columnName] = columnName;
+      });
+    }
+  });
+  
+  return { selectFields, fieldMap };
+}
+
+// Get auth_header records by author IDs with selected MARC fields
+export async function getAuthHeaderRecords(authorIds: string[], selectedFields: string[], isPreview: boolean = false): Promise<any[]> {
+  if (!authorIds || authorIds.length === 0) {
+    throw new Error('Author IDs are required');
+  }
+  
+  // Convert author IDs to integers
+  const authIds = authorIds.map(id => {
+    const cleanId = id.trim();
+    return parseInt(cleanId) || 0;
+  }).filter(id => id > 0);
+  
+  if (authIds.length === 0) {
+    throw new Error('No valid author IDs provided');
+  }
+  
+  // Build dynamic MARC field extractions
+  const { selectFields, fieldMap } = buildAuthMarcExtractions(selectedFields);
+  
+  // Add LIMIT clause for preview mode
+  const limitClause = isPreview ? 'LIMIT 5' : '';
+  
+  // Create placeholders for IN clause
+  const placeholders = authIds.map(() => '?').join(',');
+  
+  // Build the query with EXTRACTVALUE for efficient MARC data extraction
+  const query = `
+    SELECT 
+      ah.authid,
+      ah.authtypecode,
+      ah.datecreated,
+      ah.modification_time,
+      ah.origincode,
+      ${selectFields.join(',\n      ')}
+    FROM auth_header ah
+    WHERE ah.authid IN (${placeholders})
+    ORDER BY ah.authid
+    ${limitClause}
+  `;
+  
+  console.log('🔍 Executing auth_header query for', authIds.length, 'author IDs');
+  console.log('📊 Selected fields:', selectedFields.join(', '));
+  
+  try {
+    const results = await executeQuery<any>(query, authIds);
+    console.log('✅ Retrieved', results.length, 'auth_header records');
+    
+    // Transform results to match field map
+    const transformedResults = results.map(record => {
+      const transformed: any = {
+        authid: record.authid,
+        authtypecode: record.authtypecode,
+        datecreated: record.datecreated,
+        modification_time: record.modification_time,
+        origincode: record.origincode
+      };
+      
+      // Add MARC fields
+      Object.keys(fieldMap).forEach(key => {
+        transformed[key] = record[key] || '';
+      });
+      
+      return transformed;
+    });
+    
+    return transformedResults;
+  } catch (error) {
+    console.error('❌ Error executing auth_header query:', error);
+    throw error;
+  }
+}
+
+// Generate custom estenad report with selected MARC fields
+export async function generateCustomEstenadReport(filters: QueryFilters): Promise<ReportQueryResult[]> {
+  const { authorIds, selectedFields = [], isPreview = false } = filters;
+  
+  if (!authorIds || authorIds.length === 0) {
+    throw new Error('Author IDs are required for estenad report');
+  }
+  
+  if (selectedFields.length === 0) {
+    throw new Error('Please select at least one MARC field');
+  }
+  
+  console.log('📝 Generating Custom Estenad Report...');
+  console.log('👥 Author IDs:', authorIds.length);
+  console.log('📋 Selected MARC fields:', selectedFields.join(', '));
+  
+  try {
+    // Get auth_header records with selected fields
+    const records = await getAuthHeaderRecords(authorIds, selectedFields, isPreview);
+    
+    // Transform to ReportQueryResult format
+    const results: ReportQueryResult[] = records.map(record => {
+      const result: any = {
+        biblionumber: record.authid || 0,
+        biblio: record.authid?.toString() || '',
+        biblio_details: `AuthType: ${record.authtypecode || 'N/A'}, Created: ${record.datecreated || 'N/A'}`,
+        url: '', // auth_header doesn't have URLs
+        link: '', // auth_header doesn't have links
+      };
+      
+      // Add all MARC field values
+      Object.keys(record).forEach(key => {
+        if (key.startsWith('marc_')) {
+          result[key] = record[key] || '';
+        }
+      });
+      
+      return result as ReportQueryResult;
+    });
+    
+    console.log('✅ Generated', results.length, 'estenad report records');
+    return results;
+  } catch (error) {
+    console.error('❌ Error generating estenad report:', error);
+    throw error;
   }
 }

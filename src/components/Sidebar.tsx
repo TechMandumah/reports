@@ -28,7 +28,8 @@ export default function Sidebar({ activeReport, setActiveReport }: SidebarProps)
       nameKey: 'sidebar.predefinedReports',
       items: [
         { nameKey: 'sidebar.reports.researchTitles', id: "export_research_titles" },
-        { nameKey: 'sidebar.reports.researchAuthors', id: "export_research_authors" },
+        // { nameKey: 'sidebar.reports.researchAuthors', id: "export_research_authors" },
+        { nameKey: 'sidebar.reports.researchAuthors', id: "export_hierarchical_authors" },
         // { nameKey: 'sidebar.reports.translationsTitlesAuthors', id: "export_translations_titles_authors" },
         { nameKey: 'sidebar.reports.abstractField', id: "export_abstract_field" },
         { nameKey: 'sidebar.reports.customReport', id: "custom_report" }
@@ -40,6 +41,12 @@ export default function Sidebar({ activeReport, setActiveReport }: SidebarProps)
         { nameKey: 'sidebar.reports.exportCitationTitles', id: "export_citation_titles" },
         { nameKey: 'sidebar.reports.exportCitationAuthors', id: "export_citation_authors" },
         { nameKey: 'sidebar.reports.customCitationReport', id: "custom_citation_report" }
+      ]
+    },
+    {
+      nameKey: 'sidebar.estenadReports',
+      items: [
+        { nameKey: 'sidebar.reports.customEstenadReport', id: "custom_estenad_report" }
       ]
     },
     {

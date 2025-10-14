@@ -386,42 +386,42 @@ export async function POST(request: NextRequest) {
     const excelData = authorData.map(item => ({
       'Biblio Number': item.biblionumber,
       // Main author fields (100)
+      // '100_9 (Main Author ID)': item.main_100_9,
       '100_a (Main Author)': item.main_100_a,
-      '100_g (Main Author Dates)': item.main_100_g,
+      // '100_g (Main Author Dates)': item.main_100_g,
       '100_q (Main Author Fuller Form)': item.main_100_q,
       '100_e (Main Author Relator)': item.main_100_e,
-      '100_9 (Main Author ID)': item.main_100_9,
       // Additional author 1 fields (700)
+      // '700_1_9 (Add Author 1 ID)': item.add_700_1_9,
       '700_1_a (Add Author 1)': item.add_700_1_a,
-      '700_1_g (Add Author 1 Dates)': item.add_700_1_g,
+      // '700_1_g (Add Author 1 Dates)': item.add_700_1_g,
       '700_1_q (Add Author 1 Fuller Form)': item.add_700_1_q,
       '700_1_e (Add Author 1 Relator)': item.add_700_1_e,
-      '700_1_9 (Add Author 1 ID)': item.add_700_1_9,
       // Additional author 2 fields (700)
+      // '700_2_9 (Add Author 2 ID)': item.add_700_2_9,
       '700_2_a (Add Author 2)': item.add_700_2_a,
-      '700_2_g (Add Author 2 Dates)': item.add_700_2_g,
+      // '700_2_g (Add Author 2 Dates)': item.add_700_2_g,
       '700_2_q (Add Author 2 Fuller Form)': item.add_700_2_q,
       '700_2_e (Add Author 2 Relator)': item.add_700_2_e,
-      '700_2_9 (Add Author 2 ID)': item.add_700_2_9,
       // Additional author 3 fields (700)
+      // '700_3_9 (Add Author 3 ID)': item.add_700_3_9,
       '700_3_a (Add Author 3)': item.add_700_3_a,
-      '700_3_g (Add Author 3 Dates)': item.add_700_3_g,
+      // '700_3_g (Add Author 3 Dates)': item.add_700_3_g,
       '700_3_q (Add Author 3 Fuller Form)': item.add_700_3_q,
       '700_3_e (Add Author 3 Relator)': item.add_700_3_e,
-      '700_3_9 (Add Author 3 ID)': item.add_700_3_9,
       // Additional author 4 fields (700)
+      // '700_4_9 (Add Author 4 ID)': item.add_700_4_9,
       '700_4_a (Add Author 4)': item.add_700_4_a,
-      '700_4_g (Add Author 4 Dates)': item.add_700_4_g,
+      // '700_4_g (Add Author 4 Dates)': item.add_700_4_g,
       '700_4_q (Add Author 4 Fuller Form)': item.add_700_4_q,
       '700_4_e (Add Author 4 Relator)': item.add_700_4_e,
-      '700_4_9 (Add Author 4 ID)': item.add_700_4_9,
       // Additional author 5 fields (700)
+      // '700_5_9 (Add Author 5 ID)': item.add_700_5_9,
       '700_5_a (Add Author 5)': item.add_700_5_a,
-      '700_5_g (Add Author 5 Dates)': item.add_700_5_g,
+      // '700_5_g (Add Author 5 Dates)': item.add_700_5_g,
       '700_5_q (Add Author 5 Fuller Form)': item.add_700_5_q,
       '700_5_e (Add Author 5 Relator)': item.add_700_5_e,
-      '700_5_9 (Add Author 5 ID)': item.add_700_5_9,
-      'PDF URL': item.pdfUrl,
+      // 'PDF URL': item.pdfUrl,
     }));
 
     console.log(`📋 [${requestId}] Creating worksheet with ${excelData.length} rows...`);

@@ -211,6 +211,15 @@ export const reportConfigurations: Record<string, ReportConfig> = {
   { header: "700_5_9 (Add Author 5 ID)", key: "additional_author_id_5" }
     ]
   },
+  export_hierarchical_authors: {
+    name: "Hierarchical Authors Report",
+    columns: [
+      { header: "Subfield 9 (Authority ID)", key: "subfield_9" },
+      { header: "Subfield a (Name)", key: "subfield_a" },
+      { header: "Subfield g", key: "subfield_g" },
+      { header: "Subfield q", key: "subfield_q" }
+    ]
+  },
   export_author_data: {
     name: "Author Data for Review",
     columns: [
@@ -460,6 +469,11 @@ export async function exportToExcel(reportType: string, formData: any): Promise<
     if (data.length === 0) {
       console.log('No data found, creating empty Excel file');
       return await createEmptyExcelFile(reportType, formData);
+    }
+
+    // Handle hierarchical authors report differently
+    if (reportType === 'export_hierarchical_authors') {
+      return await exportHierarchicalAuthorsToExcel(data, 'hierarchical_authors_report');
     }
 
     // Handle custom reports differently
@@ -945,6 +959,259 @@ async function exportCustomReportToExcel(data: ExportData[], formData?: any): Pr
   // Generate filename
   const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
   const filename = `${reportName}_${timestamp}.xlsx`;
+
+  // Write file using ExcelJS for browser download
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  
+  // Create download link
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+}
+
+// Export hierarchical authors report with merged 100 and 700 fields
+export async function exportHierarchicalAuthorsToExcel(
+  data: any[],
+  reportName: string = 'hierarchical_authors_report'
+) {
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Authors');
+
+  // Define columns for hierarchical structure
+  const columns = [
+    { header: 'Subfield 9 (Authority ID)', key: 'subfield_9', width: 20 },
+    { header: 'Subfield a (Name)', key: 'subfield_a', width: 40 },
+    { header: 'Subfield g', key: 'subfield_g', width: 30 },
+    { header: 'Subfield q', key: 'subfield_q', width: 40 }
+  ];
+
+  worksheet.columns = columns;
+
+  // Add data rows with special formatting for header rows
+  data.forEach((row, index) => {
+    const excelRow = worksheet.addRow({
+      subfield_9: row.subfield_9 || '',
+      subfield_a: row.subfield_a || '',
+      subfield_g: row.subfield_g || '',
+      subfield_q: row.subfield_q || ''
+    });
+
+    // Style header rows (100 Authors, 700 Additional Authors)
+    if (row.isHeaderRow) {
+      excelRow.font = { bold: true, size: 12, color: { argb: 'FF0066CC' } };
+      excelRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE6F2FF' }
+      };
+      excelRow.height = 20;
+    }
+  });
+
+  // Make authority ID column (subfield_9) clickable for non-header rows
+  for (let rowIndex = 2; rowIndex <= data.length + 1; rowIndex++) {
+    const dataRow = data[rowIndex - 2];
+    if (!dataRow.isHeaderRow) {
+      const cell = worksheet.getCell(rowIndex, 1); // Column 1 is subfield_9
+      const authorityId = cell.value;
+      if (authorityId && authorityId.toString() !== '' && !authorityId.toString().includes('Authors')) {
+        cell.value = {
+          text: authorityId.toString(),
+          hyperlink: `https://cataloging.mandumah.com/cgi-bin/koha/authorities/authorities.pl?authid=${authorityId}`,
+          tooltip: `Open authority record ${authorityId}`
+        };
+        cell.font = { color: { argb: 'FF0563C1' }, underline: true };
+      }
+    }
+  }
+
+  // Style the main header row with blue background and white text
+  const headerRow = worksheet.getRow(1);
+  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 };
+  headerRow.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FF0066CC' }
+  };
+  headerRow.height = 25;
+  headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+  // Add borders to all cells
+  worksheet.eachRow((row, rowNumber) => {
+    row.eachCell((cell) => {
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+    });
+  });
+
+  // Generate filename
+  const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+  const filename = `${reportName}_${timestamp}.xlsx`;
+
+  // Write file using ExcelJS for browser download
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  
+  // Create download link
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+}
+
+// ============= CUSTOM ESTENAD REPORT EXPORT =============
+
+// Export custom estenad report to Excel
+export async function exportCustomEstenadToExcel(data: ExportData[], formData?: any): Promise<void> {
+  const selectedFields = formData?.selectedFields || [];
+  
+  // Helper function to check if a column is completely empty
+  function isColumnEmpty(columnKey: string, data: ExportData[]): boolean {
+    return data.every(row => !row[columnKey] || row[columnKey].toString().trim() === '');
+  }
+  
+  // Filter out empty columns from data
+  function removeEmptyColumns(data: ExportData[]): { filteredData: ExportData[], availableKeys: string[] } {
+    if (data.length === 0) return { filteredData: [], availableKeys: [] };
+    
+    const allKeys = Object.keys(data[0]);
+    const availableKeys = allKeys.filter(key => !isColumnEmpty(key, data));
+    
+    const filteredData = data.map(row => {
+      const filteredRow: ExportData = {
+        url: row.url || '',
+        biblio: row.biblio || '',
+        link: row.link || ''
+      };
+      availableKeys.forEach(key => {
+        if (key !== 'url' && key !== 'biblio' && key !== 'link') {
+          filteredRow[key] = row[key];
+        }
+      });
+      return filteredRow;
+    });
+    
+    return { filteredData, availableKeys };
+  }
+  
+  // Remove empty columns before processing
+  const { filteredData, availableKeys } = removeEmptyColumns(data);
+  
+  // Create workbook and worksheet with ExcelJS
+  const workbook = new ExcelJS.Workbook();
+  workbook.created = new Date();
+  workbook.modified = new Date();
+  workbook.creator = 'Manduma Estenad Reports';
+  workbook.title = 'Custom Estenad Report';
+  
+  const worksheet = workbook.addWorksheet('Estenad Report', {
+    properties: { defaultRowHeight: 20 },
+    views: [{ state: 'frozen', ySplit: 1 }]
+  });
+
+  // MARC field mapping with full names
+  const marcFieldMapping: Record<string, string> = {
+    'marc_000': 'Leader (000)',
+    'marc_001': 'Control Number (001)',
+    'marc_003': 'Control Number Identifier (003)',
+    'marc_005': 'Date/Time (005)',
+    'marc_008': 'Fixed Length Data (008)',
+    'marc_040_a': 'Cataloging Source - Original (040$a)',
+    'marc_040_6': 'Cataloging Source - Linkage (040$6)',
+    'marc_040_8': 'Cataloging Source - Field Link (040$8)',
+    'marc_040_b': 'Cataloging Source - Language (040$b)',
+    'marc_040_d': 'Cataloging Source - Modifying Agency (040$d)',
+    'marc_040_e': 'Cataloging Source - Description (040$e)',
+    'marc_040_f': 'Cataloging Source - Subject (040$f)',
+    'marc_100_a': 'Personal Name (100$a)',
+    'marc_100_g': 'Dates (100$g)',
+    'marc_100_q': 'Fuller Form (100$q)',
+    'marc_370_c': 'Associated Place - Country (370$c)',
+    'marc_370_e': 'Associated Place - Place of Birth (370$e)',
+    'marc_371_a': 'Address (371$a)',
+    'marc_371_e': 'Email (371$e)',
+    'marc_371_m': 'Telephone (371$m)',
+    'marc_371_q': 'Electronic Mail (371$q)',
+    'marc_373_a': 'Associated Group (373$a)',
+    'marc_373_q': 'Associated Group Qualifier (373$q)',
+    'marc_374_9': 'Occupation - Authority ID (374$9)',
+    'marc_374_a': 'Occupation (374$a)',
+    'marc_374_b': 'Occupation Code (374$b)',
+    'marc_381_a': 'Other Characteristics (381$a)',
+  };
+
+  // Build headers dynamically based on available keys
+  const headers: Partial<ExcelJS.Column>[] = [];
+  
+  // Add standard columns first
+  headers.push(
+    { header: 'Auth ID', key: 'biblio', width: 15 },
+    // { header: 'Auth Details', key: 'biblio_details', width: 35 }
+  );
+
+  // Add MARC field columns based on available keys
+  availableKeys.forEach(key => {
+    if (key.startsWith('marc_') && availableKeys.includes(key)) {
+      const displayName = marcFieldMapping[key] || key.replace('marc_', 'MARC ').toUpperCase();
+      headers.push({
+        header: displayName,
+        key: key,
+        width: 30
+      });
+    }
+  });
+
+  worksheet.columns = headers as ExcelJS.Column[];
+
+  // Style the header row
+  styleHeaderRow(worksheet, headers.length);
+
+  // Add data rows
+  filteredData.forEach(row => {
+    const rowData: any = {
+      biblio: row.biblio || '',
+      // biblio_details: row.biblio_details || ''
+    };
+    
+    // Add MARC field values
+    availableKeys.forEach(key => {
+      if (key.startsWith('marc_')) {
+        rowData[key] = row[key] || '';
+      }
+    });
+    
+    worksheet.addRow(rowData);
+  });
+
+  // Apply borders to all cells
+  worksheet.eachRow((row, rowNumber) => {
+    row.eachCell((cell) => {
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+    });
+  });
+
+  // Generate filename
+  const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+  const filename = `custom_estenad_report_${timestamp}.xlsx`;
 
   // Write file using ExcelJS for browser download
   const buffer = await workbook.xlsx.writeBuffer();

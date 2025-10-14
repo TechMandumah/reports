@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generatePredefinedReport, generateCustomReport } from '@/services/reportService';
+import { generatePredefinedReport, generateCustomReport, generateHierarchicalAuthorsReport } from '@/services/reportService';
 import { QueryFilters } from '@/types/database';
 
 export async function POST(request: NextRequest) {
@@ -33,6 +33,9 @@ export async function POST(request: NextRequest) {
     if (reportType === 'custom' || reportType === 'custom_report') {
       console.log('Generating custom report...');
       reportData = await generateCustomReport(filters);
+    } else if (reportType === 'export_hierarchical_authors') {
+      console.log('Generating hierarchical authors report...');
+      reportData = await generateHierarchicalAuthorsReport(filters);
     } else {
       console.log('Generating predefined report...');
       reportData = await generatePredefinedReport(reportType, filters);

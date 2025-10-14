@@ -86,10 +86,12 @@ export interface Translations {
   sidebar: {
     predefinedReports: string;
     citationReports: string;
+    estenadReports: string;
     utilities: string;
     reports: {
       researchTitles: string;
       researchAuthors: string;
+      hierarchicalAuthors: string;
       authorData: string;
       translationsTitlesAuthors: string;
       abstractField: string;
@@ -105,6 +107,7 @@ export interface Translations {
       convertUrl: string;
       exportCitationTitles: string;
       exportCitationAuthors: string;
+      customEstenadReport: string;
     };
   };
 
@@ -113,6 +116,7 @@ export interface Translations {
     titles: {
       researchTitles: string;
       researchAuthors: string;
+      hierarchicalAuthors: string;
       authorData: string;
       translationsTitlesAuthors: string;
       abstractField: string;
@@ -125,6 +129,7 @@ export interface Translations {
     descriptions: {
       researchTitles: string;
       researchAuthors: string;
+      hierarchicalAuthors: string;
       authorData: string;
       translationsTitlesAuthors: string;
       abstractField: string;
@@ -227,6 +232,28 @@ export interface Translations {
       uploadFileHelper: string;
       magazineNumbers: string;
     };
+
+  // Estenad (Authority) Reports
+  estenad: {
+    uploadAuthorIds: string;
+    authorIdsFile: string;
+    authorIdsFileRequired: string;
+    uploadAuthorIdsHelper: string;
+    foundValidAuthorIds: string;
+    andMore: string;
+    validationErrors: string;
+    pleaseUploadTxtFile: string;
+    pleaseUploadAuthorIdsFile: string;
+    pleaseSelectMarcField: string;
+    subfields: string;
+    showingFirstRecords: string;
+    recordsOutOf: string;
+    totalAuthorIds: string;
+    failedLoadPreview: string;
+    authorIdsRecords: string;
+    successfullyExported: string;
+    authorRecords: string;
+  };
 
   // Author Type Filter
   authorTypeFilter: {
@@ -345,10 +372,12 @@ export const translations: Record<Language, Translations> = {
     sidebar: {
       predefinedReports: 'Predefined Reports',
       citationReports: 'Citation Reports',
+      estenadReports: 'Estenad Reports',
       utilities: 'Utilities',
       reports: {
         researchTitles: 'Export Research Titles for Review',
         researchAuthors: 'Export Research Authors for Review',
+        hierarchicalAuthors: 'Hierarchical Authors Report',
         authorData: 'Export Author Data for Review',
         translationsTitlesAuthors: 'Export Translations of Titles, Authors & Universities',
         abstractField: 'Export Abstract Field',
@@ -364,12 +393,14 @@ export const translations: Record<Language, Translations> = {
         convertUrl: 'Convert URL to Biblio',
         exportCitationTitles: 'Export Citation Titles',
         exportCitationAuthors: 'Export Citation Authors',
+        customEstenadReport: 'Custom Estenad Report',
       },
     },
     reportContent: {
       titles: {
         researchTitles: 'Research Titles for Review',
         researchAuthors: 'Research Authors for Review',
+        hierarchicalAuthors: 'Hierarchical Authors Report',
         authorData: 'Author Data for Review',
         translationsTitlesAuthors: 'Translations of Titles, Authors & Universities',
         abstractField: 'Abstract Field',
@@ -382,6 +413,7 @@ export const translations: Record<Language, Translations> = {
       descriptions: {
         researchTitles: 'Export research titles with title fields for review and verification. Biblio numbers are clickable links.',
         researchAuthors: 'Export research authors with author field and clickable author IDs for review and verification.',
+        hierarchicalAuthors: 'Export authors in hierarchical structure with main authors (100) and additional authors (700) separated. Includes subfields: name, date, fuller form, and authority ID.',
         authorData: 'Export author data with author field for review and verification. Biblio numbers are clickable links.',
         translationsTitlesAuthors: 'Export translations of titles, authors and universities for review. Biblio numbers are clickable links.',
         abstractField: 'Export abstract field data with all subfields extracted separately. Biblio numbers are clickable links.',
@@ -574,6 +606,26 @@ export const translations: Record<Language, Translations> = {
       localNote: 'Local Note',
       localData: 'Local Data',
     },
+    estenad: {
+      uploadAuthorIds: 'Upload Author IDs',
+      authorIdsFile: 'Author IDs File',
+      authorIdsFileRequired: 'Author IDs File (Required)',
+      uploadAuthorIdsHelper: 'Upload a .txt file with author IDs (authid from auth_header table). One per line or comma-separated.',
+      foundValidAuthorIds: 'Found {count} valid author IDs',
+      andMore: 'and {count} more',
+      validationErrors: 'Validation Errors',
+      pleaseUploadTxtFile: 'Please upload a .txt file',
+      pleaseUploadAuthorIdsFile: 'Please upload an author IDs file',
+      pleaseSelectMarcField: 'Please select at least one MARC field',
+      subfields: 'Subfields',
+      showingFirstRecords: 'Showing first {count} records out of {total} total author IDs',
+      recordsOutOf: 'records out of',
+      totalAuthorIds: 'total author IDs',
+      failedLoadPreview: 'Failed to load preview data. Please try again.',
+      authorIdsRecords: 'Author IDs: {count} records',
+      successfullyExported: 'Successfully exported {count} author records',
+      authorRecords: 'author records',
+    },
   },
   ar: {
     common: {
@@ -621,10 +673,12 @@ export const translations: Record<Language, Translations> = {
     sidebar: {
       predefinedReports: 'التقارير المحددة مسبقاً',
       citationReports: 'تقارير الاستشهاد',
+      estenadReports: 'تقارير الإستناد',
       utilities: 'الأدوات المساعدة',
       reports: {
         researchTitles: 'تصدير عناوين البحوث للمراجعة',
         researchAuthors: 'تصدير مؤلفي البحوث للمراجعة',
+        hierarchicalAuthors: 'تقرير المؤلفين الهرمي',
         authorData: 'تصدير بيانات المؤلفين للمراجعة',
         translationsTitlesAuthors: 'تصدير ترجمات العناوين والمؤلفين والجامعات',
         abstractField: 'تصدير حقل الملخص',
@@ -640,12 +694,14 @@ export const translations: Record<Language, Translations> = {
         convertUrl: 'تحويل الرابط إلى ببليو',
         exportCitationTitles: 'تصدير عناوين الاستشهاد',
         exportCitationAuthors: 'تصدير مؤلفي الاستشهاد',
+        customEstenadReport: 'تقرير إستناد مخصص',
       },
     },
     reportContent: {
       titles: {
         researchTitles: 'عناوين البحوث للمراجعة',
         researchAuthors: 'مؤلفو البحوث للمراجعة',
+        hierarchicalAuthors: 'تقرير المؤلفين الهرمي',
         authorData: 'بيانات المؤلفين للمراجعة',
         translationsTitlesAuthors: 'ترجمات العناوين والمؤلفين والجامعات',
         abstractField: 'حقل الملخص',
@@ -658,6 +714,7 @@ export const translations: Record<Language, Translations> = {
       descriptions: {
         researchTitles: 'تصدير عناوين البحوث مع حقول العناوين للمراجعة والتحقق. أرقام الببليو قابلة للنقر.',
         researchAuthors: 'تصدير مؤلفي البحوث مع حقل المؤلف ومعرفات المؤلفين القابلة للنقر للمراجعة والتحقق.',
+        hierarchicalAuthors: 'تصدير المؤلفين في بنية هرمية مع فصل المؤلفين الرئيسيين (100) والمؤلفين الإضافيين (700). يتضمن الحقول الفرعية: الاسم، التاريخ، الاسم الكامل، ومعرف الاستناد.',
         authorData: 'تصدير بيانات المؤلفين مع حقل المؤلف للمراجعة والتحقق. أرقام الببليو قابلة للنقر.',
         translationsTitlesAuthors: 'تصدير ترجمات العناوين والمؤلفين والجامعات للمراجعة. أرقام الببليو قابلة للنقر.',
         abstractField: 'تصدير بيانات حقل الملخص مع استخراج جميع الحقول الفرعية بشكل منفصل. أرقام الببليو قابلة للنقر.',
@@ -849,6 +906,26 @@ export const translations: Record<Language, Translations> = {
       electronicLocation: 'الموقع الإلكتروني',
       localNote: 'ملاحظة محلية',
       localData: 'بيانات محلية',
+    },
+    estenad: {
+      uploadAuthorIds: 'رفع معرفات المؤلفين',
+      authorIdsFile: 'ملف معرفات المؤلفين',
+      authorIdsFileRequired: 'ملف معرفات المؤلفين (مطلوب)',
+      uploadAuthorIdsHelper: 'ارفع ملف .txt يحتوي على معرفات المؤلفين (authid من جدول auth_header). واحد في كل سطر أو مفصولة بفواصل.',
+      foundValidAuthorIds: 'تم العثور على {count} معرف مؤلف صحيح',
+      andMore: 'و {count} آخرين',
+      validationErrors: 'أخطاء التحقق',
+      pleaseUploadTxtFile: 'يرجى رفع ملف .txt',
+      pleaseUploadAuthorIdsFile: 'يرجى رفع ملف معرفات المؤلفين',
+      pleaseSelectMarcField: 'يرجى اختيار حقل مارك واحد على الأقل',
+      subfields: 'الحقول الفرعية',
+      showingFirstRecords: 'عرض أول {count} سجلات من أصل {total} معرف مؤلف إجمالي',
+      recordsOutOf: 'سجلات من أصل',
+      totalAuthorIds: 'معرف مؤلف إجمالي',
+      failedLoadPreview: 'فشل في تحميل بيانات المعاينة. يرجى المحاولة مرة أخرى.',
+      authorIdsRecords: 'معرفات المؤلفين: {count} سجلات',
+      successfullyExported: 'تم تصدير {count} سجل مؤلف بنجاح',
+      authorRecords: 'سجلات المؤلفين',
     },
   },
 };

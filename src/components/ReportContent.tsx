@@ -2,11 +2,13 @@
 
 import { useState } from 'react';
 import { exportToExcel } from '@/utils/excelExport';
+import { exportCustomEstenadToExcel } from '@/utils/excelExport';
 import CustomReportForm from './CustomReportForm';
 import PredefinedReportForm from './PredefinedReportForm';
 import CitationTitleTranslations from './CitationReports/CitationTitleTranslations';
 import CitationAuthorTranslations from './CitationReports/CitationAuthorTranslations';
 import CustomCitationReportForm from './CitationReports/CustomCitationReportForm';
+import CustomEstenadReportForm from './CustomEstenadReportForm';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation, Translations } from '@/utils/localization';
 
@@ -19,6 +21,7 @@ const getTranslatedReportName = (reportId: string, t: Translations, isRTL: boole
   const reportMap: { [key: string]: string } = {
     'export_research_titles': t.sidebar.reports.researchTitles,
     'export_research_authors': t.sidebar.reports.researchAuthors,
+    'export_hierarchical_authors': t.sidebar.reports.hierarchicalAuthors,
     'export_author_data': t.sidebar.reports.authorData,
     'export_translations_titles_authors': t.sidebar.reports.translationsTitlesAuthors,
     'export_abstract_field': t.sidebar.reports.abstractField,
@@ -38,6 +41,7 @@ const getTranslatedReportDescription = (reportId: string, t: Translations, isRTL
   const descriptionMap: { [key: string]: string } = {
     'export_research_titles': t.reportContent.descriptions.researchTitles,
     'export_research_authors': t.reportContent.descriptions.researchAuthors,
+    'export_hierarchical_authors': t.reportContent.descriptions.hierarchicalAuthors,
     'export_author_data': t.reportContent.descriptions.authorData,
     'export_translations_titles_authors': t.reportContent.descriptions.translationsTitlesAuthors,
     'export_abstract_field': t.reportContent.descriptions.abstractField,
@@ -161,8 +165,88 @@ export default function ReportContent({ activeReport }: ReportContentProps) {
     }
   };
 
+  const handleGenerateEstenadReport = async (formData: any) => {
+    setIsGenerating(true);
+    setShowSuccessMessage(false);
+    
+    console.log('🔍 ReportContent: handleGenerateEstenadReport called with formData:', formData);
+    
+    try {
+      // Call the estenad reports API
+      const response = await fetch('/api/estenad-reports', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          reportType: 'custom_estenad_report',
+          authorIds: formData.authorIds,
+          selectedFields: formData.selectedFields,
+          isPreview: false
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate estenad report');
+      }
+
+      const result = await response.json();
+      console.log('📊 Estenad Report API Result:', result);
+      
+      // Ensure recordCount is a number
+      const count = typeof result.recordCount === 'number' ? result.recordCount : (result.data?.length || 0);
+      setRecordCount(count);
+      
+      // Export to Excel
+      await exportCustomEstenadToExcel(result.data, formData);
+      
+      // Show success message
+      setShowSuccessMessage(true);
+      setTimeout(() => setShowSuccessMessage(false), 5000);
+
+    } catch (error) {
+      console.error('Error generating estenad report:', error);
+      alert(`Error generating report: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const isCustomReport = activeReport === 'custom_report';
   const isCitationReport = ['export_citation_titles', 'export_citation_authors', 'custom_citation_report'].includes(activeReport);
+  const isEstenadReport = activeReport === 'custom_estenad_report';
+
+  // Render estenad reports directly without the wrapper
+  if (isEstenadReport) {
+    // Debug logging
+    console.log('🔍 Rendering CustomEstenadReportForm with props:', {
+      recordCount,
+      recordCountType: typeof recordCount,
+      isGenerating,
+      isGeneratingType: typeof isGenerating,
+      showSuccessMessage,
+      showSuccessMessageType: typeof showSuccessMessage
+    });
+    
+    // Ensure all props are primitives, not objects
+    const safeRecordCount = typeof recordCount === 'number' ? recordCount : 0;
+    const safeIsGenerating = typeof isGenerating === 'boolean' ? isGenerating : false;
+    const safeShowSuccess = typeof showSuccessMessage === 'boolean' ? showSuccessMessage : false;
+    
+    return    <div className="bg-white rounded-2xl shadow-lg border-2 border-gray-100 p-8">
+        <div className={`flex items-center ${isRTL ? 'space-x-reverse space-x-3' : 'space-x-3'} mb-6`}>
+          <h3 className={`text-xl font-bold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>
+            {t.forms.reportParameters}
+          </h3>
+        </div> <CustomEstenadReportForm 
+      onGenerate={handleGenerateEstenadReport}
+      isGenerating={safeIsGenerating}
+      recordCount={safeRecordCount}
+      showSuccessMessage={safeShowSuccess}
+    />
+      </div>;
+  }
 
   // Render citation reports directly without the wrapper
   if (isCitationReport) {

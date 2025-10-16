@@ -296,6 +296,8 @@ export async function POST(request: NextRequest) {
         biblioNumberCell.l = { Target: catalogingUrl, Tooltip: "Click to open in cataloging system" };
         //Hyperlink the cataloging URL
         biblioNumberCell.f = `HYPERLINK("${catalogingUrl}", "${item.biblionumber}")`;
+        //Make the color blue and underlined
+        biblioNumberCell.s = { font: { color: { rgb: "0000FF" }, underline: true } };
       }
 
       // Add hyperlink for PDF URL if exists
@@ -311,8 +313,8 @@ export async function POST(request: NextRequest) {
       { wch: 15 }, // Biblio Number
       { wch: 40 }, // Title 245
       { wch: 40 }, // Title 242
-      { wch: 40 }, // Title 246
-      { wch: 60 }, // PDF URL
+      // { wch: 40 }, // Title 246
+      // { wch: 60 }, // PDF URL
     ];
     worksheet['!cols'] = columnWidths;
 

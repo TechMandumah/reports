@@ -9,9 +9,8 @@ export const dynamic = 'force-dynamic';
 
 // Interface for hierarchical author structure
 interface HierarchicalAuthorRow {
-  subfield_9: string;
+  biblionumber: number;
   subfield_a: string;
-  subfield_g: string;
   subfield_q: string;
 }
 
@@ -257,36 +256,34 @@ export async function POST(request: NextRequest) {
     for (let i = 0; i < results.length; i++) {
       const row = results[i];
       try {
+        const biblionumber = row['biblionumber'];
+        
         // Extract main author (100 field) if exists
         const main_100_a = row['100_a'] || '';
-        const main_100_g = row['100_g'] || '';
         const main_100_q = row['100_q'] || '';
-        const main_100_9 = row['100_9'] || '';
 
-        if (main_100_a || main_100_9) {
+        if (main_100_a) {
           hierarchicalData.push({
-            subfield_9: main_100_9,
+            biblionumber: biblionumber,
             subfield_a: main_100_a,
-            subfield_g: main_100_g,
             subfield_q: main_100_q
           });
         }
 
         // Extract additional authors (700 fields) - up to 5 authors
         const additionalAuthorFields = [
-          { a: row['700_1_a'], g: row['700_1_g'], q: row['700_1_q'], id: row['700_1_9'] },
-          { a: row['700_2_a'], g: row['700_2_g'], q: row['700_2_q'], id: row['700_2_9'] },
-          { a: row['700_3_a'], g: row['700_3_g'], q: row['700_3_q'], id: row['700_3_9'] },
-          { a: row['700_4_a'], g: row['700_4_g'], q: row['700_4_q'], id: row['700_4_9'] },
-          { a: row['700_5_a'], g: row['700_5_g'], q: row['700_5_q'], id: row['700_5_9'] }
+          { a: row['700_1_a'], q: row['700_1_q'] },
+          { a: row['700_2_a'], q: row['700_2_q'] },
+          { a: row['700_3_a'], q: row['700_3_q'] },
+          { a: row['700_4_a'], q: row['700_4_q'] },
+          { a: row['700_5_a'], q: row['700_5_q'] }
         ];
 
         additionalAuthorFields.forEach(author => {
-          if (author.a || author.id) {
+          if (author.a) {
             hierarchicalData.push({
-              subfield_9: author.id || '',
+              biblionumber: biblionumber,
               subfield_a: author.a || '',
-              subfield_g: author.g || '',
               subfield_q: author.q || ''
             });
           }
@@ -338,10 +335,9 @@ export async function POST(request: NextRequest) {
 
     // Define columns for hierarchical structure
     const columns = [
-      { header: 'Subfield 9 (Authority ID)', key: 'subfield_9', width: 20 },
+      { header: 'Biblio Number', key: 'biblionumber', width: 20 },
       { header: 'Subfield a (Name)', key: 'subfield_a', width: 40 },
-      { header: 'Subfield g', key: 'subfield_g', width: 30 },
-      { header: 'Subfield q', key: 'subfield_q', width: 40 }
+      { header: 'Subfield q (Fuller Name)', key: 'subfield_q', width: 40 }
     ];
 
     worksheet.columns = columns;
@@ -349,23 +345,22 @@ export async function POST(request: NextRequest) {
     // Add data rows
     hierarchicalData.forEach((row, index) => {
       const excelRow = worksheet.addRow({
-        subfield_9: row.subfield_9 || '',
+        biblionumber: row.biblionumber || '',
         subfield_a: row.subfield_a || '',
-        subfield_g: row.subfield_g || '',
         subfield_q: row.subfield_q || ''
       });
     });
 
-    // Make authority ID column (subfield_9) clickable
+    // Make biblio number column clickable
     for (let rowIndex = 2; rowIndex <= hierarchicalData.length + 1; rowIndex++) {
       const dataRow = hierarchicalData[rowIndex - 2];
-      const cell = worksheet.getCell(rowIndex, 1); // Column 1 is subfield_9
-      const authorityId = cell.value;
-      if (authorityId && authorityId.toString() !== '') {
+      const cell = worksheet.getCell(rowIndex, 1); // Column 1 is biblionumber
+      const biblionumber = cell.value;
+      if (biblionumber && biblionumber.toString() !== '') {
         cell.value = {
-          text: authorityId.toString(),
-          hyperlink: `https://cataloging.mandumah.com/cgi-bin/koha/authorities/authorities.pl?authid=${authorityId}`,
-          tooltip: `Open authority record ${authorityId}`
+          text: biblionumber.toString(),
+          hyperlink: `https://citationadmin.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${biblionumber}`,
+          tooltip: `Open biblio record ${biblionumber}`
         };
         cell.font = { color: { argb: 'FF0563C1' }, underline: true };
       }

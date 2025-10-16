@@ -293,12 +293,17 @@ export async function POST(request: NextRequest) {
       const biblioNumberCell = worksheet[biblioNumberCellRef];
       if (biblioNumberCell && biblioNumberCell.v) {
         const catalogingUrl = `https://citationadmin.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${item.biblionumber}`;
+        
+        // Add hyperlink
         biblioNumberCell.l = { Target: catalogingUrl, Tooltip: "Click to open in cataloging system" };
-        //Hyperlink the cataloging URL
-        biblioNumberCell.f = `HYPERLINK("${catalogingUrl}", "${item.biblionumber}")`;
-        //Make the color blue and underlined
-        // biblioNumberCell.s = { font: { color: { rgb: "0000FF" }, underline: true } };
-        biblioNumberCell.font = { color: { argb: 'FF0563C1' }, underline: true };
+        
+        // Add cell style for blue color and underline (xlsx library uses 's' property for styles)
+        biblioNumberCell.s = { 
+          font: { 
+            color: { rgb: "0563C1" }, 
+            underline: true 
+          } 
+        };
       }
 
       // Add hyperlink for PDF URL if exists

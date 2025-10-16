@@ -92,6 +92,22 @@ function buildAuthorFilter(authorName?: string): { clause: string; params: any[]
   };
 }
 
+// Build WHERE clause for URL list filter (for convert_url_to_biblio report)
+function buildUrlListFilter(urlList?: string[]): { clause: string; params: any[] } {
+  if (!urlList || urlList.length === 0) {
+    return { clause: '', params: [] };
+  }
+  
+  // URLs are in format: 0005-343-232.pdf
+  // We need to match them against the url field in biblioitems table
+  const placeholders = urlList.map(() => '?').join(',');
+  
+  return {
+    clause: `AND bi.url IN (${placeholders})`,
+    params: urlList
+  };
+}
+
 // Build WHERE clause for abstract filter using EXTRACTVALUE for efficiency
 function buildAbstractFilter(abstractFilter?: string): { clause: string; params: any[] } {
   if (!abstractFilter) {
@@ -162,7 +178,7 @@ function buildAbstractFilter(abstractFilter?: string): { clause: string; params:
 
 // Get bibliographic records with filters using EXTRACTVALUE for MARC data (like user's SQL queries)
 export async function getBiblioRecords(filters: QueryFilters = {}): Promise<BiblioRecord[]> {
-  const { magazineNumbers, startYear, endYear, authorName, isPreview, biblioNumbers, abstractFilter } = filters;
+  const { magazineNumbers, startYear, endYear, authorName, isPreview, biblioNumbers, abstractFilter, urlList } = filters;
   
   // Build query filters
   const biblioFilter = buildBiblioNumbersFilter(biblioNumbers);
@@ -170,6 +186,7 @@ export async function getBiblioRecords(filters: QueryFilters = {}): Promise<Bibl
   const yearFilter = buildYearRangeFilter(startYear, endYear);
   const authorFilter = buildAuthorFilter(authorName);
   const absFilter = buildAbstractFilter(abstractFilter);
+  const urlFilter = buildUrlListFilter(urlList);
   
   // Add LIMIT clause for preview mode
   const limitClause = isPreview ? 'LIMIT 5' : '';
@@ -258,6 +275,7 @@ export async function getBiblioRecords(filters: QueryFilters = {}): Promise<Bibl
     ${yearFilter.clause}
     ${authorFilter.clause}
     ${absFilter.clause}
+    ${urlFilter.clause}
     ORDER BY b.biblionumber DESC
     ${limitClause}
   `;
@@ -267,7 +285,8 @@ export async function getBiblioRecords(filters: QueryFilters = {}): Promise<Bibl
     ...magazineFilter.params,
     ...yearFilter.params,
     ...authorFilter.params,
-    ...absFilter.params
+    ...absFilter.params,
+    ...urlFilter.params
   ];
   
   const startTime = Date.now();

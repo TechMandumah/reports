@@ -110,4 +110,5 @@ export interface QueryFilters {
   biblioNumbers?: string[];
   authorTypeFilter?: string[];
   authorIds?: string[]; // For auth_header table queries (estenad reports)
+  urlList?: string[]; // For convert_url_to_biblio report
 }

@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { reportType, filters }: { reportType: string; filters: QueryFilters } = body;
+    const { reportType, filters, urlList }: { reportType: string; filters?: QueryFilters; urlList?: string[] } = body;
 
     // Validate required fields
     if (!reportType) {
@@ -26,19 +26,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('Processing report request:', { reportType, filters });
+    console.log('Processing report request:', { reportType, filters, urlList });
 
     let reportData;
     
-    if (reportType === 'custom' || reportType === 'custom_report') {
+    if (reportType === 'convert_url_to_biblio' && urlList) {
+      console.log('Generating convert URL to biblio report with URL list...');
+      // For convert_url_to_biblio with URL list, pass it as filters
+      reportData = await generatePredefinedReport(reportType, { urlList });
+    } else if (reportType === 'custom' || reportType === 'custom_report') {
       console.log('Generating custom report...');
-      reportData = await generateCustomReport(filters);
+      reportData = await generateCustomReport(filters || {});
     } else if (reportType === 'export_hierarchical_authors') {
       console.log('Generating hierarchical authors report...');
-      reportData = await generateHierarchicalAuthorsReport(filters);
+      reportData = await generateHierarchicalAuthorsReport(filters || {});
     } else {
       console.log('Generating predefined report...');
-      reportData = await generatePredefinedReport(reportType, filters);
+      reportData = await generatePredefinedReport(reportType, filters || {});
     }
 
     console.log('Report generated successfully, returning data:', {

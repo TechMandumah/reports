@@ -26,13 +26,15 @@ export default function PredefinedReportForm({
   const [endYear, setEndYear] = useState('');
   const [authorName, setAuthorName] = useState('');
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  const [inputMethod, setInputMethod] = useState<'manual' | 'file' | 'biblio'>('manual');
+  const [inputMethod, setInputMethod] = useState<'manual' | 'file' | 'biblio' | 'url'>('manual');
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [fileNumbers, setFileNumbers] = useState<string[]>([]);
   const [abstractFilter, setAbstractFilter] = useState<string>('');
   const [biblioUploadedFile, setBiblioUploadedFile] = useState<File | null>(null);
   const [biblioNumbers, setBiblioNumbers] = useState<string[]>([]);
   const [authorTypeFilter, setAuthorTypeFilter] = useState<string[]>([]);
+  const [urlUploadedFile, setUrlUploadedFile] = useState<File | null>(null);
+  const [urlList, setUrlList] = useState<string[]>([]);
 
   const validateMagazineNumbers = (input: string): { isValid: boolean; errors: string[] } => {
     if (!input.trim()) {
@@ -266,6 +268,90 @@ export default function PredefinedReportForm({
     }
   };
 
+  const handleUrlFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.includes('text') && !file.name.endsWith('.txt')) {
+      setValidationErrors([t.errors.uploadTextFile]);
+      return;
+    }
+
+    setUrlUploadedFile(file);
+    
+    try {
+      const text = await file.text();
+      const { urls, errors } = parseAndValidateUrlFileContent(text);
+      setUrlList(urls);
+      
+      if (errors.length > 0) {
+        setValidationErrors(errors);
+      } else {
+        setValidationErrors([]);
+      }
+    } catch (error) {
+      setValidationErrors([t.errors.errorReadingFile]);
+    }
+  };
+
+  const parseAndValidateUrlFileContent = (text: string): { urls: string[]; errors: string[] } => {
+    const lines = text.split(/\r?\n/);
+    const urls: string[] = [];
+    const errors: string[] = [];
+    
+    lines.forEach((line, lineIndex) => {
+      const lineNumber = lineIndex + 1;
+      const trimmedLine = line.trim();
+      
+      // Skip empty lines
+      if (trimmedLine === '') {
+        return;
+      }
+      
+      // Check if line contains comma-separated values
+      if (trimmedLine.includes(',')) {
+        const values = trimmedLine.split(',');
+        values.forEach((value, valueIndex) => {
+          const trimmedValue = value.trim();
+          if (trimmedValue === '') return;
+          
+          const validation = validateSingleUrl(trimmedValue, lineNumber, valueIndex + 1, true);
+          if (validation.isValid) {
+            urls.push(trimmedValue);
+          } else {
+            errors.push(...validation.errors);
+          }
+        });
+      } else {
+        // Single value per line
+        const validation = validateSingleUrl(trimmedLine, lineNumber, 1, false);
+        if (validation.isValid) {
+          urls.push(trimmedLine);
+        } else {
+          errors.push(...validation.errors);
+        }
+      }
+    });
+    
+    return { urls, errors };
+  };
+
+  const validateSingleUrl = (value: string, lineNumber: number, position: number, isCommaSeparated: boolean): { isValid: boolean; errors: string[] } => {
+    const errors: string[] = [];
+    const positionText = isCommaSeparated ? `, position ${position}` : '';
+    
+    // Check for URL pattern like '0005-343-232.pdf'
+    // Format: XXXX-XXX-XXX.pdf where X is a digit
+    const urlPattern = /^\d{4}-\d{3}-\d{3}\.pdf$/;
+    
+    if (!urlPattern.test(value)) {
+      errors.push(`Line ${lineNumber}${positionText}: "${value}" is not a valid URL format. Expected format: XXXX-XXX-XXX.pdf (e.g., 0005-343-232.pdf)`);
+      return { isValid: false, errors };
+    }
+    
+    return { isValid: true, errors: [] };
+  };
+
   const clearFormInputs = () => {
     setMagazineNumbers('');
     setStartYear('');
@@ -279,6 +365,8 @@ export default function PredefinedReportForm({
     setBiblioUploadedFile(null);
     setBiblioNumbers([]);
     setAuthorTypeFilter([]);
+    setUrlUploadedFile(null);
+    setUrlList([]);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -303,6 +391,21 @@ export default function PredefinedReportForm({
       }
       validation = { isValid: true, errors: [] };
       biblioToUse = biblioNumbers;
+    } else if (inputMethod === 'url') {
+      // For URL method (convert_url_to_biblio report)
+      if (urlList.length === 0) {
+        setValidationErrors(['Please upload a URL list file.']);
+        return;
+      }
+      
+      const formData = {
+        reportType,
+        urlList: urlList
+      };
+      
+      onGenerate(formData);
+      clearFormInputs();
+      return;
       numbersToUse = []; // No magazine numbers when using biblio filtering
     } else {
       validation = { isValid: false, errors: ['Invalid input method'] };
@@ -339,7 +442,7 @@ export default function PredefinedReportForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Magazine Numbers Input */}
+        {/* Magazine Numbers Input (or URL for convert_url_to_biblio) */}
         <div className="md:col-span-2">
           <label className="block text-sm font-bold text-gray-800 mb-3">
             <div className="flex items-center space-x-2">
@@ -361,6 +464,8 @@ export default function PredefinedReportForm({
                 setFileNumbers([]);
                 setBiblioUploadedFile(null);
                 setBiblioNumbers([]);
+                setUrlUploadedFile(null);
+                setUrlList([]);
               }}
               className={`px-4 py-2 text-sm font-medium rounded-md ${
                 inputMethod === 'manual'
@@ -378,6 +483,8 @@ export default function PredefinedReportForm({
                 setMagazineNumbers('');
                 setBiblioUploadedFile(null);
                 setBiblioNumbers([]);
+                setUrlUploadedFile(null);
+                setUrlList([]);
               }}
               className={`px-4 py-2 text-sm font-medium rounded-md ${
                 inputMethod === 'file'
@@ -395,6 +502,8 @@ export default function PredefinedReportForm({
                 setMagazineNumbers('');
                 setUploadedFile(null);
                 setFileNumbers([]);
+                setUrlUploadedFile(null);
+                setUrlList([]);
               }}
               className={`px-4 py-2 text-sm font-medium rounded-md ${
                 inputMethod === 'biblio'
@@ -404,6 +513,27 @@ export default function PredefinedReportForm({
             >
               {t.inputOptions.biblio}
             </button>
+            {reportType === 'convert_url_to_biblio' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setInputMethod('url');
+                  setValidationErrors([]);
+                  setMagazineNumbers('');
+                  setUploadedFile(null);
+                  setFileNumbers([]);
+                  setBiblioUploadedFile(null);
+                  setBiblioNumbers([]);
+                }}
+                className={`px-4 py-2 text-sm font-medium rounded-md ${
+                  inputMethod === 'url'
+                    ? 'bg-red-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Upload URLs
+              </button>
+            )}
           </div>
 
           {/* Manual Entry */}
@@ -551,6 +681,65 @@ export default function PredefinedReportForm({
               )}
             </div>
           )}
+
+          {/* URL Upload (for convert_url_to_biblio) */}
+          {inputMethod === 'url' && (
+            <div>
+              <input
+                id="urlFileUpload"
+                type="file"
+                accept=".txt,text/plain"
+                onChange={handleUrlFileUpload}
+                className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 bg-gray-50 focus:bg-white text-gray-900"
+              />
+              <p className="mt-2 text-sm text-gray-600">
+                Upload a .txt file with URLs in format: XXXX-XXX-XXX.pdf (e.g., 0005-343-232.pdf), one per line or comma-separated
+              </p>
+              
+              {urlUploadedFile && (
+                <div className={`mt-3 p-3 border rounded-md ${
+                  validationErrors.length > 0 
+                    ? 'bg-yellow-50 border-yellow-200' 
+                    : 'bg-green-50 border-green-200'
+                }`}>
+                  <div className="flex items-center">
+                    <svg className={`w-4 h-4 mr-2 ${
+                      validationErrors.length > 0 ? 'text-yellow-500' : 'text-green-500'
+                    }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                        d={validationErrors.length > 0 
+                          ? "M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
+                          : "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        } />
+                    </svg>
+                    <span className={`text-sm ${
+                      validationErrors.length > 0 ? 'text-yellow-800' : 'text-green-800'
+                    }`}>
+                      File uploaded: {urlUploadedFile.name} 
+                      {validationErrors.length === 0 && (
+                        <span> ({urlList.length} URLs found)</span>
+                      )}
+                      {validationErrors.length > 0 && (
+                        <span> ({urlList.length} valid, {validationErrors.length} errors)</span>
+                      )}
+                    </span>
+                  </div>
+                  {urlList.length > 0 && validationErrors.length === 0 && (
+                    <div className="mt-2 text-sm text-green-700">
+                      <strong>URLs:</strong> {urlList.slice(0, 10).join(', ')}
+                      {urlList.length > 10 && ` ... and ${urlList.length - 10} more`}
+                    </div>
+                  )}
+                  {validationErrors.length > 0 && urlList.length > 0 && (
+                    <div className="mt-2 text-sm text-green-700">
+                      <strong>Valid URLs:</strong> {urlList.slice(0, 5).join(', ')}
+                      {urlList.length > 5 && ` ... and ${urlList.length - 5} more`}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           
           {/* Validation Errors */}
           {validationErrors.length > 0 && (
@@ -579,7 +768,8 @@ export default function PredefinedReportForm({
           </p>
         </div>
 
-        {/* Start Year */}
+        {/* Start Year - hide for convert_url_to_biblio */}
+        {reportType !== 'convert_url_to_biblio' && (
         <div>
           <label htmlFor="startYear" className="block text-sm font-bold text-gray-800 mb-3">
             <div className="flex items-center space-x-2">
@@ -607,8 +797,10 @@ export default function PredefinedReportForm({
             />
           </div>
         </div>
+        )}
 
-        {/* End Year */}
+        {/* End Year - hide for convert_url_to_biblio */}
+        {reportType !== 'convert_url_to_biblio' && (
         <div>
           <label htmlFor="endYear" className="block text-sm font-bold text-gray-800 mb-3">
             <div className="flex items-center space-x-2">
@@ -636,6 +828,7 @@ export default function PredefinedReportForm({
             />
           </div>
         </div>
+        )}
 
         {/* Author Name */}
         {/* {showAuthorFilter && (

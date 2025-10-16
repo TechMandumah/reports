@@ -357,11 +357,18 @@ export async function POST(request: NextRequest) {
       const cell = worksheet.getCell(rowIndex, 1); // Column 1 is biblionumber
       const biblionumber = cell.value;
       if (biblionumber && biblionumber.toString() !== '') {
-        cell.value = {
-          text: biblionumber.toString(),
-          hyperlink: `https://citationadmin.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${biblionumber}`,
-          tooltip: `Open biblio record ${biblionumber}`
-        };
+        // cell.value = {
+        //   text: biblionumber.toString(),
+        //   hyperlink: `https://citationadmin.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${biblionumber}`,
+        //   tooltip: `Open biblio record ${biblionumber}`
+        // };
+        // biblioNumberCell.l = { Target: catalogingUrl, Tooltip: "Click to open in cataloging system" };
+        // //Hyperlink the cataloging URL
+        // biblioNumberCell.f = `HYPERLINK("${catalogingUrl}", "${item.biblionumber}")`;
+        const catalogingUrl = `https://citationadmin.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${biblionumber}`;
+        cell.l = { Target: catalogingUrl, Tooltip: "Click to open in cataloging system" };
+        // Hyperlink the cataloging URL
+        cell.f = `HYPERLINK("${catalogingUrl}", "${biblionumber}")`;
         cell.font = { color: { argb: 'FF0563C1' }, underline: true };
       }
     }

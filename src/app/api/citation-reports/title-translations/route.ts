@@ -297,7 +297,8 @@ export async function POST(request: NextRequest) {
         //Hyperlink the cataloging URL
         biblioNumberCell.f = `HYPERLINK("${catalogingUrl}", "${item.biblionumber}")`;
         //Make the color blue and underlined
-        biblioNumberCell.s = { font: { color: { rgb: "0000FF" }, underline: true } };
+        // biblioNumberCell.s = { font: { color: { rgb: "0000FF" }, underline: true } };
+        biblioNumberCell.font = { color: { argb: 'FF0563C1' }, underline: true };
       }
 
       // Add hyperlink for PDF URL if exists

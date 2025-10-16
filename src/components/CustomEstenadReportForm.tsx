@@ -381,12 +381,12 @@ export default function CustomEstenadReportForm({
       {/* Step 1: Upload Author IDs or Biblio Numbers */}
       {currentStep === 1 && (
         <div className="space-y-6">
-          <h3 className={`text-lg font-semibold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>
+          <h3 className={`text-lg font-semibold text-gray-900`}>
             {String(t.steps.step1)}: {String(t.estenad.uploadAuthorIds)}
           </h3>
 
           {/* Input Method Selection */}
-          <div className={`flex gap-4 mb-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
+          <div className={`flex gap-4 mb-4`}>
             <button
               type="button"
               onClick={() => {
@@ -401,7 +401,7 @@ export default function CustomEstenadReportForm({
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              Upload Author IDs
+              {String(t.estenad.uploadAuthorIds)}
             </button>
             <button
               type="button"

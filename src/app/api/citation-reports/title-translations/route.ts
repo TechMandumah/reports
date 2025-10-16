@@ -275,11 +275,11 @@ export async function POST(request: NextRequest) {
       'Biblio Number': item.biblionumber,
       'Title 245': formatMultipleValues(item.titles_245),
       'Title 242': formatMultipleValues(item.titles_242),
-      'Title 246': formatMultipleValues(item.titles_246),
+      // 'Title 246': formatMultipleValues(item.titles_246),
       // 'Author': item.author,
       // 'Year': item.year,
       // 'Journal': item.journal,
-      'PDF URL': item.pdfUrl,
+      // 'PDF URL': item.pdfUrl,
     }));
 
     const worksheet = xlsx.utils.json_to_sheet(excelData);
@@ -294,6 +294,8 @@ export async function POST(request: NextRequest) {
       if (biblioNumberCell && biblioNumberCell.v) {
         const catalogingUrl = `https://citationadmin.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${item.biblionumber}`;
         biblioNumberCell.l = { Target: catalogingUrl, Tooltip: "Click to open in cataloging system" };
+        //Hyperlink the cataloging URL
+        biblioNumberCell.f = `HYPERLINK("${catalogingUrl}", "${item.biblionumber}")`;
       }
 
       // Add hyperlink for PDF URL if exists

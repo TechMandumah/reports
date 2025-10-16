@@ -737,7 +737,7 @@ export async function POST(request: NextRequest) {
     // Create field labels mapping
     const fieldLabels: { [key: string]: string } = {
       biblionumber: 'Biblio Number',
-      url: 'PDF Filename V2',
+      // url: 'PDF Filename V2',
       pdfUrl: 'PDF URL',
       controlNumber: 'Control Number (001)',
       languageCode: 'Language Code (041)',

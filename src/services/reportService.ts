@@ -1,6 +1,5 @@
 import { executeQuery } from '@/lib/database';
 import { BiblioRecord, BiblioMetadata, BiblioItems, ReportQueryResult, QueryFilters } from '@/types/database';
-import { parseMarcXML, extractMarcField, extractMarcSubfields, extractMultipleMarcFields, extractAllMarcFieldInstances, extractMainAuthorWithId, extractAdditionalAuthorsWithIds } from '@/utils/marcParser';
 
 // Query timeout configuration (20 minutes)
 const QUERY_TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes
@@ -436,17 +435,17 @@ const MARC_FIELD_CONFIGS: { [key: string]: { subfields: string[], multiValue?: b
   '242': { subfields: ['a', 'b', 'c'], multiValue: true }, // Translation of Title
   '245': { subfields: ['a', 'b', 'c', 'n', 'p'], multiValue: true }, // Title Statement
   '246': { subfields: ['a', 'b'], multiValue: true }, // Varying Form of Title
-  '260': { subfields: ['a', 'b', 'c'] }, // Publication
+  '260': { subfields: ['a', 'b', 'c', 'g', 'm'] }, // Publication
   '300': { subfields: ['a', 'b', 'c'] }, // Physical Description
   '336': { subfields: ['a', 'b'] }, // Content Type
   '500': { subfields: ['a'] }, // General Note
   '520': { subfields: ['a', 'b', 'd', 'e', 'f'] }, // Summary/Abstract
   '653': { subfields: ['a'], multiValue: true }, // Index Term
-  '692': { subfields: ['a'], multiValue: true }, // Keywords
+  '692': { subfields: ['a', 'b'], multiValue: true }, // Keywords
   '700': { subfields: ['a', 'g', 'q', 'e', '9'], multiValue: true }, // Additional Authors
-  '773': { subfields: ['t', 'g', 'd', 'x'] }, // Host Item
-  '856': { subfields: ['u', 'y', 'z'] }, // Electronic Location
-  '930': { subfields: ['a'] }, // Equivalence
+  '773': { subfields: ['t', 'g', 'd', 'x','4','6','c','e','f','l','m','o','s','v','p'] }, // Host Item
+  '856': { subfields: ['u', 'y', 'z','n'] }, // Electronic Location
+  '930': { subfields: ['d','p','q'] }, // Equivalence
   '995': { subfields: ['a'] }, // Recommendation
 };
 

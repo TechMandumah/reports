@@ -7,6 +7,14 @@ import { extractAllAuthors, formatMultipleValues } from '@/utils/marcParser';
 export const maxDuration = 3000; // 50 minutes
 export const dynamic = 'force-dynamic';
 
+// Interface for hierarchical author structure
+interface HierarchicalAuthorRow {
+  subfield_9: string;
+  subfield_a: string;
+  subfield_g: string;
+  subfield_q: string;
+}
+
 interface CitationAuthorData {
   biblionumber: number;
   // Main author fields (100)
@@ -240,55 +248,48 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Process results with better error handling
-    console.log(`🔄 [${requestId}] Starting MARC XML processing for ${results.length} records...`);
+    // Process results into hierarchical structure like generateHierarchicalAuthorsReport
+    console.log(`🔄 [${requestId}] Creating hierarchical author structure for ${results.length} records...`);
     const processingStart = Date.now();
-    const authorData: CitationAuthorData[] = [];
+    const hierarchicalData: HierarchicalAuthorRow[] = [];
     const processingErrors: string[] = [];
 
     for (let i = 0; i < results.length; i++) {
       const row = results[i];
       try {
-        // Use EXTRACTVALUE results directly - column names match the AS aliases in query
-        authorData.push({
-          biblionumber: row.biblionumber,
-          // Main author fields (100)
-          main_100_a: row['100_a'] || '',
-          main_100_g: row['100_g'] || '',
-          main_100_q: row['100_q'] || '',
-          main_100_e: row['100_e'] || '',
-          main_100_9: row['100_9'] || '',
-          // Additional authors fields (700)
-          add_700_1_a: row['700_1_a'] || '',
-          add_700_1_g: row['700_1_g'] || '',
-          add_700_1_q: row['700_1_q'] || '',
-          add_700_1_e: row['700_1_e'] || '',
-          add_700_1_9: row['700_1_9'] || '',
-          add_700_2_a: row['700_2_a'] || '',
-          add_700_2_g: row['700_2_g'] || '',
-          add_700_2_q: row['700_2_q'] || '',
-          add_700_2_e: row['700_2_e'] || '',
-          add_700_2_9: row['700_2_9'] || '',
-          add_700_3_a: row['700_3_a'] || '',
-          add_700_3_g: row['700_3_g'] || '',
-          add_700_3_q: row['700_3_q'] || '',
-          add_700_3_e: row['700_3_e'] || '',
-          add_700_3_9: row['700_3_9'] || '',
-          add_700_4_a: row['700_4_a'] || '',
-          add_700_4_g: row['700_4_g'] || '',
-          add_700_4_q: row['700_4_q'] || '',
-          add_700_4_e: row['700_4_e'] || '',
-          add_700_4_9: row['700_4_9'] || '',
-          add_700_5_a: row['700_5_a'] || '',
-          add_700_5_g: row['700_5_g'] || '',
-          add_700_5_q: row['700_5_q'] || '',
-          add_700_5_e: row['700_5_e'] || '',
-          add_700_5_9: row['700_5_9'] || '',
-          title: '', // Not queried in this simple version
-          year: '', // Not queried in this simple version
-          journal: '', // Not queried in this simple version
-          url: '',
-          pdfUrl: '',
+        // Extract main author (100 field) if exists
+        const main_100_a = row['100_a'] || '';
+        const main_100_g = row['100_g'] || '';
+        const main_100_q = row['100_q'] || '';
+        const main_100_9 = row['100_9'] || '';
+
+        if (main_100_a || main_100_9) {
+          hierarchicalData.push({
+            subfield_9: main_100_9,
+            subfield_a: main_100_a,
+            subfield_g: main_100_g,
+            subfield_q: main_100_q
+          });
+        }
+
+        // Extract additional authors (700 fields) - up to 5 authors
+        const additionalAuthorFields = [
+          { a: row['700_1_a'], g: row['700_1_g'], q: row['700_1_q'], id: row['700_1_9'] },
+          { a: row['700_2_a'], g: row['700_2_g'], q: row['700_2_q'], id: row['700_2_9'] },
+          { a: row['700_3_a'], g: row['700_3_g'], q: row['700_3_q'], id: row['700_3_9'] },
+          { a: row['700_4_a'], g: row['700_4_g'], q: row['700_4_q'], id: row['700_4_9'] },
+          { a: row['700_5_a'], g: row['700_5_g'], q: row['700_5_q'], id: row['700_5_9'] }
+        ];
+
+        additionalAuthorFields.forEach(author => {
+          if (author.a || author.id) {
+            hierarchicalData.push({
+              subfield_9: author.id || '',
+              subfield_a: author.a || '',
+              subfield_g: author.g || '',
+              subfield_q: author.q || ''
+            });
+          }
         });
 
         // Log progress for large datasets
@@ -298,68 +299,20 @@ export async function POST(request: NextRequest) {
         
         // More frequent logging for first few and last few records
         if (i < 5 || i >= results.length - 5) {
-          console.log(`📝 [${requestId}] Record ${i + 1}: biblionumber=${row.biblionumber}, main_100_a="${row['100_a'] || ''}", hasExtractedData=${!!(row['100_a'] || row['700_1_a'])}`);
+          console.log(`📝 [${requestId}] Record ${i + 1}: biblionumber=${row.biblionumber}, main_100_a="${main_100_a}", hasExtractedData=${!!(main_100_a || row['700_1_a'])}`);
         }
       } catch (error) {
         console.error(`❌ [${requestId}] Error processing record ${i + 1} (biblionumber: ${row.biblionumber}):`, error);
-        console.error(`❌ [${requestId}] Problematic record data:`, {
-          biblionumber: row.biblionumber,
-          extracted_100_a: row['100_a'],
-          extracted_100_9: row['100_9'],
-          extracted_700_1_a: row['700_1_a']
-        });
         processingErrors.push(`Row ${row.biblionumber}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        
-        // Continue with basic data if processing fails
-        authorData.push({
-          biblionumber: row.biblionumber,
-          // Main author fields (100)
-          main_100_a: '',
-          main_100_g: '',
-          main_100_q: '',
-          main_100_e: '',
-          main_100_9: '',
-          // Additional authors fields (700)
-          add_700_1_a: '',
-          add_700_1_g: '',
-          add_700_1_q: '',
-          add_700_1_e: '',
-          add_700_1_9: '',
-          add_700_2_a: '',
-          add_700_2_g: '',
-          add_700_2_q: '',
-          add_700_2_e: '',
-          add_700_2_9: '',
-          add_700_3_a: '',
-          add_700_3_g: '',
-          add_700_3_q: '',
-          add_700_3_e: '',
-          add_700_3_9: '',
-          add_700_4_a: '',
-          add_700_4_g: '',
-          add_700_4_q: '',
-          add_700_4_e: '',
-          add_700_4_9: '',
-          add_700_5_a: '',
-          add_700_5_g: '',
-          add_700_5_q: '',
-          add_700_5_e: '',
-          add_700_5_9: '',
-          title: '',
-          year: '',
-          journal: '',
-          url: '',
-          pdfUrl: '',
-        });
       }
     }
 
     const processingTime = Date.now() - processingStart;
-    console.log(`✅ [${requestId}] MARC XML processing completed:`, {
+    console.log(`✅ [${requestId}] Hierarchical structure created:`, {
       totalTime: `${processingTime}ms`,
-      recordsProcessed: authorData.length,
+      recordsProcessed: hierarchicalData.length,
       processingErrors: processingErrors.length,
-      averageTimePerRecord: authorData.length > 0 ? `${(processingTime / authorData.length).toFixed(2)}ms` : 'N/A',
+      averageTimePerRecord: hierarchicalData.length > 0 ? `${(processingTime / hierarchicalData.length).toFixed(2)}ms` : 'N/A',
       timestamp: new Date().toISOString()
     });
 
@@ -376,165 +329,75 @@ export async function POST(request: NextRequest) {
     connection = null;
     console.log(`✅ [${requestId}] Database connection released`);
 
-    // Create Excel workbook
-    console.log(`📊 [${requestId}] Creating Excel workbook...`);
+    // Create Excel workbook using ExcelJS (like hierarchical authors)
+    console.log(`📊 [${requestId}] Creating Excel workbook with ExcelJS...`);
     const excelStart = Date.now();
-    const workbook = xlsx.utils.book_new();
-    
-    // Prepare data for Excel (without formula-based hyperlinks)
-    console.log(`📝 [${requestId}] Preparing Excel data for ${authorData.length} records...`);
-    const excelData = authorData.map(item => ({
-      'Biblio Number': item.biblionumber,
-      // Main author fields (100)
-      // '100_9 (Main Author ID)': item.main_100_9,
-      '100_a (Main Author)': item.main_100_a,
-      // '100_g (Main Author Dates)': item.main_100_g,
-      '100_q (Main Author Fuller Form)': item.main_100_q,
-      '100_e (Main Author Relator)': item.main_100_e,
-      // Additional author 1 fields (700)
-      // '700_1_9 (Add Author 1 ID)': item.add_700_1_9,
-      '700_1_a (Add Author 1)': item.add_700_1_a,
-      // '700_1_g (Add Author 1 Dates)': item.add_700_1_g,
-      '700_1_q (Add Author 1 Fuller Form)': item.add_700_1_q,
-      '700_1_e (Add Author 1 Relator)': item.add_700_1_e,
-      // Additional author 2 fields (700)
-      // '700_2_9 (Add Author 2 ID)': item.add_700_2_9,
-      '700_2_a (Add Author 2)': item.add_700_2_a,
-      // '700_2_g (Add Author 2 Dates)': item.add_700_2_g,
-      '700_2_q (Add Author 2 Fuller Form)': item.add_700_2_q,
-      '700_2_e (Add Author 2 Relator)': item.add_700_2_e,
-      // Additional author 3 fields (700)
-      // '700_3_9 (Add Author 3 ID)': item.add_700_3_9,
-      '700_3_a (Add Author 3)': item.add_700_3_a,
-      // '700_3_g (Add Author 3 Dates)': item.add_700_3_g,
-      '700_3_q (Add Author 3 Fuller Form)': item.add_700_3_q,
-      '700_3_e (Add Author 3 Relator)': item.add_700_3_e,
-      // Additional author 4 fields (700)
-      // '700_4_9 (Add Author 4 ID)': item.add_700_4_9,
-      '700_4_a (Add Author 4)': item.add_700_4_a,
-      // '700_4_g (Add Author 4 Dates)': item.add_700_4_g,
-      '700_4_q (Add Author 4 Fuller Form)': item.add_700_4_q,
-      '700_4_e (Add Author 4 Relator)': item.add_700_4_e,
-      // Additional author 5 fields (700)
-      // '700_5_9 (Add Author 5 ID)': item.add_700_5_9,
-      '700_5_a (Add Author 5)': item.add_700_5_a,
-      // '700_5_g (Add Author 5 Dates)': item.add_700_5_g,
-      '700_5_q (Add Author 5 Fuller Form)': item.add_700_5_q,
-      '700_5_e (Add Author 5 Relator)': item.add_700_5_e,
-      // 'PDF URL': item.pdfUrl,
-    }));
+    const ExcelJS = require('exceljs');
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Citation Authors');
 
-    console.log(`📋 [${requestId}] Creating worksheet with ${excelData.length} rows...`);
-    const worksheet = xlsx.utils.json_to_sheet(excelData);
-    
-    // Add hyperlinks using cell.l property (safer than formulas)
-    console.log(`🔗 [${requestId}] Adding hyperlinks for ${authorData.length} records...`);
-    for (let row = 1; row <= authorData.length; row++) {
-      const item = authorData[row - 1];
-      
-      // Add hyperlink for Biblio Number to cataloging system
-      const biblioNumberCellRef = xlsx.utils.encode_cell({ r: row, c: 0 });
-      const biblioNumberCell = worksheet[biblioNumberCellRef];
-      if (biblioNumberCell && biblioNumberCell.v) {
-        const catalogingUrl = `https://citationadmin.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${item.biblionumber}`;
-        biblioNumberCell.l = { Target: catalogingUrl, Tooltip: "Click to open in cataloging system" };
-      }
+    // Define columns for hierarchical structure
+    const columns = [
+      { header: 'Subfield 9 (Authority ID)', key: 'subfield_9', width: 20 },
+      { header: 'Subfield a (Name)', key: 'subfield_a', width: 40 },
+      { header: 'Subfield g', key: 'subfield_g', width: 30 },
+      { header: 'Subfield q', key: 'subfield_q', width: 40 }
+    ];
 
-      // Add hyperlink for Main Author if main_100_9 exists
-      const mainAuthorCellRef = xlsx.utils.encode_cell({ r: row, c: 1 }); // 100_a column
-      const mainAuthorCell = worksheet[mainAuthorCellRef];
-      if (mainAuthorCell && mainAuthorCell.v && item.main_100_9 && item.main_100_9.trim()) {
-        const authorUrl = `https://cataloging.mandumah.com/cgi-bin/koha/authorities/authorities.pl?authid=${item.main_100_9}`;
-        mainAuthorCell.l = { Target: authorUrl, Tooltip: "Click to view author authority record" };
-      }
+    worksheet.columns = columns;
 
-      // Add hyperlink for Main Author ID if exists
-      const mainAuthorIdCellRef = xlsx.utils.encode_cell({ r: row, c: 5 }); // 100_9 column
-      const mainAuthorIdCell = worksheet[mainAuthorIdCellRef];
-      if (mainAuthorIdCell && mainAuthorIdCell.v && item.main_100_9 && item.main_100_9.trim()) {
-        const authorUrl = `https://cataloging.mandumah.com/cgi-bin/koha/authorities/authorities.pl?authid=${item.main_100_9}`;
-        mainAuthorIdCell.l = { Target: authorUrl, Tooltip: "Click to view author authority record" };
-      }
-
-      // Add hyperlinks for additional author IDs (700_1_9, 700_2_9, etc.)
-      const additionalAuthorIdColumns = [10, 15, 20, 25, 30]; // Columns for 700_1_9, 700_2_9, 700_3_9, 700_4_9, 700_5_9
-      const additionalAuthorIds = [item.add_700_1_9, item.add_700_2_9, item.add_700_3_9, item.add_700_4_9, item.add_700_5_9];
-      
-      additionalAuthorIdColumns.forEach((colIndex, index) => {
-        const authorId = additionalAuthorIds[index];
-        if (authorId && authorId.trim()) {
-          const cellRef = xlsx.utils.encode_cell({ r: row, c: colIndex });
-          const cell = worksheet[cellRef];
-          if (cell && cell.v) {
-            const authorUrl = `https://cataloging.mandumah.com/cgi-bin/koha/authorities/authorities.pl?authid=${authorId}`;
-            cell.l = { Target: authorUrl, Tooltip: "Click to view author authority record" };
-          }
-        }
+    // Add data rows
+    hierarchicalData.forEach((row, index) => {
+      const excelRow = worksheet.addRow({
+        subfield_9: row.subfield_9 || '',
+        subfield_a: row.subfield_a || '',
+        subfield_g: row.subfield_g || '',
+        subfield_q: row.subfield_q || ''
       });
+    });
 
-      // Add hyperlink for PDF URL if exists (last column)
-      const pdfUrlCellRef = xlsx.utils.encode_cell({ r: row, c: 31 }); // PDF URL column
-      const pdfUrlCell = worksheet[pdfUrlCellRef];
-      if (pdfUrlCell && pdfUrlCell.v && item.pdfUrl && item.pdfUrl.trim()) {
-        pdfUrlCell.l = { Target: item.pdfUrl, Tooltip: "Click to open PDF document" };
-      }
-
-      // Log progress for hyperlinks
-      if (row % 1000 === 0 || row <= 5 || row > authorData.length - 5) {
-        console.log(`🔗 [${requestId}] Added hyperlinks for row ${row}/${authorData.length}`);
+    // Make authority ID column (subfield_9) clickable
+    for (let rowIndex = 2; rowIndex <= hierarchicalData.length + 1; rowIndex++) {
+      const dataRow = hierarchicalData[rowIndex - 2];
+      const cell = worksheet.getCell(rowIndex, 1); // Column 1 is subfield_9
+      const authorityId = cell.value;
+      if (authorityId && authorityId.toString() !== '') {
+        cell.value = {
+          text: authorityId.toString(),
+          hyperlink: `https://cataloging.mandumah.com/cgi-bin/koha/authorities/authorities.pl?authid=${authorityId}`,
+          tooltip: `Open authority record ${authorityId}`
+        };
+        cell.font = { color: { argb: 'FF0563C1' }, underline: true };
       }
     }
-    
-    // Auto-size columns
-    console.log(`📏 [${requestId}] Setting column widths...`);
-    const columnWidths = [
-      { wch: 15 }, // Biblio Number
-      // Main author fields (100)
-      { wch: 30 }, // 100_a (Main Author)
-      { wch: 20 }, // 100_g (Main Author Dates)
-      { wch: 25 }, // 100_q (Main Author Fuller Form)
-      { wch: 20 }, // 100_e (Main Author Relator)
-      { wch: 15 }, // 100_9 (Main Author ID)
-      // Additional author 1 fields (700)
-      { wch: 30 }, // 700_1_a (Add Author 1)
-      { wch: 20 }, // 700_1_g (Add Author 1 Dates)
-      { wch: 25 }, // 700_1_q (Add Author 1 Fuller Form)
-      { wch: 20 }, // 700_1_e (Add Author 1 Relator)
-      { wch: 15 }, // 700_1_9 (Add Author 1 ID)
-      // Additional author 2 fields (700)
-      { wch: 30 }, // 700_2_a (Add Author 2)
-      { wch: 20 }, // 700_2_g (Add Author 2 Dates)
-      { wch: 25 }, // 700_2_q (Add Author 2 Fuller Form)
-      { wch: 20 }, // 700_2_e (Add Author 2 Relator)
-      { wch: 15 }, // 700_2_9 (Add Author 2 ID)
-      // Additional author 3 fields (700)
-      { wch: 30 }, // 700_3_a (Add Author 3)
-      { wch: 20 }, // 700_3_g (Add Author 3 Dates)
-      { wch: 25 }, // 700_3_q (Add Author 3 Fuller Form)
-      { wch: 20 }, // 700_3_e (Add Author 3 Relator)
-      { wch: 15 }, // 700_3_9 (Add Author 3 ID)
-      // Additional author 4 fields (700)
-      { wch: 30 }, // 700_4_a (Add Author 4)
-      { wch: 20 }, // 700_4_g (Add Author 4 Dates)
-      { wch: 25 }, // 700_4_q (Add Author 4 Fuller Form)
-      { wch: 20 }, // 700_4_e (Add Author 4 Relator)
-      { wch: 15 }, // 700_4_9 (Add Author 4 ID)
-      // Additional author 5 fields (700)
-      { wch: 30 }, // 700_5_a (Add Author 5)
-      { wch: 20 }, // 700_5_g (Add Author 5 Dates)
-      { wch: 25 }, // 700_5_q (Add Author 5 Fuller Form)
-      { wch: 20 }, // 700_5_e (Add Author 5 Relator)
-      { wch: 15 }, // 700_5_9 (Add Author 5 ID)
-      { wch: 60 }, // PDF URL
-    ];
-    worksheet['!cols'] = columnWidths;
 
-    xlsx.utils.book_append_sheet(workbook, worksheet, 'Citation Author Translations');
+    // Style the main header row with blue background and white text
+    const headerRow = worksheet.getRow(1);
+    headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 };
+    headerRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF0066CC' }
+    };
+    headerRow.height = 25;
+    headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
 
-    // Generate Excel buffer
+    // Add borders to all cells
+    worksheet.eachRow((row: any, rowNumber: any) => {
+      row.eachCell((cell: any) => {
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+      });
+    });
+
+    // Generate Excel buffer using ExcelJS
     console.log(`💾 [${requestId}] Generating Excel buffer...`);
     const bufferStart = Date.now();
-    const excelBuffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    const excelBuffer = await workbook.xlsx.writeBuffer();
     const bufferTime = Date.now() - bufferStart;
     const excelTime = Date.now() - excelStart;
 
@@ -543,17 +406,17 @@ export async function POST(request: NextRequest) {
       bufferGenerationTime: `${bufferTime}ms`,
       bufferSize: `${excelBuffer.length} bytes`,
       bufferSizeMB: `${(excelBuffer.length / 1024 / 1024).toFixed(2)} MB`,
-      recordCount: authorData.length,
+      recordCount: hierarchicalData.length,
       timestamp: new Date().toISOString()
     });
 
-    const totalProcessingTime = Date.now() - processingStart;
+    const totalProcessingTime = Date.now() - requestStart;
     console.log(`🎉 [${requestId}] Report generation completed successfully:`, {
       totalProcessingTime: `${totalProcessingTime}ms`,
       queryTime: `${queryTime}ms`,
-      marcProcessingTime: `${processingTime}ms`,
+      hierarchicalProcessingTime: `${processingTime}ms`,
       excelGenerationTime: `${excelTime}ms`,
-      recordsProcessed: authorData.length,
+      recordsProcessed: hierarchicalData.length,
       processingErrors: processingErrors.length,
       finalFileSize: `${(excelBuffer.length / 1024 / 1024).toFixed(2)} MB`
     });
@@ -563,8 +426,8 @@ export async function POST(request: NextRequest) {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': `attachment; filename="citation-author-translations-${new Date().toISOString().split('T')[0]}.xlsx"`,
-        'X-Record-Count': authorData.length.toString(),
+        'Content-Disposition': `attachment; filename="citation-author-hierarchical-${new Date().toISOString().split('T')[0]}.xlsx"`,
+        'X-Record-Count': hierarchicalData.length.toString(),
         'X-Processing-Errors': processingErrors.length.toString(),
         'X-Processing-Time': totalProcessingTime.toString(),
         'X-Request-ID': requestId,

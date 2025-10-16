@@ -337,6 +337,7 @@ export async function POST(request: NextRequest) {
       'Subfield a (Name)': item.subfield_a,
       'Subfield q (Fuller Name)': item.subfield_q,
        'link': `https://citationadmin.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${item.biblionumber}`,
+       'formula': `=HYPERLINK(CONCATENATE("https://citationadmin.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=",A2,),A2)`
     }));
 
     const worksheet = xlsx.utils.json_to_sheet(excelData);

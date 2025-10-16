@@ -276,6 +276,8 @@ export async function POST(request: NextRequest) {
       'Title 245': formatMultipleValues(item.titles_245),
       'Title 242': formatMultipleValues(item.titles_242),
       'link': `https://citationadmin.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${item.biblionumber}`,
+             'formula': `=HYPERLINK(CONCATENATE("https://citationadmin.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=",A2,),A2)`
+
       // 'Title 246': formatMultipleValues(item.titles_246),
       // 'Author': item.author,
       // 'Year': item.year,

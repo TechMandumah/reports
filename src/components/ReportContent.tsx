@@ -181,6 +181,7 @@ export default function ReportContent({ activeReport }: ReportContentProps) {
         body: JSON.stringify({
           reportType: 'custom_estenad_report',
           authorIds: formData.authorIds,
+          biblioNumbers: formData.biblioNumbers,
           selectedFields: formData.selectedFields,
           isPreview: false
         })

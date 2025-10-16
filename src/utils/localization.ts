@@ -45,6 +45,7 @@ export interface Translations {
   // Abstract Filter
   abstractFilter: {
     filterByAbstractType: string;
+    abstractType: string;
     withoutAbstract: string;
     withoutAbstractDesc: string;
     missingEnglish: string;
@@ -236,19 +237,28 @@ export interface Translations {
   // Estenad (Authority) Reports
   estenad: {
     uploadAuthorIds: string;
+    uploadBiblioNumbers: string;
     authorIdsFile: string;
     authorIdsFileRequired: string;
+    biblioNumbersFile: string;
+    biblioNumbersFileRequired: string;
     uploadAuthorIdsHelper: string;
+    uploadBiblioNumbersHelper: string;
     foundValidAuthorIds: string;
+    foundValidBiblioNumbers: string;
     andMore: string;
     validationErrors: string;
     pleaseUploadTxtFile: string;
     pleaseUploadAuthorIdsFile: string;
+    pleaseUploadBiblioNumbersFile: string;
     pleaseSelectMarcField: string;
     subfields: string;
     showingFirstRecords: string;
     recordsOutOf: string;
     totalAuthorIds: string;
+    biblioNumbersRecords: string;
+    startYear: string;
+    endYear: string;
     failedLoadPreview: string;
     authorIdsRecords: string;
     successfullyExported: string;
@@ -534,6 +544,7 @@ export const translations: Record<Language, Translations> = {
 
     abstractFilter: {
       filterByAbstractType: 'Filter by Abstract Type',
+      abstractType: 'Abstract Type',
       withoutAbstract: 'Without Abstract (520)',
       withoutAbstractDesc: 'Records with no field 520',
       missingEnglish: 'Missing English',
@@ -608,19 +619,28 @@ export const translations: Record<Language, Translations> = {
     },
     estenad: {
       uploadAuthorIds: 'Upload Author IDs',
+      uploadBiblioNumbers: 'Upload Biblio Numbers',
       authorIdsFile: 'Author IDs File',
       authorIdsFileRequired: 'Author IDs File (Required)',
+      biblioNumbersFile: 'Biblio Numbers File',
+      biblioNumbersFileRequired: 'Biblio Numbers File (Required)',
       uploadAuthorIdsHelper: 'Upload a .txt file with author IDs (authid from auth_header table). One per line or comma-separated.',
+      uploadBiblioNumbersHelper: 'Upload a .txt file with biblio numbers. One per line or comma-separated.',
       foundValidAuthorIds: 'Found {count} valid author IDs',
+      foundValidBiblioNumbers: 'Found {count} valid biblio numbers',
       andMore: 'and {count} more',
       validationErrors: 'Validation Errors',
       pleaseUploadTxtFile: 'Please upload a .txt file',
       pleaseUploadAuthorIdsFile: 'Please upload an author IDs file',
+      pleaseUploadBiblioNumbersFile: 'Please upload a biblio numbers file',
       pleaseSelectMarcField: 'Please select at least one MARC field',
       subfields: 'Subfields',
       showingFirstRecords: 'Showing first {count} records out of {total} total author IDs',
       recordsOutOf: 'records out of',
       totalAuthorIds: 'total author IDs',
+      biblioNumbersRecords: 'Biblio Numbers: {count} records',
+      startYear: 'Start Year',
+      endYear: 'End Year',
       failedLoadPreview: 'Failed to load preview data. Please try again.',
       authorIdsRecords: 'Author IDs: {count} records',
       successfullyExported: 'Successfully exported {count} author records',
@@ -835,6 +855,7 @@ export const translations: Record<Language, Translations> = {
 
     abstractFilter: {
       filterByAbstractType: 'فلترة حسب نوع الملخص',
+      abstractType: 'نوع الملخص',
       withoutAbstract: 'بدون ملخص (520)',
       withoutAbstractDesc: 'السجلات التي لا تحتوي على الحقل 520',
       missingEnglish: 'مفقود باللغة الإنجليزية',
@@ -909,19 +930,28 @@ export const translations: Record<Language, Translations> = {
     },
     estenad: {
       uploadAuthorIds: 'رفع معرفات المؤلفين',
+      uploadBiblioNumbers: 'رفع أرقام الببليو',
       authorIdsFile: 'ملف معرفات المؤلفين',
       authorIdsFileRequired: 'ملف معرفات المؤلفين (مطلوب)',
+      biblioNumbersFile: 'ملف أرقام الببليو',
+      biblioNumbersFileRequired: 'ملف أرقام الببليو (مطلوب)',
       uploadAuthorIdsHelper: 'ارفع ملف .txt يحتوي على معرفات المؤلفين (authid من جدول auth_header). واحد في كل سطر أو مفصولة بفواصل.',
+      uploadBiblioNumbersHelper: 'ارفع ملف .txt يحتوي على أرقام الببليو. واحد في كل سطر أو مفصولة بفواصل.',
       foundValidAuthorIds: 'تم العثور على {count} معرف مؤلف صحيح',
+      foundValidBiblioNumbers: 'تم العثور على {count} رقم ببليو صحيح',
       andMore: 'و {count} آخرين',
       validationErrors: 'أخطاء التحقق',
       pleaseUploadTxtFile: 'يرجى رفع ملف .txt',
       pleaseUploadAuthorIdsFile: 'يرجى رفع ملف معرفات المؤلفين',
+      pleaseUploadBiblioNumbersFile: 'يرجى رفع ملف أرقام الببليو',
       pleaseSelectMarcField: 'يرجى اختيار حقل مارك واحد على الأقل',
       subfields: 'الحقول الفرعية',
       showingFirstRecords: 'عرض أول {count} سجلات من أصل {total} معرف مؤلف إجمالي',
       recordsOutOf: 'سجلات من أصل',
       totalAuthorIds: 'معرف مؤلف إجمالي',
+      biblioNumbersRecords: 'أرقام الببليو: {count} سجلات',
+      startYear: 'سنة البداية',
+      endYear: 'سنة النهاية',
       failedLoadPreview: 'فشل في تحميل بيانات المعاينة. يرجى المحاولة مرة أخرى.',
       authorIdsRecords: 'معرفات المؤلفين: {count} سجلات',
       successfullyExported: 'تم تصدير {count} سجل مؤلف بنجاح',

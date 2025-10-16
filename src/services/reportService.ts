@@ -981,9 +981,71 @@ export async function getAuthHeaderRecords(authorIds: string[], selectedFields: 
   }
 }
 
+// Extract author IDs from biblio records (similar to hierarchical authors)
+export async function extractAuthorIdsFromBiblio(filters: QueryFilters): Promise<string[]> {
+  // Get bibliographic records with MARC data
+  const biblioRecords = await getBiblioRecords(filters);
+  
+  if (biblioRecords.length === 0) {
+    return [];
+  }
+
+  const authorIds = new Set<string>();
+
+  // Process each record to extract author IDs
+  biblioRecords.forEach(record => {
+    // Extract main author ID (100 field)
+    const main_100_9 = (record as any).marc_100_9 || '';
+    if (main_100_9 && main_100_9.toString().trim() !== '') {
+      authorIds.add(main_100_9.toString().trim());
+    }
+
+    // Extract additional author IDs (700 fields) - up to 5 authors
+    const additionalAuthorIds = [
+      (record as any).marc_700_1_9,
+      (record as any).marc_700_2_9,
+      (record as any).marc_700_3_9,
+      (record as any).marc_700_4_9,
+      (record as any).marc_700_5_9
+    ];
+
+    additionalAuthorIds.forEach(id => {
+      if (id && id.toString().trim() !== '') {
+        authorIds.add(id.toString().trim());
+      }
+    });
+  });
+
+  const uniqueAuthorIds = Array.from(authorIds);
+  console.log(`📊 Extracted ${uniqueAuthorIds.length} unique author IDs from ${biblioRecords.length} biblio records`);
+  
+  return uniqueAuthorIds;
+}
+
 // Generate custom estenad report with selected MARC fields
 export async function generateCustomEstenadReport(filters: QueryFilters): Promise<ReportQueryResult[]> {
-  const { authorIds, selectedFields = [], isPreview = false } = filters;
+  let { authorIds, selectedFields = [], isPreview = false, biblioNumbers } = filters;
+  
+  // If biblio numbers provided, extract author IDs from those biblio records first
+  if (biblioNumbers && biblioNumbers.length > 0) {
+    console.log(`🔍 Extracting author IDs from ${biblioNumbers.length} biblio records`);
+    
+    // Create filters for getBiblioRecords to extract author IDs
+    // This follows the same pattern as generateHierarchicalAuthorsReport
+    const biblioFilters: QueryFilters = {
+      biblioNumbers,
+      selectedFields: [] // We'll use default fields from getBiblioRecords
+    };
+    
+    authorIds = await extractAuthorIdsFromBiblio(biblioFilters);
+    
+    if (!authorIds || authorIds.length === 0) {
+      console.log('⚠️ No author IDs found in the specified biblio records');
+      return [];
+    }
+    
+    console.log(`✅ Extracted ${authorIds.length} unique author IDs from biblio records`);
+  }
   
   if (!authorIds || authorIds.length === 0) {
     throw new Error('Author IDs are required for estenad report');

@@ -8,11 +8,12 @@ export const maxDuration = 300; // 5 minutes
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { reportType, authorIds, selectedFields, isPreview } = body;
+    const { reportType, authorIds, biblioNumbers, selectedFields, isPreview } = body;
 
     console.log('📝 Estenad Report API Request:', {
       reportType,
       authorIdsCount: authorIds?.length || 0,
+      biblioNumbersCount: biblioNumbers?.length || 0,
       selectedFieldsCount: selectedFields?.length || 0,
       isPreview
     });
@@ -25,9 +26,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!authorIds || !Array.isArray(authorIds) || authorIds.length === 0) {
+    // Check that either authorIds or biblioNumbers is provided
+    if ((!authorIds || !Array.isArray(authorIds) || authorIds.length === 0) && 
+        (!biblioNumbers || !Array.isArray(biblioNumbers) || biblioNumbers.length === 0)) {
       return NextResponse.json(
-        { error: 'Author IDs are required' },
+        { error: 'Either Author IDs or Biblio Numbers are required' },
         { status: 400 }
       );
     }
@@ -42,6 +45,7 @@ export async function POST(request: NextRequest) {
     // Build filters
     const filters: QueryFilters = {
       authorIds,
+      biblioNumbers,
       selectedFields,
       isPreview: isPreview || false
     };

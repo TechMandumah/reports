@@ -42,6 +42,9 @@ export default function CustomEstenadReportForm({
   const [authorIds, setAuthorIds] = useState<string[]>([]);
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+  const [inputMethod, setInputMethod] = useState<'author' | 'biblio'>('author');
+  const [biblioUploadedFile, setBiblioUploadedFile] = useState<File | null>(null);
+  const [biblioNumbers, setBiblioNumbers] = useState<string[]>([]);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -131,6 +134,95 @@ export default function CustomEstenadReportForm({
     return { isValid: true, errors: [] };
   };
 
+  // Biblio file upload handler
+  const handleBiblioFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.includes('text') && !file.name.endsWith('.txt')) {
+      setValidationErrors([String(t.estenad.pleaseUploadTxtFile)]);
+      return;
+    }
+
+    setBiblioUploadedFile(file);
+    
+    try {
+      const text = await file.text();
+      const { numbers, errors } = parseAndValidateBiblioNumbers(text);
+      setBiblioNumbers(numbers);
+      
+      if (errors.length > 0) {
+        setValidationErrors(errors);
+      } else {
+        setValidationErrors([]);
+      }
+    } catch (error) {
+      setValidationErrors(['Error reading file']);
+    }
+  };
+
+  const parseAndValidateBiblioNumbers = (text: string): { numbers: string[]; errors: string[] } => {
+    const lines = text.split(/\r?\n/);
+    const numbers: string[] = [];
+    const errors: string[] = [];
+    
+    lines.forEach((line, lineIndex) => {
+      const lineNumber = lineIndex + 1;
+      const trimmedLine = line.trim();
+      
+      // Skip empty lines
+      if (trimmedLine === '') {
+        return;
+      }
+      
+      // Check if line contains comma-separated values
+      if (trimmedLine.includes(',')) {
+        const values = trimmedLine.split(',');
+        values.forEach((value, valueIndex) => {
+          const trimmedValue = value.trim();
+          if (trimmedValue === '') return;
+          
+          const validation = validateSingleBiblioNumber(trimmedValue, lineNumber, valueIndex + 1, true);
+          if (validation.isValid) {
+            numbers.push(trimmedValue);
+          } else {
+            errors.push(...validation.errors);
+          }
+        });
+      } else {
+        // Single value per line
+        const validation = validateSingleBiblioNumber(trimmedLine, lineNumber, 1, false);
+        if (validation.isValid) {
+          numbers.push(trimmedLine);
+        } else {
+          errors.push(...validation.errors);
+        }
+      }
+    });
+    
+    return { numbers, errors };
+  };
+
+  const validateSingleBiblioNumber = (value: string, lineNumber: number, position: number, isCommaSeparated: boolean): { isValid: boolean; errors: string[] } => {
+    const errors: string[] = [];
+    const positionText = isCommaSeparated ? `, position ${position}` : '';
+    
+    // Check for non-numeric characters
+    if (!/^\d+$/.test(value)) {
+      const invalidChars = value.match(/[^\d]/g)?.join('') || '';
+      errors.push(`Line ${lineNumber}${positionText}: "${value}" contains invalid characters (${invalidChars}). Only digits 0-9 are allowed for biblio numbers.`);
+      return { isValid: false, errors };
+    }
+    
+    // Biblio numbers can be any length
+    if (value.length === 0) {
+      errors.push(`Line ${lineNumber}${positionText}: Empty biblio number found.`);
+      return { isValid: false, errors };
+    }
+    
+    return { isValid: true, errors: [] };
+  };
+
   const clearFormInputs = () => {
     setSelectedFields([]);
     setValidationErrors([]);
@@ -138,11 +230,19 @@ export default function CustomEstenadReportForm({
     setAuthorIds([]);
     setPreviewData([]);
     setCurrentStep(1);
+    setInputMethod('author');
+    setBiblioUploadedFile(null);
+    setBiblioNumbers([]);
   };
 
   const handleStep1Next = () => {
-    if (authorIds.length === 0) {
+    if (inputMethod === 'author' && authorIds.length === 0) {
       setValidationErrors([String(t.estenad.pleaseUploadAuthorIdsFile)]);
+      return;
+    }
+    
+    if (inputMethod === 'biblio' && biblioNumbers.length === 0) {
+      setValidationErrors([String(t.estenad.pleaseUploadBiblioNumbersFile)]);
       return;
     }
     
@@ -183,17 +283,24 @@ export default function CustomEstenadReportForm({
   const loadPreviewData = async () => {
     setIsLoadingPreview(true);
     try {
+      const requestBody: any = {
+        reportType: 'custom_estenad_report',
+        selectedFields,
+        isPreview: true
+      };
+
+      if (inputMethod === 'author') {
+        requestBody.authorIds = authorIds.slice(0, 5); // Preview first 5
+      } else if (inputMethod === 'biblio') {
+        requestBody.biblioNumbers = biblioNumbers;
+      }
+
       const response = await fetch('/api/estenad-reports', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          reportType: 'custom_estenad_report',
-          authorIds: authorIds.slice(0, 5), // Preview first 5
-          selectedFields,
-          isPreview: true
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
@@ -212,8 +319,13 @@ export default function CustomEstenadReportForm({
   };
 
   const handleExport = (exportType: 'sample' | 'full') => {
-    if (authorIds.length === 0) {
+    if (inputMethod === 'author' && authorIds.length === 0) {
       setValidationErrors([String(t.estenad.pleaseUploadAuthorIdsFile)]);
+      return;
+    }
+
+    if (inputMethod === 'biblio' && biblioNumbers.length === 0) {
+      setValidationErrors([String(t.estenad.pleaseUploadBiblioNumbersFile)]);
       return;
     }
 
@@ -222,7 +334,9 @@ export default function CustomEstenadReportForm({
     
     const formData = {
       reportType: 'custom_estenad_report',
-      authorIds: exportType === 'sample' ? authorIds.slice(0, 10) : authorIds,
+      inputMethod,
+      authorIds: inputMethod === 'author' ? (exportType === 'sample' ? authorIds.slice(0, 10) : authorIds) : undefined,
+      biblioNumbers: inputMethod === 'biblio' ? biblioNumbers : undefined,
       selectedFields,
       exportType
     };
@@ -264,18 +378,56 @@ export default function CustomEstenadReportForm({
         </div>
       </div>
 
-      {/* Step 1: Upload Author IDs */}
+      {/* Step 1: Upload Author IDs or Biblio Numbers */}
       {currentStep === 1 && (
         <div className="space-y-6">
           <h3 className={`text-lg font-semibold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>
             {String(t.steps.step1)}: {String(t.estenad.uploadAuthorIds)}
           </h3>
+
+          {/* Input Method Selection */}
+          <div className={`flex gap-4 mb-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
+            <button
+              type="button"
+              onClick={() => {
+                setInputMethod('author');
+                setBiblioUploadedFile(null);
+                setBiblioNumbers([]);
+                setValidationErrors([]);
+              }}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                inputMethod === 'author'
+                  ? 'bg-red-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Upload Author IDs
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setInputMethod('biblio');
+                setUploadedFile(null);
+                setAuthorIds([]);
+                setValidationErrors([]);
+              }}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                inputMethod === 'biblio'
+                  ? 'bg-red-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {String(t.estenad.uploadBiblioNumbers)}
+            </button>
+          </div>
           
           <div className="grid grid-cols-1 gap-6">
-            <div>
-              <label htmlFor="authorIdsUpload" className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>
-                {String(t.estenad.authorIdsFileRequired)}
-              </label>
+            {/* Author IDs Upload */}
+            {inputMethod === 'author' && (
+              <div>
+                <label htmlFor="authorIdsUpload" className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>
+                  {String(t.estenad.authorIdsFileRequired)}
+                </label>
               
               <input
                 id="authorIdsUpload"
@@ -316,7 +468,57 @@ export default function CustomEstenadReportForm({
                   )}
                 </div>
               )}
-            </div>
+              </div>
+            )}
+
+            {/* Biblio Numbers Upload */}
+            {inputMethod === 'biblio' && (
+              <div>
+                <label htmlFor="biblioUpload" className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>
+                  {String(t.estenad.biblioNumbersFileRequired)}
+                </label>
+                
+                <input
+                  id="biblioUpload"
+                  type="file"
+                  accept=".txt,text/plain"
+                  onChange={handleBiblioFileUpload}
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 text-black ${isRTL ? 'text-right' : 'text-left'}`}
+                />
+                <p className={`mt-2 text-xs text-gray-500 ${isRTL ? 'text-right' : 'text-left'}`}>
+                  {String(t.estenad.uploadBiblioNumbersHelper)}
+                </p>
+                
+                {biblioUploadedFile && (
+                  <div className={`mt-3 p-3 border rounded-md ${
+                    validationErrors.length > 0 
+                      ? 'bg-yellow-50 border-yellow-200' 
+                      : 'bg-green-50 border-green-200'
+                  }`}>
+                    <div className="flex items-center">
+                      <svg className="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="text-sm font-medium text-gray-700">
+                        {biblioUploadedFile.name}
+                      </span>
+                    </div>
+                    {biblioNumbers.length > 0 && validationErrors.length === 0 && (
+                      <div className="mt-2 text-sm text-green-700">
+                        ✓ {String(t.estenad.foundValidBiblioNumbers.replace('{count}', biblioNumbers.length.toString()))}: {biblioNumbers.slice(0, 10).join(', ')}
+                        {biblioNumbers.length > 10 && ` ${String(t.estenad.andMore.replace('{count}', (biblioNumbers.length - 10).toString()))}`}
+                      </div>
+                    )}
+                    {validationErrors.length > 0 && biblioNumbers.length > 0 && (
+                      <div className="mt-2 text-sm text-green-700">
+                        ✓ {String(t.estenad.foundValidBiblioNumbers.replace('{count}', biblioNumbers.length.toString()))}: {biblioNumbers.slice(0, 5).join(', ')}
+                        {biblioNumbers.length > 5 && ` ${String(t.estenad.andMore.replace('{count}', (biblioNumbers.length - 5).toString()))}`}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             
             {/* Validation Errors */}
             {validationErrors.length > 0 && (
@@ -347,7 +549,7 @@ export default function CustomEstenadReportForm({
           <div className={`flex ${isRTL ? 'justify-start' : 'justify-end'}`}>
             <button
               onClick={handleStep1Next}
-              disabled={authorIds.length === 0}
+              disabled={(inputMethod === 'author' && authorIds.length === 0) || (inputMethod === 'biblio' && biblioNumbers.length === 0)}
               className="bg-red-600 text-white px-6 py-2 rounded-md hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {String(t.steps.nextSelectFields)}
@@ -516,7 +718,15 @@ export default function CustomEstenadReportForm({
               {String(t.steps.reportSummary)}:
             </h4>
             <ul className={`text-sm text-green-800 space-y-1 ${isRTL ? 'text-right' : 'text-left'}`}>
-              <li>• {String(t.estenad.authorIdsRecords).replace('{count}', authorIds.length.toString())}</li>
+              {inputMethod === 'author' && (
+                <li>• {String(t.estenad.authorIdsRecords).replace('{count}', authorIds.length.toString())}</li>
+              )}
+              {inputMethod === 'biblio' && (
+                <>
+                  <li>• {String(t.estenad.biblioNumbersRecords.replace('{count}', biblioNumbers.length.toString()))}</li>
+                  <li>• (Author IDs will be extracted from these biblio records)</li>
+                </>
+              )}
               <li>• {String(t.steps.selectedFields)}: {selectedFields.length} {String(t.steps.fields)}</li>
             </ul>
           </div>

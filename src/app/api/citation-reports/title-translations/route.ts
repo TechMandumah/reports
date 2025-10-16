@@ -296,6 +296,8 @@ export async function POST(request: NextRequest) {
         
         // Add hyperlink
         biblioNumberCell.l = { Target: catalogingUrl, Tooltip: "Click to open in cataloging system" };
+
+        biblioNumberCell.f = `HYPERLINK("${catalogingUrl}", "${item.biblionumber}")`;
         
         // Add cell style for blue color and underline (xlsx library uses 's' property for styles)
         biblioNumberCell.s = { 

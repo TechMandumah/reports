@@ -326,78 +326,59 @@ export async function POST(request: NextRequest) {
     connection = null;
     console.log(`✅ [${requestId}] Database connection released`);
 
-    // Create Excel workbook using ExcelJS (like hierarchical authors)
-    console.log(`📊 [${requestId}] Creating Excel workbook with ExcelJS...`);
+    // Create Excel workbook using xlsx library (same as title-translations)
+    console.log(`📊 [${requestId}] Creating Excel workbook with xlsx...`);
     const excelStart = Date.now();
-    const ExcelJS = require('exceljs');
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Citation Authors');
+    const workbook = xlsx.utils.book_new();
+    
+    // Prepare data for Excel
+    const excelData = hierarchicalData.map((item: HierarchicalAuthorRow) => ({
+      'Biblio Number': item.biblionumber,
+      'Subfield a (Name)': item.subfield_a,
+      'Subfield q (Fuller Name)': item.subfield_q
+    }));
 
-    // Define columns for hierarchical structure
-    const columns = [
-      { header: 'Biblio Number', key: 'biblionumber', width: 20 },
-      { header: 'Subfield a (Name)', key: 'subfield_a', width: 40 },
-      { header: 'Subfield q (Fuller Name)', key: 'subfield_q', width: 40 }
-    ];
-
-    worksheet.columns = columns;
-
-    // Add data rows
-    hierarchicalData.forEach((row, index) => {
-      const excelRow = worksheet.addRow({
-        biblionumber: row.biblionumber || '',
-        subfield_a: row.subfield_a || '',
-        subfield_q: row.subfield_q || ''
-      });
-    });
-
-    // Make biblio number column clickable
-    for (let rowIndex = 2; rowIndex <= hierarchicalData.length + 1; rowIndex++) {
-      const dataRow = hierarchicalData[rowIndex - 2];
-      const cell = worksheet.getCell(rowIndex, 1); // Column 1 is biblionumber
-      const biblionumber = cell.value;
-      if (biblionumber && biblionumber.toString() !== '') {
-        const catalogingUrl = `https://citationadmin.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${biblionumber}`;
+    const worksheet = xlsx.utils.json_to_sheet(excelData);
+    
+    // Add hyperlinks using cell.l property (same as title-translations)
+    for (let row = 1; row <= hierarchicalData.length; row++) {
+      const item = hierarchicalData[row - 1];
+      
+      // Add hyperlink for Biblio Number to cataloging system
+      const biblioNumberCellRef = xlsx.utils.encode_cell({ r: row, c: 0 });
+      const biblioNumberCell = worksheet[biblioNumberCellRef];
+      if (biblioNumberCell && biblioNumberCell.v) {
+        const catalogingUrl = `https://citationadmin.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${item.biblionumber}`;
         
-        // Set hyperlink using ExcelJS proper syntax
-        cell.value = {
-          text: biblionumber.toString(),
-          hyperlink: catalogingUrl,
-          tooltip: `Open biblio record ${biblionumber}`
+        // Add hyperlink
+        biblioNumberCell.l = { Target: catalogingUrl, Tooltip: "Click to open in cataloging system" };
+
+        biblioNumberCell.f = `HYPERLINK("${catalogingUrl}", "${item.biblionumber}")`;
+        
+        // Add cell style for blue color and underline (xlsx library uses 's' property for styles)
+        biblioNumberCell.s = { 
+          font: { 
+            color: { rgb: "0563C1" }, 
+            underline: true 
+          } 
         };
-        
-        // Style the cell with blue color and underline
-        cell.font = { color: { argb: 'FF0563C1' }, underline: true };
       }
     }
+    
+    // Auto-size columns
+    const columnWidths = [
+      { wch: 20 }, // Biblio Number
+      { wch: 40 }, // Subfield a (Name)
+      { wch: 40 }, // Subfield q (Fuller Name)
+    ];
+    worksheet['!cols'] = columnWidths;
 
-    // Style the main header row with blue background and white text
-    const headerRow = worksheet.getRow(1);
-    headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 };
-    headerRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FF0066CC' }
-    };
-    headerRow.height = 25;
-    headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+    xlsx.utils.book_append_sheet(workbook, worksheet, 'Citation Authors');
 
-    // Add borders to all cells
-    worksheet.eachRow((row: any, rowNumber: any) => {
-      row.eachCell((cell: any) => {
-        cell.border = {
-          top: { style: 'thin' },
-          left: { style: 'thin' },
-          bottom: { style: 'thin' },
-          right: { style: 'thin' }
-        };
-      });
-    });
-
-    // Generate Excel buffer using ExcelJS
+    // Generate Excel buffer
     console.log(`💾 [${requestId}] Generating Excel buffer...`);
     const bufferStart = Date.now();
-    const excelBuffer = await workbook.xlsx.writeBuffer();
+    const excelBuffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
     const bufferTime = Date.now() - bufferStart;
     const excelTime = Date.now() - excelStart;
 

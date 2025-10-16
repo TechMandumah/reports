@@ -340,12 +340,12 @@ export default function PredefinedReportForm({
     const errors: string[] = [];
     const positionText = isCommaSeparated ? `, position ${position}` : '';
     
-    // Check for URL pattern like '0005-343-232.pdf'
-    // Format: XXXX-XXX-XXX.pdf where X is a digit
-    const urlPattern = /^\d{4}-\d{3}-\d{3}\.pdf$/;
+    // Check for URL pattern like '0005-343-232-123.pdf'
+    // Format: XXXX-xxx-xxx-xxx.pdf where X is a digit
+    const urlPattern = /^\d{4}-\d{3}-\d{3}-\d{3}\.pdf$/;
     
     if (!urlPattern.test(value)) {
-      errors.push(`Line ${lineNumber}${positionText}: "${value}" is not a valid URL format. Expected format: XXXX-XXX-XXX.pdf (e.g., 0005-343-232.pdf)`);
+      errors.push(`Line ${lineNumber}${positionText}: "${value}" is not a valid URL format. Expected format: XXXX-xxx-xxx-xxx.pdf (e.g., 0005-343-232-123.pdf)`);
       return { isValid: false, errors };
     }
     
@@ -693,7 +693,7 @@ export default function PredefinedReportForm({
                 className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 bg-gray-50 focus:bg-white text-gray-900"
               />
               <p className="mt-2 text-sm text-gray-600">
-                Upload a .txt file with URLs in format: XXXX-XXX-XXX.pdf (e.g., 0005-343-232.pdf), one per line or comma-separated
+                Upload a .txt file with URLs in format: XXXX-xxx-xxx-xxx.pdf (e.g., 0005-343-232-123.pdf), one per line or comma-separated
               </p>
               
               {urlUploadedFile && (

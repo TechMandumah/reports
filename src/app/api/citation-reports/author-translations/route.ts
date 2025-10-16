@@ -336,8 +336,8 @@ export async function POST(request: NextRequest) {
       'Biblio Number': item.biblionumber,
       'Subfield a (Name)': item.subfield_a,
       'Subfield q (Fuller Name)': item.subfield_q,
-      //  'link': `https://citationadmin.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${item.biblionumber}`,
-                   'link_formula': `=HYPERLINK("https://citationadmin.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=A2", "A2")`,
+       'link': `https://citationadmin.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${item.biblionumber}`,
+                  //  'link_formula': `=HYPERLINK("https://citationadmin.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=A2", "A2")`,
 
     }));
 

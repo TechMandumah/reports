@@ -109,6 +109,7 @@ export interface Translations {
       exportCitationTitles: string;
       exportCitationAuthors: string;
       customEstenadReport: string;
+      estenadUniversityReport: string;
     };
   };
 
@@ -404,6 +405,7 @@ export const translations: Record<Language, Translations> = {
         exportCitationTitles: 'Export Citation Titles',
         exportCitationAuthors: 'Export Citation Authors',
         customEstenadReport: 'Custom Estenad Report',
+        estenadUniversityReport: 'Estenad Universities Translations',
       },
     },
     reportContent: {
@@ -715,6 +717,7 @@ export const translations: Record<Language, Translations> = {
         exportCitationTitles: 'تصدير عناوين الاستشهاد',
         exportCitationAuthors: 'تصدير مؤلفي الاستشهاد',
         customEstenadReport: 'تقرير إستناد مخصص',
+        estenadUniversityReport: 'تقرير ترجمات الجامعات للإسناد',
       },
     },
     reportContent: {

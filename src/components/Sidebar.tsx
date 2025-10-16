@@ -46,7 +46,8 @@ export default function Sidebar({ activeReport, setActiveReport }: SidebarProps)
     {
       nameKey: 'sidebar.estenadReports',
       items: [
-        { nameKey: 'sidebar.reports.customEstenadReport', id: "custom_estenad_report" }
+        { nameKey: 'sidebar.reports.customEstenadReport', id: "custom_estenad_report" },
+        { nameKey: 'sidebar.reports.estenadUniversityReport', id: "estenad_university_report" }
       ]
     },
     {

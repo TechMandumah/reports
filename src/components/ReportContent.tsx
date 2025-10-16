@@ -9,6 +9,7 @@ import CitationTitleTranslations from './CitationReports/CitationTitleTranslatio
 import CitationAuthorTranslations from './CitationReports/CitationAuthorTranslations';
 import CustomCitationReportForm from './CitationReports/CustomCitationReportForm';
 import CustomEstenadReportForm from './CustomEstenadReportForm';
+import EstenadUniversityReportForm from './EstenadUniversityReportForm';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation, Translations } from '@/utils/localization';
 
@@ -217,6 +218,7 @@ export default function ReportContent({ activeReport }: ReportContentProps) {
   const isCustomReport = activeReport === 'custom_report';
   const isCitationReport = ['export_citation_titles', 'export_citation_authors', 'custom_citation_report'].includes(activeReport);
   const isEstenadReport = activeReport === 'custom_estenad_report';
+  const isEstenadUniversityReport = activeReport === 'estenad_university_report';
 
   // Render estenad reports directly without the wrapper
   if (isEstenadReport) {
@@ -247,6 +249,27 @@ export default function ReportContent({ activeReport }: ReportContentProps) {
       showSuccessMessage={safeShowSuccess}
     />
       </div>;
+  }
+
+  // Render estenad university report
+  if (isEstenadUniversityReport) {
+    const safeRecordCount = typeof recordCount === 'number' ? recordCount : 0;
+    const safeIsGenerating = typeof isGenerating === 'boolean' ? isGenerating : false;
+    const safeShowSuccess = typeof showSuccessMessage === 'boolean' ? showSuccessMessage : false;
+    
+    return <div className="bg-white rounded-2xl shadow-lg border-2 border-gray-100 p-8">
+      <div className={`flex items-center ${isRTL ? 'space-x-reverse space-x-3' : 'space-x-3'} mb-6`}>
+        <h3 className={`text-xl font-bold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>
+          {t.forms.reportParameters}
+        </h3>
+      </div>
+      <EstenadUniversityReportForm 
+        onGenerate={handleGenerateEstenadReport}
+        isGenerating={safeIsGenerating}
+        recordCount={safeRecordCount}
+        showSuccessMessage={safeShowSuccess}
+      />
+    </div>;
   }
 
   // Render citation reports directly without the wrapper

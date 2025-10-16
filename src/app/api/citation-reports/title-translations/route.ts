@@ -275,6 +275,7 @@ export async function POST(request: NextRequest) {
       'Biblio Number': item.biblionumber,
       'Title 245': formatMultipleValues(item.titles_245),
       'Title 242': formatMultipleValues(item.titles_242),
+      'link': `https://citationadmin.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${item.biblionumber}`,
       // 'Title 246': formatMultipleValues(item.titles_246),
       // 'Author': item.author,
       // 'Year': item.year,

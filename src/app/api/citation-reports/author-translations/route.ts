@@ -335,7 +335,8 @@ export async function POST(request: NextRequest) {
     const excelData = hierarchicalData.map((item: HierarchicalAuthorRow) => ({
       'Biblio Number': item.biblionumber,
       'Subfield a (Name)': item.subfield_a,
-      'Subfield q (Fuller Name)': item.subfield_q
+      'Subfield q (Fuller Name)': item.subfield_q,
+       'link': `https://citationadmin.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${item.biblionumber}`,
     }));
 
     const worksheet = xlsx.utils.json_to_sheet(excelData);

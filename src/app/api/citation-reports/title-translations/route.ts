@@ -275,7 +275,7 @@ export async function POST(request: NextRequest) {
       'Biblio Number': item.biblionumber,
       'Title 245': formatMultipleValues(item.titles_245),
       'Title 242': formatMultipleValues(item.titles_242),
-      'link': `https://citationadmin.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${item.biblionumber}`,
+      // 'link': `https://citationadmin.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${item.biblionumber}`,
       //A2 must be the cell reference for Biblio Number in Excel
             //  'formula': `=HYPERLINK(CONCATENATE("https://citationadmin.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=",A2,),A2)`
             // 'link_formula': `=HYPERLINK("https://citationadmin.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=A2", "A2")`,

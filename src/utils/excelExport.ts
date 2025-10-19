@@ -155,15 +155,25 @@ export const reportConfigurations: Record<string, ReportConfig> = {
       { header: "Biblio", key: "biblio" },
       { header: "Biblio Details", key: "biblio_details" },
       { header: "Title 245 (1)(a)", key: "title_245_1_a" },
+      { header: "245(1)(a) Lang", key: "title_245_1_a_lang" },
       // { header: "Title 245 (1)(b)", key: "title_245_1_b" },
+      // { header: "245(1)(b) Lang", key: "title_245_1_b_lang" },
       { header: "Title 246 (1)(a)", key: "title_246_1_a" },
+      { header: "246(1)(a) Lang", key: "title_246_1_a_lang" },
       // { header: "Title 246 (1)(b)", key: "title_246_1_b" },
+      // { header: "246(1)(b) Lang", key: "title_246_1_b_lang" },
       { header: "Title 246 (2)(a)", key: "title_246_2_a" },
+      { header: "246(2)(a) Lang", key: "title_246_2_a_lang" },
       // { header: "Title 246 (2)(b)", key: "title_246_2_b" },
+      // { header: "246(2)(b) Lang", key: "title_246_2_b_lang" },
       { header: "Title 246 (3)(a)", key: "title_246_3_a" },
+      { header: "246(3)(a) Lang", key: "title_246_3_a_lang" },
       // { header: "Title 246 (3)(b)", key: "title_246_3_b" },
+      // { header: "246(3)(b) Lang", key: "title_246_3_b_lang" },
       { header: "Title 242 (1)(a)", key: "title_242_1_a" },
+      { header: "242(1)(a) Lang", key: "title_242_1_a_lang" },
       // { header: "Title 242 (1)(b)", key: "title_242_1_b" },
+      // { header: "242(1)(b) Lang", key: "title_242_1_b_lang" },
       { header: "Language 041", key: "language_041" },
     ]
   },
@@ -179,36 +189,42 @@ export const reportConfigurations: Record<string, ReportConfig> = {
   { header: "100_q (Main Author Fuller Form)", key: "author_q" },
   { header: "100_e (Main Author Relator)", key: "author_e" },
   { header: "100_9 (Main Author ID)", key: "author_id" },
+  { header: "100_9 Biblio", key: "author_id_biblio" },
   // Additional Author 1 (700_1) - all subfields
   { header: "700_1_a (Add Author 1)", key: "additional_author" },
   { header: "700_1_g (Add Author 1 Dates)", key: "additional_author_g" },
   { header: "700_1_q (Add Author 1 Fuller Form)", key: "additional_author_q" },
   { header: "700_1_e (Add Author 1 Relator)", key: "additional_author_e" },
   { header: "700_1_9 (Add Author 1 ID)", key: "additional_author_id" },
+  { header: "700_1_9 Biblio", key: "additional_author_id_biblio" },
   // Additional Author 2 (700_2) - all subfields
   { header: "700_2_a (Add Author 2)", key: "additional_author_2" },
   { header: "700_2_g (Add Author 2 Dates)", key: "additional_author_2_g" },
   { header: "700_2_q (Add Author 2 Fuller Form)", key: "additional_author_2_q" },
   { header: "700_2_e (Add Author 2 Relator)", key: "additional_author_2_e" },
   { header: "700_2_9 (Add Author 2 ID)", key: "additional_author_id_2" },
+  { header: "700_2_9 Biblio", key: "additional_author_id_2_biblio" },
   // Additional Author 3 (700_3) - all subfields
   { header: "700_3_a (Add Author 3)", key: "additional_author_3" },
   { header: "700_3_g (Add Author 3 Dates)", key: "additional_author_3_g" },
   { header: "700_3_q (Add Author 3 Fuller Form)", key: "additional_author_3_q" },
   { header: "700_3_e (Add Author 3 Relator)", key: "additional_author_3_e" },
   { header: "700_3_9 (Add Author 3 ID)", key: "additional_author_id_3" },
+  { header: "700_3_9 Biblio", key: "additional_author_id_3_biblio" },
   // Additional Author 4 (700_4) - all subfields
   { header: "700_4_a (Add Author 4)", key: "additional_author_4" },
   { header: "700_4_g (Add Author 4 Dates)", key: "additional_author_4_g" },
   { header: "700_4_q (Add Author 4 Fuller Form)", key: "additional_author_4_q" },
   { header: "700_4_e (Add Author 4 Relator)", key: "additional_author_4_e" },
   { header: "700_4_9 (Add Author 4 ID)", key: "additional_author_id_4" },
+  { header: "700_4_9 Biblio", key: "additional_author_id_4_biblio" },
   // Additional Author 5 (700_5) - all subfields
   { header: "700_5_a (Add Author 5)", key: "additional_author_5" },
   { header: "700_5_g (Add Author 5 Dates)", key: "additional_author_5_g" },
   { header: "700_5_q (Add Author 5 Fuller Form)", key: "additional_author_5_q" },
   { header: "700_5_e (Add Author 5 Relator)", key: "additional_author_5_e" },
-  { header: "700_5_9 (Add Author 5 ID)", key: "additional_author_id_5" }
+  { header: "700_5_9 (Add Author 5 ID)", key: "additional_author_id_5" },
+  { header: "700_5_9 Biblio", key: "additional_author_id_5_biblio" }
     ]
   },
   export_hierarchical_authors: {
@@ -231,7 +247,8 @@ export const reportConfigurations: Record<string, ReportConfig> = {
   { header: "100_g (Main Author Dates)", key: "author_g" },
   { header: "100_q (Main Author Fuller Form)", key: "author_q" },
   { header: "100_e (Main Author Relator)", key: "author_e" },
-  { header: "100_9 (Main Author ID)", key: "author_id" }
+  { header: "100_9 (Main Author ID)", key: "author_id" },
+  { header: "100_9 Biblio", key: "author_id_biblio" }
     ]
   },
   export_translations_titles_authors: {
@@ -241,23 +258,25 @@ export const reportConfigurations: Record<string, ReportConfig> = {
   { header: "Biblio", key: "biblio" },
   { header: "Biblio Details", key: "biblio_details" },
   { header: "Title 245 (1)(a)", key: "title_245_1_a" },
+  { header: "245(1)(a) Lang", key: "title_245_1_a_lang" },
   { header: "Title 245 (1)(b)", key: "title_245_1_b" },
-  { header: "Title 245 (2)(a)", key: "title_245_2_a" },
-  { header: "Title 245 (2)(b)", key: "title_245_2_b" },
-  { header: "Title 245 (3)(a)", key: "title_245_3_a" },
-  { header: "Title 245 (3)(b)", key: "title_245_3_b" },
+  { header: "245(1)(b) Lang", key: "title_245_1_b_lang" },
   { header: "Title 246 (1)(a)", key: "title_246_1_a" },
+  { header: "246(1)(a) Lang", key: "title_246_1_a_lang" },
   { header: "Title 246 (1)(b)", key: "title_246_1_b" },
+  { header: "246(1)(b) Lang", key: "title_246_1_b_lang" },
   { header: "Title 246 (2)(a)", key: "title_246_2_a" },
+  { header: "246(2)(a) Lang", key: "title_246_2_a_lang" },
   { header: "Title 246 (2)(b)", key: "title_246_2_b" },
+  { header: "246(2)(b) Lang", key: "title_246_2_b_lang" },
   { header: "Title 246 (3)(a)", key: "title_246_3_a" },
+  { header: "246(3)(a) Lang", key: "title_246_3_a_lang" },
   { header: "Title 246 (3)(b)", key: "title_246_3_b" },
+  { header: "246(3)(b) Lang", key: "title_246_3_b_lang" },
   { header: "Title 242 (1)(a)", key: "title_242_1_a" },
+  { header: "242(1)(a) Lang", key: "title_242_1_a_lang" },
   { header: "Title 242 (1)(b)", key: "title_242_1_b" },
-  { header: "Title 242 (2)(a)", key: "title_242_2_a" },
-  { header: "Title 242 (2)(b)", key: "title_242_2_b" },
-  { header: "Title 242 (3)(a)", key: "title_242_3_a" },
-  { header: "Title 242 (3)(b)", key: "title_242_3_b" },
+  { header: "242(1)(b) Lang", key: "title_242_1_b_lang" },
   // Main Author (100) - all subfields
   { header: "100_a (Main Author)", key: "author" },
   { header: "100_g (Main Author Dates)", key: "author_g" },
@@ -432,6 +451,7 @@ export async function fetchReportData(reportType: string, formData: any): Promis
       },
       body: JSON.stringify({
         reportType,
+        urlList: formData.urlList, // Add urlList for convert_url_to_biblio report
         filters: {
           magazineNumbers: formData.magazineNumbers,
           startYear: formData.startYear ? parseInt(formData.startYear) : undefined,
@@ -439,7 +459,8 @@ export async function fetchReportData(reportType: string, formData: any): Promis
           authorName: formData.authorName,
           selectedFields: formData.selectedFields,
           abstractFilter: formData.abstractFilter,
-          biblioNumbers: formData.biblioNumbers
+          biblioNumbers: formData.biblioNumbers,
+          urlList: formData.urlList // Also include in filters for backward compatibility
         }
       })
     });
@@ -510,17 +531,11 @@ export async function exportToExcel(reportType: string, formData: any): Promise<
       });
     }
 
-    // Apply abstract field filter if specified
+    // Abstract filtering is now handled by the backend SQL query in reportService.ts
+    // No need for frontend filtering - it was causing conflicts and filtering out correct records
     let filteredData = data;
-    if (reportType === 'export_abstract_field' && formData?.abstractFilter && formData.abstractFilter !== '') {
-      console.log(`Applying abstract filter: ${formData.abstractFilter}`);
-      console.log('Sample data before filtering:', data.slice(0, 2));
-      const beforeCount = data.length;
-      filteredData = filterAbstractRecords(data, formData.abstractFilter);
-      const afterCount = filteredData.length;
-      console.log(`Abstract filter applied: ${beforeCount} -> ${afterCount} records`);
-      console.log('Sample data after filtering:', filteredData.slice(0, 2));
-    }
+    console.log(`Using ${data.length} records returned from backend (abstract filter already applied in SQL)`);
+
 
     // Apply author type filter for research authors report
     if (reportType === 'export_research_authors' && formData?.authorTypeFilter && formData.authorTypeFilter.length > 0) {
@@ -650,12 +665,12 @@ export async function exportToExcel(reportType: string, formData: any): Promise<
       }
     }
 
-    // Make author ID columns clickable for research authors report
-    if (reportType === 'export_research_authors') {
-      // Find all author ID columns
+    // Make author ID columns clickable for research authors and author data reports
+    if (reportType === 'export_research_authors' || reportType === 'export_author_data') {
+      // Find all author ID columns (but exclude the biblio columns)
       const authorIdColumns = finalColumns
         .map((col, index) => ({ col, index }))
-        .filter(({ col }) => col.key.includes('author_id'));
+        .filter(({ col }) => col.key.includes('author_id') && !col.key.includes('_biblio'));
 
       // Add hyperlinks to author ID cells
       authorIdColumns.forEach(({ col, index: columnIndex }) => {
@@ -671,6 +686,39 @@ export async function exportToExcel(reportType: string, formData: any): Promise<
             cell.value = {
               text: authorId.toString(),
               hyperlink: authoritiesUrl
+            };
+            
+            // Apply default Excel hyperlink styling (blue color, underline)
+            cell.font = {
+              color: { argb: 'FF0000FF' }, // Blue color
+              underline: true
+            };
+          }
+        }
+      });
+      
+      // Find all author ID biblio columns and make them clickable
+      const authorIdBiblioColumns = finalColumns
+        .map((col, index) => ({ col, index }))
+        .filter(({ col }) => col.key.includes('author_id_') && col.key.includes('_biblio'));
+
+      // Add hyperlinks to author ID biblio cells
+      authorIdBiblioColumns.forEach(({ col, index: columnIndex }) => {
+        for (let rowIndex = 2; rowIndex <= excelData.length + 1; rowIndex++) {
+          const cell = worksheet.getCell(rowIndex, columnIndex + 1);
+          const biblioNumber = cell.value;
+          
+          if (biblioNumber) {
+            // Extract the actual number from padded string (e.g., "0001" -> 1)
+            const biblioNumericValue = biblioNumber.toString().replace(/^0+/, '') || biblioNumber;
+            
+            // Create hyperlink to cataloging system
+            const catalogingUrl = `https://cataloging.mandumah.com/cgi-bin/koha/catalogue/detail.pl?biblionumber=${biblioNumericValue}`;
+            
+            // Set cell as hyperlink using ExcelJS with proper styling
+            cell.value = {
+              text: biblioNumber.toString(),
+              hyperlink: catalogingUrl
             };
             
             // Apply default Excel hyperlink styling (blue color, underline)
@@ -1160,6 +1208,7 @@ export async function exportCustomEstenadToExcel(data: ExportData[], formData?: 
   // Add standard columns first
   headers.push(
     { header: 'Auth ID', key: 'biblio', width: 15 },
+    { header: 'Source Biblios', key: 'source_biblios', width: 30 }
     // { header: 'Auth Details', key: 'biblio_details', width: 35 }
   );
 
@@ -1184,6 +1233,7 @@ export async function exportCustomEstenadToExcel(data: ExportData[], formData?: 
   filteredData.forEach(row => {
     const rowData: any = {
       biblio: row.biblio || '',
+      source_biblios: row.source_biblios || ''
       // biblio_details: row.biblio_details || ''
     };
     
@@ -1219,6 +1269,38 @@ export async function exportCustomEstenadToExcel(data: ExportData[], formData?: 
         color: { argb: 'FF0563C1' },
         underline: true
       };
+    }
+  }
+
+  // Make Source Biblios column clickable (column 2)
+  // For cells with multiple biblio numbers (comma-separated), make the entire cell a link to the first biblio
+  const sourceBibliosColumnIndex = 2; // Second column
+  for (let rowIndex = 2; rowIndex <= filteredData.length + 1; rowIndex++) {
+    const cell = worksheet.getCell(rowIndex, sourceBibliosColumnIndex);
+    const sourceBiblios = cell.value;
+    
+    if (sourceBiblios && sourceBiblios.toString().trim() !== '') {
+      const biblioList = sourceBiblios.toString().split(',').map(b => b.trim()).filter(b => b !== '');
+      
+      if (biblioList.length > 0) {
+        // Use the first biblio number for the hyperlink
+        const firstBiblio = biblioList[0];
+        const biblioNumericValue = firstBiblio.replace(/^0+/, '') || firstBiblio;
+        const catalogingUrl = `https://cataloging.mandumah.com/cgi-bin/koha/catalogue/detail.pl?biblionumber=${biblioNumericValue}`;
+        
+        // Set cell as hyperlink showing all biblio numbers
+        cell.value = {
+          text: sourceBiblios.toString(),
+          hyperlink: catalogingUrl,
+          tooltip: `Open first biblio record: ${firstBiblio}`
+        };
+        
+        // Apply default Excel hyperlink styling (blue color, underline)
+        cell.font = {
+          color: { argb: 'FF0563C1' },
+          underline: true
+        };
+      }
     }
   }
 

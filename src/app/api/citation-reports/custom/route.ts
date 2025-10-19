@@ -1150,7 +1150,18 @@ export async function POST(request: NextRequest) {
           const cell = worksheet[cellRef];
           if (cell && cell.v) {
             const catalogingUrl = `https://citationadmin.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${cell.v}`;
+            
+            // Add hyperlink using both l property and HYPERLINK formula
             cell.l = { Target: catalogingUrl, Tooltip: "Click to open in cataloging system" };
+            cell.f = `HYPERLINK("${catalogingUrl}", "${cell.v}")`;
+            
+            // Add cell style for blue color and underline
+            cell.s = { 
+              font: { 
+                color: { rgb: "0563C1" }, 
+                underline: true 
+              } 
+            };
           }
         }
 
@@ -1161,7 +1172,18 @@ export async function POST(request: NextRequest) {
           const cell = worksheet[cellRef];
           if (cell && cell.v && cell.v.toString().trim()) {
             const authorUrl = `https://cataloging.mandumah.com/cgi-bin/koha/authorities/authorities.pl?authid=${cell.v}`;
+            
+            // Add hyperlink using both l property and HYPERLINK formula
             cell.l = { Target: authorUrl, Tooltip: "Click to view main author authority record" };
+            cell.f = `HYPERLINK("${authorUrl}", "${cell.v}")`;
+            
+            // Add cell style for blue color and underline
+            cell.s = { 
+              font: { 
+                color: { rgb: "0563C1" }, 
+                underline: true 
+              } 
+            };
           }
         }
 
@@ -1178,7 +1200,18 @@ export async function POST(request: NextRequest) {
               const tooltip = authorIds.length > 1 
                 ? `Click to view authority records. Additional IDs: ${authorIds.slice(1).join(', ')}`
                 : "Click to view additional author authority record";
+              
+              // Add hyperlink using both l property and HYPERLINK formula
               cell.l = { Target: firstAuthorUrl, Tooltip: tooltip };
+              cell.f = `HYPERLINK("${firstAuthorUrl}", "${cell.v}")`;
+              
+              // Add cell style for blue color and underline
+              cell.s = { 
+                font: { 
+                  color: { rgb: "0563C1" }, 
+                  underline: true 
+                } 
+              };
             }
           }
         }
@@ -1189,7 +1222,42 @@ export async function POST(request: NextRequest) {
           const cellRef = xlsx.utils.encode_cell({ r: row, c: pdfUrlColIndex });
           const cell = worksheet[cellRef];
           if (cell && cell.v && cell.v.toString().trim()) {
+            // Add hyperlink using both l property and HYPERLINK formula
             cell.l = { Target: cell.v.toString(), Tooltip: "Click to open PDF document" };
+            cell.f = `HYPERLINK("${cell.v}", "${cell.v}")`;
+            
+            // Add cell style for blue color and underline
+            cell.s = { 
+              font: { 
+                color: { rgb: "0563C1" }, 
+                underline: true 
+              } 
+            };
+          }
+        }
+
+        // Add hyperlinks for individual Additional Author IDs (700_1_9 through 700_5_9)
+        for (let i = 1; i <= 5; i++) {
+          const additionalAuthorIdLabel = `Additional Author ${i} ID (700_${i}_9)`;
+          const additionalAuthorIdColIndex = columnNames.indexOf(additionalAuthorIdLabel);
+          if (additionalAuthorIdColIndex >= 0) {
+            const cellRef = xlsx.utils.encode_cell({ r: row, c: additionalAuthorIdColIndex });
+            const cell = worksheet[cellRef];
+            if (cell && cell.v && cell.v.toString().trim()) {
+              const authorUrl = `https://cataloging.mandumah.com/cgi-bin/koha/authorities/authorities.pl?authid=${cell.v}`;
+              
+              // Add hyperlink using both l property and HYPERLINK formula
+              cell.l = { Target: authorUrl, Tooltip: `Click to view additional author ${i} authority record` };
+              cell.f = `HYPERLINK("${authorUrl}", "${cell.v}")`;
+              
+              // Add cell style for blue color and underline
+              cell.s = { 
+                font: { 
+                  color: { rgb: "0563C1" }, 
+                  underline: true 
+                } 
+              };
+            }
           }
         }
       }

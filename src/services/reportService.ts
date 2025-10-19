@@ -1,5 +1,6 @@
 import { executeQuery } from '@/lib/database';
 import { BiblioRecord, BiblioMetadata, BiblioItems, ReportQueryResult, QueryFilters } from '@/types/database';
+import { detectLanguage } from '@/utils/languageDetection';
 
 // Query timeout configuration (20 minutes)
 const QUERY_TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes
@@ -116,17 +117,19 @@ function buildAbstractFilter(abstractFilter?: string): { clause: string; params:
   
   switch (abstractFilter) {
     case 'without_abstract':
-      // Records with no abstract - more inclusive OR logic to catch any missing abstract scenario
+      // Records with no abstract - ALL abstract fields must be empty or null (AND logic)
       return {
-        clause: `AND (
-                   (b.abstract IS NULL OR b.abstract = "" OR TRIM(b.abstract) = "") 
-                   OR 
-                   (EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="a"]') = "" 
-                    OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="a"]') IS NULL)
-                   OR
-                   (EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]') = ""
-                    OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]') IS NULL)
-                 )`,
+        clause: `AND (b.abstract IS NULL OR b.abstract = "")
+                 AND (EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="a"]') = "" 
+                      OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="a"]') IS NULL)
+                 AND (EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="b"]') = "" 
+                      OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="b"]') IS NULL)
+                 AND (EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="d"]') = "" 
+                      OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="d"]') IS NULL)
+                 AND (EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="e"]') = "" 
+                      OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="e"]') IS NULL)
+                 AND (EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="f"]') = "" 
+                      OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="f"]') IS NULL)`,
         params: []
       };
     
@@ -159,12 +162,11 @@ function buildAbstractFilter(abstractFilter?: string): { clause: string; params:
       };
       
     case 'mandumah_abstract':
+      // Records where BOTH subfield 'a' AND 'e' are empty or null (Mandumah needs to add abstract)
       return {
-        //a and e are both empty null or both empty
-        clause: `
-                  AND (EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="a"]') != ""
+        clause: `AND (EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="a"]') = ""
                       OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="a"]') IS NULL)
-                  AND (EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="e"]') != ""
+                 AND (EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="e"]') = ""
                       OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="e"]') IS NULL)`,
         params: []
       };
@@ -329,15 +331,25 @@ export async function generatePredefinedReport(reportType: string, filters: Quer
       case 'export_translations_citation_title':
         // Use multi-instance, multi-subfield title extractions
         result.title_245_1_a = (record as any).marc_245_1_a || '';
+        result.title_245_1_a_lang = detectLanguage(result.title_245_1_a);
         result.title_245_1_b = (record as any).marc_245_1_b || '';
+        result.title_245_1_b_lang = detectLanguage(result.title_245_1_b);
         result.title_246_1_a = (record as any).marc_246_1_a || '';
+        result.title_246_1_a_lang = detectLanguage(result.title_246_1_a);
         result.title_246_1_b = (record as any).marc_246_1_b || '';
+        result.title_246_1_b_lang = detectLanguage(result.title_246_1_b);
         result.title_246_2_a = (record as any).marc_246_2_a || '';
+        result.title_246_2_a_lang = detectLanguage(result.title_246_2_a);
         result.title_246_2_b = (record as any).marc_246_2_b || '';
+        result.title_246_2_b_lang = detectLanguage(result.title_246_2_b);
         result.title_246_3_a = (record as any).marc_246_3_a || '';
+        result.title_246_3_a_lang = detectLanguage(result.title_246_3_a);
         result.title_246_3_b = (record as any).marc_246_3_b || '';
+        result.title_246_3_b_lang = detectLanguage(result.title_246_3_b);
         result.title_242_1_a = (record as any).marc_242_1_a || '';
+        result.title_242_1_a_lang = detectLanguage(result.title_242_1_a);
         result.title_242_1_b = (record as any).marc_242_1_b || '';
+        result.title_242_1_b_lang = detectLanguage(result.title_242_1_b);
         result.language_041 = (record as any).marc_041_a || '';
         if (reportType === 'export_translations_titles_authors') {
           result.author = (record as any).marc_100_a || record.author || '';
@@ -356,6 +368,7 @@ export async function generatePredefinedReport(reportType: string, filters: Quer
         result.author_q = (record as any).marc_100_q || '';
         result.author_e = (record as any).marc_100_e || '';
         result.author_id = (record as any).marc_100_9 || '';
+        result.author_id_biblio = ((record as any).marc_100_9 && record.biblionumber) ? record.biblionumber : '';
         
         // Use pre-extracted additional authors data (up to 5 authors with all subfields)
         result.additional_author = (record as any).marc_700_1_a || '';
@@ -363,26 +376,31 @@ export async function generatePredefinedReport(reportType: string, filters: Quer
         result.additional_author_q = (record as any).marc_700_1_q || '';
         result.additional_author_e = (record as any).marc_700_1_e || '';
         result.additional_author_id = (record as any).marc_700_1_9 || '';
+        result.additional_author_id_biblio = ((record as any).marc_700_1_9 && record.biblionumber) ? record.biblionumber : '';
         result.additional_author_2 = (record as any).marc_700_2_a || '';
         result.additional_author_2_g = (record as any).marc_700_2_g || '';
         result.additional_author_2_q = (record as any).marc_700_2_q || '';
         result.additional_author_2_e = (record as any).marc_700_2_e || '';
         result.additional_author_id_2 = (record as any).marc_700_2_9 || '';
+        result.additional_author_id_2_biblio = ((record as any).marc_700_2_9 && record.biblionumber) ? record.biblionumber : '';
         result.additional_author_3 = (record as any).marc_700_3_a || '';
         result.additional_author_3_g = (record as any).marc_700_3_g || '';
         result.additional_author_3_q = (record as any).marc_700_3_q || '';
         result.additional_author_3_e = (record as any).marc_700_3_e || '';
         result.additional_author_id_3 = (record as any).marc_700_3_9 || '';
+        result.additional_author_id_3_biblio = ((record as any).marc_700_3_9 && record.biblionumber) ? record.biblionumber : '';
         result.additional_author_4 = (record as any).marc_700_4_a || '';
         result.additional_author_4_g = (record as any).marc_700_4_g || '';
         result.additional_author_4_q = (record as any).marc_700_4_q || '';
         result.additional_author_4_e = (record as any).marc_700_4_e || '';
         result.additional_author_id_4 = (record as any).marc_700_4_9 || '';
+        result.additional_author_id_4_biblio = ((record as any).marc_700_4_9 && record.biblionumber) ? record.biblionumber : '';
         result.additional_author_5 = (record as any).marc_700_5_a || '';
         result.additional_author_5_g = (record as any).marc_700_5_g || '';
         result.additional_author_5_q = (record as any).marc_700_5_q || '';
         result.additional_author_5_e = (record as any).marc_700_5_e || '';
         result.additional_author_id_5 = (record as any).marc_700_5_9 || '';
+        result.additional_author_id_5_biblio = ((record as any).marc_700_5_9 && record.biblionumber) ? record.biblionumber : '';
         break;
         
       case 'export_author_data':
@@ -392,6 +410,7 @@ export async function generatePredefinedReport(reportType: string, filters: Quer
         result.author_q = (record as any).marc_100_q || '';
         result.author_e = (record as any).marc_100_e || '';
         result.author_id = (record as any).marc_100_9 || '';
+        result.author_id_biblio = ((record as any).marc_100_9 && record.biblionumber) ? record.biblionumber : '';
         break;
       case 'export_translations_citation_author':
         result.author = (record as any).marc_100_a || record.author || '';
@@ -1040,9 +1059,61 @@ export async function extractAuthorIdsFromBiblio(filters: QueryFilters): Promise
   return uniqueAuthorIds;
 }
 
+// Extract author IDs with their source biblio numbers mapping
+export async function extractAuthorIdsWithBiblioMapping(filters: QueryFilters): Promise<Map<string, number[]>> {
+  // Get bibliographic records with MARC data
+  const biblioRecords = await getBiblioRecords(filters);
+  
+  if (biblioRecords.length === 0) {
+    return new Map();
+  }
+
+  // Map of author ID to array of biblio numbers where it appears
+  const authorIdToBiblios = new Map<string, number[]>();
+
+  // Process each record to extract author IDs and track their biblio numbers
+  biblioRecords.forEach(record => {
+    const biblioNumber = record.biblionumber;
+    
+    // Extract main author ID (100 field)
+    const main_100_9 = (record as any).marc_100_9 || '';
+    if (main_100_9 && main_100_9.toString().trim() !== '') {
+      const authorId = main_100_9.toString().trim();
+      if (!authorIdToBiblios.has(authorId)) {
+        authorIdToBiblios.set(authorId, []);
+      }
+      authorIdToBiblios.get(authorId)!.push(biblioNumber);
+    }
+
+    // Extract additional author IDs (700 fields) - up to 5 authors
+    const additionalAuthorIds = [
+      (record as any).marc_700_1_9,
+      (record as any).marc_700_2_9,
+      (record as any).marc_700_3_9,
+      (record as any).marc_700_4_9,
+      (record as any).marc_700_5_9
+    ];
+
+    additionalAuthorIds.forEach(id => {
+      if (id && id.toString().trim() !== '') {
+        const authorId = id.toString().trim();
+        if (!authorIdToBiblios.has(authorId)) {
+          authorIdToBiblios.set(authorId, []);
+        }
+        authorIdToBiblios.get(authorId)!.push(biblioNumber);
+      }
+    });
+  });
+
+  console.log(`📊 Extracted ${authorIdToBiblios.size} unique author IDs with biblio mappings from ${biblioRecords.length} biblio records`);
+  
+  return authorIdToBiblios;
+}
+
 // Generate custom estenad report with selected MARC fields
 export async function generateCustomEstenadReport(filters: QueryFilters): Promise<ReportQueryResult[]> {
   let { authorIds, selectedFields = [], isPreview = false, biblioNumbers } = filters;
+  let authorIdToBibliosMap: Map<string, number[]> = new Map();
   
   // If biblio numbers provided, extract author IDs from those biblio records first
   if (biblioNumbers && biblioNumbers.length > 0) {
@@ -1055,7 +1126,9 @@ export async function generateCustomEstenadReport(filters: QueryFilters): Promis
       selectedFields: [] // We'll use default fields from getBiblioRecords
     };
     
-    authorIds = await extractAuthorIdsFromBiblio(biblioFilters);
+    // Get mapping of author IDs to their source biblio numbers
+    authorIdToBibliosMap = await extractAuthorIdsWithBiblioMapping(biblioFilters);
+    authorIds = Array.from(authorIdToBibliosMap.keys());
     
     if (!authorIds || authorIds.length === 0) {
       console.log('⚠️ No author IDs found in the specified biblio records');
@@ -1083,9 +1156,13 @@ export async function generateCustomEstenadReport(filters: QueryFilters): Promis
     
     // Transform to ReportQueryResult format
     const results: ReportQueryResult[] = records.map(record => {
+      const authId = record.authid?.toString() || '';
+      const sourceBiblios = authorIdToBibliosMap.get(authId) || [];
+      
       const result: any = {
         biblionumber: record.authid || 0,
-        biblio: record.authid?.toString() || '',
+        biblio: authId,
+        source_biblios: sourceBiblios.join(', '), // Add source biblio numbers
         biblio_details: `AuthType: ${record.authtypecode || 'N/A'}, Created: ${record.datecreated || 'N/A'}`,
         url: '', // auth_header doesn't have URLs
         link: '', // auth_header doesn't have links

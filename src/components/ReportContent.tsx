@@ -77,6 +77,7 @@ export default function ReportContent({ activeReport }: ReportContentProps) {
         },
         body: JSON.stringify({
           reportType: activeReport,
+          urlList: formData.urlList, // Add urlList for convert_url_to_biblio report
           filters: {
             magazineNumbers: formData.magazineNumbers,
             biblioNumbers: formData.biblioNumbers,

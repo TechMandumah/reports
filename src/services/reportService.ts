@@ -462,30 +462,77 @@ export async function generatePredefinedReport(reportType: string, filters: Quer
 }
 
 // MARC field configurations for dynamic EXTRACTVALUE queries
-const MARC_FIELD_CONFIGS: { [key: string]: { subfields: string[], multiValue?: boolean } } = {
+const MARC_FIELD_CONFIGS: { [key: string]: { subfields: string[], multiValue?: boolean, duplicateSubfields?: boolean } } = {
   '000': { subfields: [''] }, // Leader - special field, no subfields
   '001': { subfields: [''] }, // Control Number
-  '024': { subfields: ['a', 'c', '2'] }, // Other Standard Identifier
-  '041': { subfields: ['a', 'b'] }, // Language Code
-  '044': { subfields: ['a', 'b'] }, // Country code
-  '100': { subfields: ['a', 'g', 'q', 'e', '9'] }, // Main Author
-  '110': { subfields: ['a', '9'] }, // Corporate Name
-  '242': { subfields: ['a', 'b', 'c'], multiValue: true }, // Translation of Title
-  '245': { subfields: ['a', 'b', 'c', 'n', 'p'], multiValue: true }, // Title Statement
+  '024': { subfields: ['a', 'c', '2'], duplicateSubfields: true }, // Other Standard Identifier
+  '041': { subfields: ['a', 'b'] , duplicateSubfields: true }, // Language Code
+  '044': { subfields: ['a', 'b'], duplicateSubfields: true }, // Country code
+  '100': { subfields: ['a', 'g', 'q', 'e', '9'], duplicateSubfields: true  }, // Main Author
+  '110': { subfields: ['a', '9'] , duplicateSubfields: true }, // Corporate Name
+  '242': { subfields: ['a', 'b', 'c'], multiValue: true  }, // Translation of Title
+  '245': { subfields: ['a', 'b', 'c', 'n', 'p'], multiValue: true  }, // Title Statement
   '246': { subfields: ['a', 'b'], multiValue: true }, // Varying Form of Title
-  '260': { subfields: ['a', 'b', 'c', 'g', 'm'] }, // Publication
-  '300': { subfields: ['a', 'b', 'c'] }, // Physical Description
-  '336': { subfields: ['a', 'b'] }, // Content Type
-  '500': { subfields: ['a'] }, // General Note
-  '520': { subfields: ['a', 'b', 'd', 'e', 'f'] }, // Summary/Abstract
-  '653': { subfields: ['a'], multiValue: true }, // Index Term
-  '692': { subfields: ['a', 'b'], multiValue: true }, // Keywords
+  '260': { subfields: ['a', 'b', 'c', 'g', 'm'], duplicateSubfields: true  }, // Publication
+  '300': { subfields: ['a', 'b', 'c'], duplicateSubfields: true  }, // Physical Description
+  '336': { subfields: ['a', 'b'] , duplicateSubfields: true }, // Content Type
+  '500': { subfields: ['a'] , duplicateSubfields: true }, // General Note
+  '520': { subfields: ['a', 'b', 'd', 'e', 'f'], duplicateSubfields: true }, // Summary/Abstract
+  '653': { subfields: ['a'], multiValue: true, duplicateSubfields: true }, // Index Term - can have duplicate subfields
+  '692': { subfields: ['a', 'b'], multiValue: true, duplicateSubfields: true }, // Keywords - can have duplicate subfields
   '700': { subfields: ['a', 'g', 'q', 'e', '9'], multiValue: true }, // Additional Authors
-  '773': { subfields: ['t', 'g', 'd', 'x','4','6','c','e','f','l','m','o','s','v','p'] }, // Host Item
-  '856': { subfields: ['u', 'y', 'z','n'] }, // Electronic Location
-  '930': { subfields: ['d','p','q'] }, // Equivalence
-  '995': { subfields: ['a'] }, // Recommendation
+  '773': { subfields: ['t', 'g', 'd', 'x','4','6','c','e','f','l','m','o','s','v','p'], duplicateSubfields: true  }, // Host Item
+  '856': { subfields: ['u', 'y', 'z','n'], duplicateSubfields: true  }, // Electronic Location
+  '930': { subfields: ['d','p','q'] , duplicateSubfields: true }, // Equivalence
+  '995': { subfields: ['a'], duplicateSubfields: true  }, // Recommendation
 };
+
+/**
+ * Helper function to extract all duplicate subfields from MARC XML and join them with '|'
+ * This handles cases where a single datafield has multiple subfields with the same code
+ * Example: <datafield tag="692"><subfield code="a">keyword1</subfield><subfield code="a">keyword2</subfield></datafield>
+ * Result: "keyword1|keyword2"
+ */
+function extractDuplicateSubfields(marcXML: string | null, fieldTag: string, subfieldCode: string): string {
+  if (!marcXML) return '';
+  
+  try {
+    // Match all datafield instances with the specified tag
+    const datafieldRegex = new RegExp(`<datafield[^>]*tag="${fieldTag}"[^>]*>(.*?)</datafield>`, 'gs');
+    const datafieldMatches = marcXML.matchAll(datafieldRegex);
+    
+    const allValues: string[] = [];
+    
+    // For each datafield instance
+    for (const datafieldMatch of datafieldMatches) {
+      const datafieldContent = datafieldMatch[1];
+      
+      // Extract all subfields with the specified code within this datafield
+      const subfieldRegex = new RegExp(`<subfield[^>]*code="${subfieldCode}"[^>]*>(.*?)</subfield>`, 'g');
+      const subfieldMatches = datafieldContent.matchAll(subfieldRegex);
+      
+      // Collect all values from this datafield instance
+      const instanceValues: string[] = [];
+      for (const subfieldMatch of subfieldMatches) {
+        const value = subfieldMatch[1]?.trim();
+        if (value) {
+          instanceValues.push(value);
+        }
+      }
+      
+      // Join duplicate subfields within the same datafield with '|'
+      if (instanceValues.length > 0) {
+        allValues.push(instanceValues.join(' | '));
+      }
+    }
+    
+    // Join multiple datafield instances with ' | ' as well
+    return allValues.join(' | ');
+  } catch (error) {
+    console.error(`Error extracting duplicate subfields for ${fieldTag}$${subfieldCode}:`, error);
+    return '';
+  }
+}
 
 // Build dynamic EXTRACTVALUE queries based on selected MARC fields
 function buildCustomMarcExtractions(selectedFields: string[], isBiblioSearch = false): { selectFields: string[], fieldMap: { [key: string]: string } } {
@@ -592,6 +639,13 @@ async function getBiblioRecordsByNumbers(biblioNumbers: string[], selectedFields
   const limitedSelectFields = selectFields.slice(0, 500); // Reasonable limit to balance performance and data completeness
   const marcClause = limitedSelectFields.length > 0 ? `,\n    ${limitedSelectFields.join(',\n    ')}` : '';
   
+  // Check if we need to include MARC XML metadata for duplicate subfield processing
+  const needsMetadata = selectedFields.some(fieldTag => {
+    const config = MARC_FIELD_CONFIGS[fieldTag];
+    return config?.duplicateSubfields === true;
+  });
+  const metadataSelect = needsMetadata ? ',\n    bm.metadata' : '';
+  
   const limitClause = isPreview ? 'LIMIT 10' : '';
   
   // Direct query using IN clause with proper ordering
@@ -616,7 +670,7 @@ async function getBiblioRecordsByNumbers(biblioNumbers: string[], selectedFields
       bi.url,
       bi.journalnum,
       bi.volumenumber,
-      bi.issuenumber${marcClause}
+      bi.issuenumber${marcClause}${metadataSelect}
     FROM biblio b
     LEFT JOIN biblioitems bi ON b.biblionumber = bi.biblionumber
     LEFT JOIN biblio_metadata bm ON b.biblionumber = bm.biblionumber
@@ -668,13 +722,20 @@ async function getBiblioRecordsForCustomReport(filters: QueryFilters, selectedFi
   // Build dynamic MARC extractions for regular searches
   const { selectFields, fieldMap } = buildCustomMarcExtractions(selectedFields, false);
   
+  // Check if we need to include MARC XML metadata for duplicate subfield processing
+  const needsMetadata = selectedFields.some(fieldTag => {
+    const config = MARC_FIELD_CONFIGS[fieldTag];
+    return config?.duplicateSubfields === true;
+  });
+  
   // Add LIMIT clause for preview mode
   const limitClause = isPreview ? 'LIMIT 5' : '';
   
-  console.log(`Executing regular custom query with ${selectedFields.length} selected MARC fields (${selectFields.length} extractions)`);
+  console.log(`Executing regular custom query with ${selectedFields.length} selected MARC fields (${selectFields.length} extractions)${needsMetadata ? ' - including metadata for duplicate subfields' : ''}`);
   
   // Build query with selected MARC field extractions
   const marcSelectClause = selectFields.length > 0 ? `,\n      ${selectFields.join(',\n      ')}` : '';
+  const metadataSelect = needsMetadata ? ',\n      bm.metadata' : '';
 
   const query = `
     SELECT 
@@ -697,7 +758,7 @@ async function getBiblioRecordsForCustomReport(filters: QueryFilters, selectedFi
       bi.url,
       bi.journalnum,
       bi.volumenumber,
-      bi.issuenumber${marcSelectClause}
+      bi.issuenumber${marcSelectClause}${metadataSelect}
     FROM biblio b
     LEFT JOIN biblioitems bi ON b.biblionumber = bi.biblionumber
     LEFT JOIN biblio_metadata bm ON b.biblionumber = bm.biblionumber
@@ -758,15 +819,38 @@ export async function generateCustomReport(filters: QueryFilters): Promise<Repor
       biblio_details: `https://cataloging.mandumah.com/cgi-bin/koha/cataloguing/addbiblio.pl?biblionumber=${record.biblionumber}`
     };
     
+    // Process fields with duplicate subfields if metadata is available
+    const metadata = record.metadata || null;
+    
     // Add all extracted MARC fields with proper field names for export/display
     Object.keys(marcFieldMap).forEach(marcKey => {
       const fieldName = marcFieldMap[marcKey];
-      const fieldValue = record[marcKey] || '';
+      let fieldValue = record[marcKey] || '';
+      
+      // Check if this field has duplicate subfields and metadata is available
+      // Extract field tag and subfield code from marcKey (e.g., "marc_692_a" -> tag: 692, subfield: a)
+      const marcKeyMatch = marcKey.match(/^marc_(\d+)_([a-z0-9]+)$/i);
+      if (marcKeyMatch && metadata) {
+        const fieldTag = marcKeyMatch[1];
+        const subfieldCode = marcKeyMatch[2];
+        const config = MARC_FIELD_CONFIGS[fieldTag];
+        
+        // If this field is configured to have duplicate subfields, extract all values with '|'
+        if (config?.duplicateSubfields === true) {
+          const extractedValue = extractDuplicateSubfields(metadata, fieldTag, subfieldCode);
+          if (extractedValue) {
+            fieldValue = extractedValue;
+          }
+        }
+      }
       
       // Add both the raw marc field and a display-friendly version
       (result as any)[marcKey] = fieldValue;
       (result as any)[fieldName] = fieldValue;
     });
+    
+    // Remove metadata from result to avoid including it in export
+    delete (result as any).metadata;
     
     return result;
   });

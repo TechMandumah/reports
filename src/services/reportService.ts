@@ -468,7 +468,7 @@ const MARC_FIELD_CONFIGS: { [key: string]: { subfields: string[], multiValue?: b
   '024': { subfields: ['a', 'c', '2'], duplicateSubfields: true }, // Other Standard Identifier
   '041': { subfields: ['a', 'b'] , duplicateSubfields: true }, // Language Code
   '044': { subfields: ['a', 'b'], duplicateSubfields: true }, // Country code
-  '100': { subfields: ['a', 'g', 'q', 'e', '9'], duplicateSubfields: true  }, // Main Author
+  '100': { subfields: ['a', 'g', 'q', 'e', '9']  }, // Main Author
   '110': { subfields: ['a', '9'] , duplicateSubfields: true }, // Corporate Name
   '242': { subfields: ['a', 'b', 'c'], multiValue: true  }, // Translation of Title
   '245': { subfields: ['a', 'b', 'c', 'n', 'p'], multiValue: true  }, // Title Statement
@@ -571,7 +571,15 @@ function buildCustomMarcExtractions(selectedFields: string[], isBiblioSearch = f
           return;
         }
         
-        if (config.multiValue && fieldTag === '700') {
+        // Fields with duplicateSubfields should be extracted once - the extractDuplicateSubfields function
+        // will handle getting all values from all datafield instances and all duplicate subfields
+        if (config.duplicateSubfields === true) {
+          // Extract just once - duplicates will be handled by extractDuplicateSubfields() function
+          const fieldKey = `marc_${fieldTag}_${subfield}`;
+          selectFields.push(`EXTRACTVALUE(bm.metadata, '//datafield[@tag="${fieldTag}"]/subfield[@code="${subfield}"]') AS ${fieldKey}`);
+          fieldMap[fieldKey] = `${fieldTag}_${subfield}`;
+          extractionCount++;
+        } else if (config.multiValue && fieldTag === '700') {
           // Handle multiple 700 fields (additional authors) - limit for biblio search
           const maxInstances = isBiblioSearch ? 10 : 15; // Support more authors even for biblio search
           for (let i = 1; i <= maxInstances; i++) {
@@ -579,16 +587,6 @@ function buildCustomMarcExtractions(selectedFields: string[], isBiblioSearch = f
             const fieldKey = `marc_${fieldTag}_${i}_${subfield}`;
             selectFields.push(`EXTRACTVALUE(bm.metadata, '//datafield[@tag="${fieldTag}"][${i}]/subfield[@code="${subfield}"]') AS ${fieldKey}`);
             fieldMap[fieldKey] = `${fieldTag}_${subfield}_Author_${i}`;
-            extractionCount++;
-          }
-        } else if (config.multiValue && (fieldTag === '653' || fieldTag === '692')) {
-          // Handle multiple keyword fields - limit for biblio search
-          const maxInstances = isBiblioSearch ? 3 : 10; // Reduce instances for biblio search
-          for (let i = 1; i <= maxInstances; i++) {
-            if (isBiblioSearch && extractionCount >= maxFieldsForBiblioSearch) break;
-            const fieldKey = `marc_${fieldTag}_${i}_${subfield}`;
-            selectFields.push(`EXTRACTVALUE(bm.metadata, '//datafield[@tag="${fieldTag}"][${i}]/subfield[@code="${subfield}"]') AS ${fieldKey}`);
-            fieldMap[fieldKey] = `${fieldTag}_${subfield}_${i}`;
             extractionCount++;
           }
         } else if (config.multiValue && (fieldTag === '242' || fieldTag === '245' || fieldTag === '246')) {

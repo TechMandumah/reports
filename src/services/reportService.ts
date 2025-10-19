@@ -977,25 +977,26 @@ export async function testDatabaseConnection(): Promise<{ success: boolean; samp
 // ============= AUTH_HEADER TABLE FUNCTIONS (ESTENAD REPORTS) =============
 
 // MARC field configurations for auth_header table with subfields
-const AUTH_MARC_FIELD_CONFIGS: { [key: string]: { subfields: string[], multiValue?: boolean } } = {
+const AUTH_MARC_FIELD_CONFIGS: { [key: string]: { subfields: string[], multiValue?: boolean, duplicateSubfields?: boolean } } = {
   '000': { subfields: [''] }, // Leader - control field
   '001': { subfields: [''] }, // Control number - control field
   '003': { subfields: [''] }, // Control number identifier - control field
   '005': { subfields: [''] }, // Date and time - control field
   '008': { subfields: [''] }, // Fixed length data - control field
-  '040': { subfields: ['a', '6', '8', 'b', 'd', 'e', 'f'] }, // Cataloging source
+  '040': { subfields: ['a', '6', '8', 'b', 'd', 'e', 'f'], duplicateSubfields: true }, // Cataloging source - can have duplicates
   '100': { subfields: ['a', 'g', 'q'] }, // Heading personal name
-  '370': { subfields: ['c', 'e'] }, // Associated place
-  '371': { subfields: ['a', 'e', 'm', 'q'] }, // Address
-  '373': { subfields: ['a', 'q'] }, // Associated group
-  '374': { subfields: ['9', 'a', 'b'] }, // Occupation
-  '381': { subfields: ['a'] }, // Other characteristics
+  '370': { subfields: ['c', 'e'], duplicateSubfields: true }, // Associated place - can have duplicates
+  '371': { subfields: ['a', 'e', 'm', 'q'], duplicateSubfields: true }, // Address - can have duplicates
+  '373': { subfields: ['a', 'q'], duplicateSubfields: true }, // Associated group - can have duplicates
+  '374': { subfields: ['9', 'a', 'b'], duplicateSubfields: true }, // Occupation - can have duplicates
+  '381': { subfields: ['a'], duplicateSubfields: true }, // Other characteristics - can have duplicates
 };
 
 // Build dynamic EXTRACTVALUE queries for auth_header table
-function buildAuthMarcExtractions(selectedFields: string[]): { selectFields: string[], fieldMap: { [key: string]: string } } {
+function buildAuthMarcExtractions(selectedFields: string[]): { selectFields: string[], fieldMap: { [key: string]: string }, needsMetadata: boolean } {
   const selectFields: string[] = [];
   const fieldMap: { [key: string]: string } = {};
+  let needsMetadata = false;
   
   // Control fields (no subfields)
   const controlFields = ['000', '001', '003', '005', '008'];
@@ -1003,6 +1004,11 @@ function buildAuthMarcExtractions(selectedFields: string[]): { selectFields: str
   selectedFields.forEach(fieldTag => {
     const config = AUTH_MARC_FIELD_CONFIGS[fieldTag];
     if (!config) return;
+    
+    // Check if we need metadata for duplicate subfields
+    if (config.duplicateSubfields === true) {
+      needsMetadata = true;
+    }
     
     // Handle control fields differently (they have no datafield wrapper)
     if (controlFields.includes(fieldTag)) {
@@ -1025,7 +1031,7 @@ function buildAuthMarcExtractions(selectedFields: string[]): { selectFields: str
     }
   });
   
-  return { selectFields, fieldMap };
+  return { selectFields, fieldMap, needsMetadata };
 }
 
 // Get auth_header records by author IDs with selected MARC fields
@@ -1045,13 +1051,16 @@ export async function getAuthHeaderRecords(authorIds: string[], selectedFields: 
   }
   
   // Build dynamic MARC field extractions
-  const { selectFields, fieldMap } = buildAuthMarcExtractions(selectedFields);
+  const { selectFields, fieldMap, needsMetadata } = buildAuthMarcExtractions(selectedFields);
   
   // Add LIMIT clause for preview mode
   const limitClause = isPreview ? 'LIMIT 5' : '';
   
   // Create placeholders for IN clause
   const placeholders = authIds.map(() => '?').join(',');
+  
+  // Include marcxml if we need to process duplicate subfields
+  const marcxmlSelect = needsMetadata ? ',\n      ah.marcxml' : '';
   
   // Build the query with EXTRACTVALUE for efficient MARC data extraction
   const query = `
@@ -1061,7 +1070,7 @@ export async function getAuthHeaderRecords(authorIds: string[], selectedFields: 
       ah.datecreated,
       ah.modification_time,
       ah.origincode,
-      ${selectFields.join(',\n      ')}
+      ${selectFields.join(',\n      ')}${marcxmlSelect}
     FROM auth_header ah
     WHERE ah.authid IN (${placeholders})
     ORDER BY ah.authid
@@ -1070,13 +1079,18 @@ export async function getAuthHeaderRecords(authorIds: string[], selectedFields: 
   
   console.log('🔍 Executing auth_header query for', authIds.length, 'author IDs');
   console.log('📊 Selected fields:', selectedFields.join(', '));
+  if (needsMetadata) {
+    console.log('📋 Including marcxml for duplicate subfield processing');
+  }
   
   try {
     const results = await executeQuery<any>(query, authIds);
     console.log('✅ Retrieved', results.length, 'auth_header records');
     
-    // Transform results to match field map
+    // Transform results to match field map and process duplicate subfields
     const transformedResults = results.map(record => {
+      const marcxml = record.marcxml || null;
+      
       const transformed: any = {
         authid: record.authid,
         authtypecode: record.authtypecode,
@@ -1085,9 +1099,28 @@ export async function getAuthHeaderRecords(authorIds: string[], selectedFields: 
         origincode: record.origincode
       };
       
-      // Add MARC fields
+      // Add MARC fields with duplicate subfield processing
       Object.keys(fieldMap).forEach(key => {
-        transformed[key] = record[key] || '';
+        let fieldValue = record[key] || '';
+        
+        // Check if this field has duplicate subfields and marcxml is available
+        // Extract field tag and subfield code from key (e.g., "marc_374_a" -> tag: 374, subfield: a)
+        const marcKeyMatch = key.match(/^marc_(\d+)_([a-z0-9]+)$/i);
+        if (marcKeyMatch && marcxml) {
+          const fieldTag = marcKeyMatch[1];
+          const subfieldCode = marcKeyMatch[2];
+          const config = AUTH_MARC_FIELD_CONFIGS[fieldTag];
+          
+          // If this field is configured to have duplicate subfields, extract all values with '|'
+          if (config?.duplicateSubfields === true) {
+            const extractedValue = extractDuplicateSubfields(marcxml, fieldTag, subfieldCode);
+            if (extractedValue) {
+              fieldValue = extractedValue;
+            }
+          }
+        }
+        
+        transformed[key] = fieldValue;
       });
       
       return transformed;

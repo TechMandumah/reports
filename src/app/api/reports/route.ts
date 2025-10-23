@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generatePredefinedReport, generateCustomReport, generateHierarchicalAuthorsReport } from '@/services/reportService';
 import { QueryFilters } from '@/types/database';
 
+// Configure API route timeout to match nginx timeout (12 minutes = 720 seconds)
+export const maxDuration = 720; // 12 minutes
+
 export async function POST(request: NextRequest) {
   try {
     // Parse request body with error handling

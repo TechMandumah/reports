@@ -769,8 +769,8 @@ export default function PredefinedReportForm({
           </p>
         </div>
 
-        {/* Start Year - hide for convert_url_to_biblio UNLESS using URL upload method */}
-        {(reportType !== 'convert_url_to_biblio' || inputMethod === 'url') && (
+        {/* Start Year - hide for convert_url_to_biblio UNLESS using magazine file upload method */}
+        {(reportType !== 'convert_url_to_biblio' || inputMethod === 'file') && (
         <div>
           <label htmlFor="startYear" className="block text-sm font-bold text-gray-800 mb-3">
             <div className="flex items-center space-x-2">
@@ -800,8 +800,8 @@ export default function PredefinedReportForm({
         </div>
         )}
 
-        {/* End Year - hide for convert_url_to_biblio UNLESS using URL upload method */}
-        {(reportType !== 'convert_url_to_biblio' || inputMethod === 'url') && (
+        {/* End Year - hide for convert_url_to_biblio UNLESS using magazine file upload method */}
+        {(reportType !== 'convert_url_to_biblio' || inputMethod === 'file') && (
         <div>
           <label htmlFor="endYear" className="block text-sm font-bold text-gray-800 mb-3">
             <div className="flex items-center space-x-2">

@@ -452,6 +452,8 @@ export async function fetchReportData(reportType: string, formData: any): Promis
       body: JSON.stringify({
         reportType,
         urlList: formData.urlList, // Add urlList for convert_url_to_biblio report
+        startYear: formData.startYear, // Add startYear at top level for URL upload with date filtering
+        endYear: formData.endYear, // Add endYear at top level for URL upload with date filtering
         filters: {
           magazineNumbers: formData.magazineNumbers,
           startYear: formData.startYear ? parseInt(formData.startYear) : undefined,

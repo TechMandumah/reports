@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { reportType, filters, urlList }: { reportType: string; filters?: QueryFilters; urlList?: string[] } = body;
+    const { reportType, filters, urlList, startYear, endYear }: { reportType: string; filters?: QueryFilters; urlList?: string[]; startYear?: number; endYear?: number } = body;
 
     // Validate required fields
     if (!reportType) {
@@ -29,14 +29,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('Processing report request:', { reportType, filters, urlList });
+    console.log('Processing report request:', { reportType, filters, urlList, startYear, endYear });
 
     let reportData;
     
     if (reportType === 'convert_url_to_biblio' && urlList) {
       console.log('Generating convert URL to biblio report with URL list...');
-      // For convert_url_to_biblio with URL list, pass it as filters
-      reportData = await generatePredefinedReport(reportType, { urlList });
+      // For convert_url_to_biblio with URL list, pass it as filters including date filters
+      reportData = await generatePredefinedReport(reportType, { 
+        urlList,
+        startYear,
+        endYear
+      });
     } else if (reportType === 'custom' || reportType === 'custom_report') {
       console.log('Generating custom report...');
       reportData = await generateCustomReport(filters || {});

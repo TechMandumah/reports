@@ -78,6 +78,8 @@ export default function ReportContent({ activeReport }: ReportContentProps) {
         body: JSON.stringify({
           reportType: activeReport,
           urlList: formData.urlList, // Add urlList for convert_url_to_biblio report
+          startYear: formData.startYear, // Add startYear at top level for URL upload with date filtering
+          endYear: formData.endYear, // Add endYear at top level for URL upload with date filtering
           filters: {
             magazineNumbers: formData.magazineNumbers,
             biblioNumbers: formData.biblioNumbers,

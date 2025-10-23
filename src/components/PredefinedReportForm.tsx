@@ -400,13 +400,14 @@ export default function PredefinedReportForm({
       
       const formData = {
         reportType,
-        urlList: urlList
+        urlList: urlList,
+        startYear: startYear ? parseInt(startYear) : undefined,
+        endYear: endYear ? parseInt(endYear) : undefined
       };
       
       onGenerate(formData);
       clearFormInputs();
       return;
-      numbersToUse = []; // No magazine numbers when using biblio filtering
     } else {
       validation = { isValid: false, errors: ['Invalid input method'] };
     }
@@ -768,8 +769,8 @@ export default function PredefinedReportForm({
           </p>
         </div>
 
-        {/* Start Year - hide for convert_url_to_biblio */}
-        {reportType !== 'convert_url_to_biblio' && (
+        {/* Start Year - hide for convert_url_to_biblio UNLESS using URL upload method */}
+        {(reportType !== 'convert_url_to_biblio' || inputMethod === 'url') && (
         <div>
           <label htmlFor="startYear" className="block text-sm font-bold text-gray-800 mb-3">
             <div className="flex items-center space-x-2">
@@ -799,8 +800,8 @@ export default function PredefinedReportForm({
         </div>
         )}
 
-        {/* End Year - hide for convert_url_to_biblio */}
-        {reportType !== 'convert_url_to_biblio' && (
+        {/* End Year - hide for convert_url_to_biblio UNLESS using URL upload method */}
+        {(reportType !== 'convert_url_to_biblio' || inputMethod === 'url') && (
         <div>
           <label htmlFor="endYear" className="block text-sm font-bold text-gray-800 mb-3">
             <div className="flex items-center space-x-2">

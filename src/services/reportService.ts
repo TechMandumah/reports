@@ -77,6 +77,7 @@ function buildYearRangeFilter(startYear?: number, endYear?: number): { clause: s
   
   return {
     clause: conditions.length > 0 ? `AND ${conditions.join(' AND ')}` : '',
+    //Example return if start year = 2000 and end year = 2020:
     params
   };
 }
@@ -181,7 +182,6 @@ function buildAbstractFilter(abstractFilter?: string): { clause: string; params:
 /**
  * Optimized query for without_abstract report when using magazine numbers
  * This uses AND logic (all abstract fields must be empty) and INNER JOIN for better performance
- * Only uses biblioitems and biblio_metadata tables (no biblio table needed)
  * Only used when: abstractFilter = 'without_abstract' AND magazineNumbers provided
  */
 async function getWithoutAbstractRecordsByMagazines(
@@ -191,23 +191,27 @@ async function getWithoutAbstractRecordsByMagazines(
 ): Promise<BiblioRecord[]> {
   console.log('Using optimized query for without_abstract with magazine numbers');
   
-  // Build magazine number IN clause
+  // Build magazine number conditions
+  const magazineConditions = magazineNumbers.map(() => 'bi.journalnum = ?').join(' OR ');
+
   const placeholders = magazineNumbers.map(() => '?').join(',');
   
   // Build the optimized query with AND logic for abstract fields (all must be empty)
-  // Uses only biblioitems (b) and biblio_metadata (c) tables - exactly as user's query
   const query = `
     SELECT 
       b.biblionumber,
-      b.url
-    FROM biblioitems b
-    INNER JOIN biblio_metadata c ON b.biblionumber = c.biblionumber
-    WHERE b.journalnum IN (${placeholders})
-    AND EXTRACTVALUE(c.metadata, '//datafield[@tag="520"]/subfield[@code="a"]') = ''
-    AND EXTRACTVALUE(c.metadata, '//datafield[@tag="520"]/subfield[@code="b"]') = ''
-    AND EXTRACTVALUE(c.metadata, '//datafield[@tag="520"]/subfield[@code="d"]') = ''
-    AND EXTRACTVALUE(c.metadata, '//datafield[@tag="520"]/subfield[@code="e"]') = ''
-    AND EXTRACTVALUE(c.metadata, '//datafield[@tag="520"]/subfield[@code="f"]') = ''
+      bi.url
+    FROM biblio b
+    INNER JOIN biblioitems bi ON b.biblionumber = bi.biblionumber
+    INNER JOIN biblio_metadata bm ON b.biblionumber = bm.biblionumber
+    WHERE bi.journalnum IN (${placeholders})
+    ${yearFilter.clause}
+    ${urlFilter.clause}
+    AND EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="a"]') = ''
+    AND EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="b"]') = ''
+    AND EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="d"]') = ''
+    AND EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="e"]') = ''
+    AND EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="f"]') = ''
     ORDER BY b.biblionumber DESC
   `;
   

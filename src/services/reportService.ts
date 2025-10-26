@@ -226,6 +226,8 @@ async function getWithoutAbstractRecordsByMagazines(
   const queryTime = Date.now() - startTime;
   
   console.log(`Optimized query executed in ${queryTime}ms, returned ${result.length} records`);
+  //log the query itself
+  console.log(`Executed query: ${query}`);
   return result;
 }
 
@@ -483,15 +485,6 @@ export async function generatePredefinedReport(reportType: string, filters: Quer
         
       case 'export_abstract_field':
         // Use pre-extracted abstract subfields
-        console.log('Processing export_abstract_field for record:', record.biblionumber);
-        console.log('Available MARC 520 fields:', {
-          marc_520_a: (record as any).marc_520_a,
-          marc_520_b: (record as any).marc_520_b,
-          marc_520_d: (record as any).marc_520_d,
-          marc_520_e: (record as any).marc_520_e,
-          marc_520_f: (record as any).marc_520_f,
-          abstract: record.abstract
-        });
         
         result.abstract_520_a = (record as any).marc_520_a || '';
         result.abstract_520_b = (record as any).marc_520_b || '';
@@ -499,15 +492,6 @@ export async function generatePredefinedReport(reportType: string, filters: Quer
         result.abstract_520_e = (record as any).marc_520_e || '';
         result.abstract_520_f = (record as any).marc_520_f || '';
         result.abstract_520 = record.abstract || '';
-        
-        console.log('Mapped abstract fields:', {
-          abstract_520_a: result.abstract_520_a,
-          abstract_520_b: result.abstract_520_b,
-          abstract_520_d: result.abstract_520_d,
-          abstract_520_e: result.abstract_520_e,
-          abstract_520_f: result.abstract_520_f,
-          abstract_520: result.abstract_520
-        });
         break;
         
       case 'export_citation_entry':

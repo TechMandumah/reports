@@ -178,6 +178,61 @@ function buildAbstractFilter(abstractFilter?: string): { clause: string; params:
 
 // Note: getMarcMetadata and filterRecordsByAbstractType functions removed - now using EXTRACTVALUE directly for better performance
 
+/**
+ * Optimized query for without_abstract report when using magazine numbers
+ * This uses OR logic (any abstract field empty) and INNER JOIN for better performance
+ * Only used when: abstractFilter = 'without_abstract' AND magazineNumbers provided
+ */
+async function getWithoutAbstractRecordsByMagazines(
+  magazineNumbers: string[],
+  yearFilter: { clause: string; params: any[] },
+  urlFilter: { clause: string; params: any[] }
+): Promise<BiblioRecord[]> {
+  console.log('Using optimized query for without_abstract with magazine numbers');
+  
+  // Build magazine number conditions
+  const magazineConditions = magazineNumbers.map(() => 'bi.journalnum = ?').join(' OR ');
+  
+  // Build the optimized query with OR logic for abstract fields
+  const query = `
+    SELECT 
+      b.biblionumber,
+      b.title,
+      b.author,
+      b.copyrightdate,
+      bi.url,
+      bi.journalnum
+    FROM biblio b
+    INNER JOIN biblioitems bi ON b.biblionumber = bi.biblionumber
+    INNER JOIN biblio_metadata bm ON b.biblionumber = bm.biblionumber
+    WHERE (${magazineConditions})
+    ${yearFilter.clause}
+    ${urlFilter.clause}
+    AND (
+      b.abstract = '' OR b.abstract IS NULL
+      OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="a"]') = ''
+      OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="b"]') = ''
+      OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="d"]') = ''
+      OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="e"]') = ''
+      OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="f"]') = ''
+    )
+    ORDER BY b.biblionumber DESC
+  `;
+  
+  const params = [
+    ...magazineNumbers,
+    ...yearFilter.params,
+    ...urlFilter.params
+  ];
+  
+  const startTime = Date.now();
+  const result = await executeQuery<BiblioRecord>(query, params);
+  const queryTime = Date.now() - startTime;
+  
+  console.log(`Optimized query executed in ${queryTime}ms, returned ${result.length} records`);
+  return result;
+}
+
 // Get bibliographic records with filters using EXTRACTVALUE for MARC data (like user's SQL queries)
 export async function getBiblioRecords(filters: QueryFilters = {}): Promise<BiblioRecord[]> {
   const { magazineNumbers, startYear, endYear, authorName, isPreview, biblioNumbers, abstractFilter, urlList } = filters;
@@ -189,6 +244,20 @@ export async function getBiblioRecords(filters: QueryFilters = {}): Promise<Bibl
   const authorFilter = buildAuthorFilter(authorName);
   const absFilter = buildAbstractFilter(abstractFilter);
   const urlFilter = buildUrlListFilter(urlList);
+  
+  // Use optimized query for without_abstract with magazine numbers (much faster with OR logic)
+  // This specific case uses OR logic (any field empty) vs AND logic (all fields empty)
+  if (
+    abstractFilter === 'without_abstract' && 
+    magazineNumbers && 
+    magazineNumbers.length > 0 &&
+    !biblioNumbers && // Only when not using biblio numbers
+    !authorName &&    // Only when not filtering by author
+    !urlList          // Only when not filtering by URLs
+  ) {
+    console.log('Detected without_abstract + magazine numbers - using optimized query');
+    return await getWithoutAbstractRecordsByMagazines(magazineNumbers, yearFilter, urlFilter);
+  }
   
   // Add LIMIT clause for preview mode
   const limitClause = isPreview ? 'LIMIT 5' : '';

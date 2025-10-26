@@ -180,7 +180,8 @@ function buildAbstractFilter(abstractFilter?: string): { clause: string; params:
 
 /**
  * Optimized query for without_abstract report when using magazine numbers
- * This uses OR logic (any abstract field empty) and INNER JOIN for better performance
+ * This uses AND logic (all abstract fields must be empty) and INNER JOIN for better performance
+ * Only uses biblioitems and biblio_metadata tables (no biblio table needed)
  * Only used when: abstractFilter = 'without_abstract' AND magazineNumbers provided
  */
 async function getWithoutAbstractRecordsByMagazines(
@@ -190,32 +191,25 @@ async function getWithoutAbstractRecordsByMagazines(
 ): Promise<BiblioRecord[]> {
   console.log('Using optimized query for without_abstract with magazine numbers');
   
-  // Build magazine number conditions
-  const magazineConditions = magazineNumbers.map(() => 'bi.journalnum = ?').join(' OR ');
+  // Build magazine number IN clause
+  const placeholders = magazineNumbers.map(() => '?').join(',');
   
-  // Build the optimized query with OR logic for abstract fields
+  // Build the optimized query with AND logic for abstract fields (all must be empty)
+  // Uses only biblioitems (b) and biblio_metadata (c) tables - exactly as user's query
   const query = `
     SELECT 
       b.biblionumber,
-      b.title,
-      b.author,
-      b.copyrightdate,
-      bi.url,
-      bi.journalnum
-    FROM biblio b
-    INNER JOIN biblioitems bi ON b.biblionumber = bi.biblionumber
-    INNER JOIN biblio_metadata bm ON b.biblionumber = bm.biblionumber
-    WHERE (${magazineConditions})
+      b.url
+    FROM biblioitems b
+    INNER JOIN biblio_metadata c ON b.biblionumber = c.biblionumber
+    WHERE b.journalnum IN (${placeholders})
     ${yearFilter.clause}
     ${urlFilter.clause}
-    AND (
-      b.abstract = '' OR b.abstract IS NULL
-      OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="a"]') = ''
-      OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="b"]') = ''
-      OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="d"]') = ''
-      OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="e"]') = ''
-      OR EXTRACTVALUE(bm.metadata, '//datafield[@tag="520"]/subfield[@code="f"]') = ''
-    )
+    AND EXTRACTVALUE(c.metadata, '//datafield[@tag="520"]/subfield[@code="a"]') = ''
+    AND EXTRACTVALUE(c.metadata, '//datafield[@tag="520"]/subfield[@code="b"]') = ''
+    AND EXTRACTVALUE(c.metadata, '//datafield[@tag="520"]/subfield[@code="d"]') = ''
+    AND EXTRACTVALUE(c.metadata, '//datafield[@tag="520"]/subfield[@code="e"]') = ''
+    AND EXTRACTVALUE(c.metadata, '//datafield[@tag="520"]/subfield[@code="f"]') = ''
     ORDER BY b.biblionumber DESC
   `;
   
@@ -245,8 +239,8 @@ export async function getBiblioRecords(filters: QueryFilters = {}): Promise<Bibl
   const absFilter = buildAbstractFilter(abstractFilter);
   const urlFilter = buildUrlListFilter(urlList);
   
-  // Use optimized query for without_abstract with magazine numbers (much faster with OR logic)
-  // This specific case uses OR logic (any field empty) vs AND logic (all fields empty)
+  // Use optimized query for without_abstract with magazine numbers (much faster with INNER JOIN)
+  // This uses AND logic (all abstract fields must be empty) - same logic as standard query but optimized
   if (
     abstractFilter === 'without_abstract' && 
     magazineNumbers && 

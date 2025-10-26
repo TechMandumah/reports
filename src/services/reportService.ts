@@ -203,8 +203,6 @@ async function getWithoutAbstractRecordsByMagazines(
     FROM biblioitems b
     INNER JOIN biblio_metadata c ON b.biblionumber = c.biblionumber
     WHERE b.journalnum IN (${placeholders})
-    ${yearFilter.clause}
-    ${urlFilter.clause}
     AND EXTRACTVALUE(c.metadata, '//datafield[@tag="520"]/subfield[@code="a"]') = ''
     AND EXTRACTVALUE(c.metadata, '//datafield[@tag="520"]/subfield[@code="b"]') = ''
     AND EXTRACTVALUE(c.metadata, '//datafield[@tag="520"]/subfield[@code="d"]') = ''

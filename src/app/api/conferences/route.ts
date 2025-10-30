@@ -25,6 +25,18 @@ export async function GET() {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Conferences');
     
+    // Convert ID column to hyperlinks
+    const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+    for (let row = 1; row <= range.e.r; row++) { // Start from 1 to skip header
+      const cellAddress = XLSX.utils.encode_cell({ r: row, c: 0 }); // Column A (ID)
+      const cell = worksheet[cellAddress];
+      if (cell && cell.v) {
+        const id = cell.v;
+        cell.l = { Target: `https://jtitles.mandumah.com/index.php?module=Accounts&view=Edit&record=${id}` };
+        cell.v = String(id); // Ensure it displays as the ID
+      }
+    }
+
     // Generate Excel buffer
     const excelBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
     

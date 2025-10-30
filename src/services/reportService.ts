@@ -1361,6 +1361,7 @@ export async function getAllMagazinesData(): Promise<any[]> {
   
   const query = `
     SELECT 
+      a.accountid AS 'ID',
       a.employees AS 'Journal Number',
       a.accountname AS 'Journal Name',
       cf.cf_703  AS 'Organization', 
@@ -1417,6 +1418,7 @@ export async function getAllConferencesData(): Promise<any[]> {
   
   const query = `
     SELECT 
+      a.accountid AS 'ID',
       a.employees AS 'Journal Number',
       a.accountname AS 'Journal Name',
       cf.cf_703  AS 'Organization', 

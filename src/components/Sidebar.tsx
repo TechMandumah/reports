@@ -2,7 +2,6 @@
 
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation, Translations } from '@/utils/localization';
-import { useRouter } from 'next/navigation';
 
 interface SidebarProps {
   activeReport: string;
@@ -22,17 +21,10 @@ const getTranslatedReportName = (nameKey: string, t: Translations): string => {
 export default function Sidebar({ activeReport, setActiveReport }: SidebarProps) {
   const { language, isRTL } = useLanguage();
   const t = getTranslation(language);
-  const router = useRouter();
 
-  // Handle report selection - navigate to separate pages for journal reports
+  // Handle report selection
   const handleReportClick = (reportId: string) => {
-    if (reportId === 'all_magazines') {
-      router.push('/magazines');
-    } else if (reportId === 'all_conferences') {
-      router.push('/conferences');
-    } else {
-      setActiveReport(reportId);
-    }
+    setActiveReport(reportId);
   };
 
   // Define sidebar groups with translation keys

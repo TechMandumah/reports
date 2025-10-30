@@ -18,6 +18,13 @@ export default function Dashboard() {
   const t = getTranslation(language);
 
   useEffect(() => {
+    // Check if there's a stored active report from redirect
+    const storedReport = sessionStorage.getItem('activeReport');
+    if (storedReport) {
+      setActiveReport(storedReport);
+      sessionStorage.removeItem('activeReport'); // Clear it after use
+    }
+
     const authStatus = localStorage.getItem('isAuthenticated');
     const email = localStorage.getItem('userEmail');
     const loginTime = localStorage.getItem('loginTime');

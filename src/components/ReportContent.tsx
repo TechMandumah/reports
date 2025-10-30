@@ -10,6 +10,8 @@ import CitationAuthorTranslations from './CitationReports/CitationAuthorTranslat
 import CustomCitationReportForm from './CitationReports/CustomCitationReportForm';
 import CustomEstenadReportForm from './CustomEstenadReportForm';
 import EstenadUniversityReportForm from './EstenadUniversityReportForm';
+import MagazinesReport from './MagazinesReport';
+import ConferencesReport from './ConferencesReport';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation, Translations } from '@/utils/localization';
 
@@ -32,7 +34,9 @@ const getTranslatedReportName = (reportId: string, t: Translations, isRTL: boole
     'custom_citation_report': isRTL ? 'تقرير الاستشهاد المخصص' : 'Custom Citation Report',
     // 'custom_citation_form': isRTL ? 'نموذج الاستشهاد المخصص' : 'Custom Citation Form',
     'custom_report': t.sidebar.reports.customReport,
-    'convert_url_to_biblio': t.sidebar.reports.convertUrlToBiblio
+    'convert_url_to_biblio': t.sidebar.reports.convertUrlToBiblio,
+    'all_magazines': t.sidebar.reports.allMagazines,
+    'all_conferences': t.sidebar.reports.allConferences
   };
   return reportMap[reportId] || reportId;
 };
@@ -52,7 +56,9 @@ const getTranslatedReportDescription = (reportId: string, t: Translations, isRTL
     'custom_citation_report': isRTL ? 'إنشاء تقرير مخصص بالحقول التي تختارها من قاعدة بيانات الاستشهاد' : 'Generate a custom report with selected fields from the citation database',
     'custom_citation_form': isRTL ? 'إنشاء تقرير مخصص متقدم من قاعدة بيانات الاستشهاد مع خيارات متعددة الخطوات' : 'Generate advanced custom reports from citation database with multi-step options',
     'custom_report': t.reportContent.descriptions.customReport,
-    'convert_url_to_biblio': t.reportContent.descriptions.convertUrlToBiblio
+    'convert_url_to_biblio': t.reportContent.descriptions.convertUrlToBiblio,
+    'all_magazines': isRTL ? 'تصدير جميع بيانات الدوريات من قاعدة بيانات vtiger' : 'Export all magazines data from vtiger database',
+    'all_conferences': isRTL ? 'تصدير جميع بيانات المؤتمرات من قاعدة بيانات vtiger' : 'Export all conferences data from vtiger database'
   };
   return descriptionMap[reportId] || '';
 };
@@ -222,6 +228,16 @@ export default function ReportContent({ activeReport }: ReportContentProps) {
   const isCitationReport = ['export_citation_titles', 'export_citation_authors', 'custom_citation_report'].includes(activeReport);
   const isEstenadReport = activeReport === 'custom_estenad_report';
   const isEstenadUniversityReport = activeReport === 'estenad_university_report';
+  const isJournalReport = ['all_magazines', 'all_conferences'].includes(activeReport);
+
+  // Render journal reports
+  if (isJournalReport) {
+    return (
+      <div className="bg-white rounded-2xl shadow-lg border-2 border-gray-100 p-8">
+        {activeReport === 'all_magazines' ? <MagazinesReport /> : <ConferencesReport />}
+      </div>
+    );
+  }
 
   // Render estenad reports directly without the wrapper
   if (isEstenadReport) {

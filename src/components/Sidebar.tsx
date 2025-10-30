@@ -2,6 +2,7 @@
 
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation, Translations } from '@/utils/localization';
+import { useRouter } from 'next/navigation';
 
 interface SidebarProps {
   activeReport: string;
@@ -21,6 +22,18 @@ const getTranslatedReportName = (nameKey: string, t: Translations): string => {
 export default function Sidebar({ activeReport, setActiveReport }: SidebarProps) {
   const { language, isRTL } = useLanguage();
   const t = getTranslation(language);
+  const router = useRouter();
+
+  // Handle report selection - navigate to separate pages for journal reports
+  const handleReportClick = (reportId: string) => {
+    if (reportId === 'all_magazines') {
+      router.push('/magazines');
+    } else if (reportId === 'all_conferences') {
+      router.push('/conferences');
+    } else {
+      setActiveReport(reportId);
+    }
+  };
 
   // Define sidebar groups with translation keys
   const sidebarGroups = [
@@ -54,6 +67,13 @@ export default function Sidebar({ activeReport, setActiveReport }: SidebarProps)
       nameKey: 'sidebar.utilities',
       items: [
         { nameKey: 'sidebar.reports.convertUrl', id: "convert_url_to_biblio" }
+      ]
+    },
+    {
+      nameKey: 'sidebar.journalReports',
+      items: [
+        { nameKey: 'sidebar.reports.allMagazines', id: "all_magazines" },
+        { nameKey: 'sidebar.reports.allConferences', id: "all_conferences" }
       ]
     }
   ];
@@ -89,7 +109,7 @@ export default function Sidebar({ activeReport, setActiveReport }: SidebarProps)
                 {group.items.map((item) => (
                   <li key={item.id}>
                     <button
-                      onClick={() => setActiveReport(item.id)}
+                      onClick={() => handleReportClick(item.id)}
                       className={`w-full ${isRTL ? 'text-right' : 'text-left'} px-4 py-2 rounded-xl transition-all duration-200 group ${
                         activeReport === item.id
                           ? 'bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg transform scale-105'

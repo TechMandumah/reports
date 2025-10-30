@@ -1349,3 +1349,115 @@ export async function generateCustomEstenadReport(filters: QueryFilters): Promis
     throw error;
   }
 }
+
+/**
+ * Get all magazines data (employees 0000-5999)
+ * Joins vtiger_account with vtiger_accountscf to get complete information
+ */
+export async function getAllMagazinesData(): Promise<any[]> {
+  const { executeJournalQuery } = await import('@/lib/journal_db');
+  
+  console.log('Fetching all magazines data (0000-5999)...');
+  
+  const query = `
+    SELECT 
+      a.employees AS 'Journal Number',
+      a.accountname AS 'Journal Name',
+      cf.cf_703  AS 'Organization', 
+      cf.cf_707 AS 'Type',
+      cf.cf_709 AS 'ISSN',
+      cf.cf_711 AS 'ISBN',
+      cf.cf_715 AS 'Status',
+      cf.cf_717 AS 'Previous Title',
+      cf.cf_719 AS 'No. of Times',
+      cf.cf_721 AS 'Total Journals',
+      cf.cf_723 AS 'Peer Refereed',
+      cf.cf_725 AS 'Downloadable',
+      cf.cf_727 AS 'Databases',
+      cf.cf_729 AS 'Sub-specialization',
+      cf.cf_873 AS 'Link Number',
+      cf.cf_875 AS 'Category1',
+      cf.cf_877 AS 'Category2',
+      cf.cf_883 AS 'Category1 (English)',
+      cf.cf_885 AS 'Category2 (English)',
+      cf.cf_887 AS 'Category3 (English)',
+      cf.cf_901 AS 'Category1 (Arabic)',
+      cf.cf_903 AS 'Category2 (Arabic)',
+      cf.cf_905 AS 'Category3 (Arabic)',
+      cf.cf_907 AS 'Category1 (Other)',
+      cf.cf_919 AS 'Category2 (Other)',
+      cf.cf_921 AS 'Category3 (Other)',
+      cf.cf_923 AS 'Category1 (Other Language)',
+      cf.cf_925 AS 'Category2 (Other Language)',
+      cf.cf_931 AS 'Category3 (Other Language)',
+      cf.cf_933 AS 'Category1 (Other Language)'
+    FROM vtiger_account a
+    LEFT JOIN vtiger_accountscf cf ON a.accountid = cf.accountid
+    WHERE CAST(a.employees AS UNSIGNED) >= 0 
+      AND CAST(a.employees AS UNSIGNED) <= 5999
+    ORDER BY CAST(a.employees AS UNSIGNED)
+  `;
+  
+  const startTime = Date.now();
+  const results = await executeJournalQuery(query);
+  const queryTime = Date.now() - startTime;
+  
+  console.log(`✅ Fetched ${results.length} magazines in ${queryTime}ms`);
+  return results;
+}
+
+/**
+ * Get all conferences data (employees 6000-9999)
+ * Joins vtiger_account with vtiger_accountscf to get complete information
+ */
+export async function getAllConferencesData(): Promise<any[]> {
+  const { executeJournalQuery } = await import('@/lib/journal_db');
+  
+  console.log('Fetching all conferences data (6000-9999)...');
+  
+  const query = `
+    SELECT 
+      a.employees AS 'Journal Number',
+      a.accountname AS 'Journal Name',
+      cf.cf_703  AS 'Organization', 
+      cf.cf_707 AS 'Type',
+      cf.cf_709 AS 'ISSN',
+      cf.cf_711 AS 'ISBN',
+      cf.cf_715 AS 'Status',
+      cf.cf_717 AS 'Previous Title',
+      cf.cf_719 AS 'No. of Times',
+      cf.cf_721 AS 'Total Journals',
+      cf.cf_723 AS 'Peer Refereed',
+      cf.cf_725 AS 'Downloadable',
+      cf.cf_727 AS 'Databases',
+      cf.cf_729 AS 'Sub-specialization',
+      cf.cf_873 AS 'Link Number',
+      cf.cf_875 AS 'Category1',
+      cf.cf_877 AS 'Category2',
+      cf.cf_883 AS 'Category1 (English)',
+      cf.cf_885 AS 'Category2 (English)',
+      cf.cf_887 AS 'Category3 (English)',
+      cf.cf_901 AS 'Category1 (Arabic)',
+      cf.cf_903 AS 'Category2 (Arabic)',
+      cf.cf_905 AS 'Category3 (Arabic)',
+      cf.cf_907 AS 'Category1 (Other)',
+      cf.cf_919 AS 'Category2 (Other)',
+      cf.cf_921 AS 'Category3 (Other)',
+      cf.cf_923 AS 'Category1 (Other Language)',
+      cf.cf_925 AS 'Category2 (Other Language)',
+      cf.cf_931 AS 'Category3 (Other Language)',
+      cf.cf_933 AS 'Category1 (Other Language)'
+    FROM vtiger_account a
+    LEFT JOIN vtiger_accountscf cf ON a.accountid = cf.accountid
+    WHERE CAST(a.employees AS UNSIGNED) >= 6000 
+      AND CAST(a.employees AS UNSIGNED) <= 9999
+    ORDER BY CAST(a.employees AS UNSIGNED)
+  `;
+  
+  const startTime = Date.now();
+  const results = await executeJournalQuery(query);
+  const queryTime = Date.now() - startTime;
+  
+  console.log(`✅ Fetched ${results.length} conferences in ${queryTime}ms`);
+  return results;
+}

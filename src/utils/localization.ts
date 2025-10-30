@@ -89,6 +89,7 @@ export interface Translations {
     citationReports: string;
     estenadReports: string;
     utilities: string;
+    journalReports: string;
     reports: {
       researchTitles: string;
       researchAuthors: string;
@@ -110,6 +111,8 @@ export interface Translations {
       exportCitationAuthors: string;
       customEstenadReport: string;
       estenadUniversityReport: string;
+      allMagazines: string;
+      allConferences: string;
     };
   };
 
@@ -385,6 +388,7 @@ export const translations: Record<Language, Translations> = {
       citationReports: 'Citation Reports',
       estenadReports: 'Estenad Reports',
       utilities: 'Utilities',
+      journalReports: 'Journal & Conference Reports',
       reports: {
         researchTitles: 'Export Research Titles for Review',
         researchAuthors: 'Export Research Authors for Review',
@@ -406,6 +410,8 @@ export const translations: Record<Language, Translations> = {
         exportCitationAuthors: 'Export Citation Authors',
         customEstenadReport: 'Custom Estenad Report',
         estenadUniversityReport: 'Estenad Universities Translations',
+        allMagazines: 'All Magazines Data',
+        allConferences: 'All Conferences Data',
       },
     },
     reportContent: {
@@ -697,6 +703,7 @@ export const translations: Record<Language, Translations> = {
       citationReports: 'تقارير الاستشهاد',
       estenadReports: 'تقارير الإستناد',
       utilities: 'الأدوات المساعدة',
+      journalReports: 'تقارير الدوريات والمؤتمرات',
       reports: {
         researchTitles: 'تصدير عناوين البحوث للمراجعة',
         researchAuthors: 'تصدير مؤلفي البحوث للمراجعة',
@@ -718,6 +725,8 @@ export const translations: Record<Language, Translations> = {
         exportCitationAuthors: 'تصدير مؤلفي الاستشهاد',
         customEstenadReport: 'تقرير إستناد مخصص',
         estenadUniversityReport: 'تقرير ترجمات الجامعات للإسناد',
+        allMagazines: 'بيانات جميع الدوريات',
+        allConferences: 'بيانات جميع المؤتمرات',
       },
     },
     reportContent: {

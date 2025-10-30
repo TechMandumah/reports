@@ -112,3 +112,63 @@ export interface QueryFilters {
   authorIds?: string[]; // For auth_header table queries (estenad reports)
   urlList?: string[]; // For convert_url_to_biblio report
 }
+
+// Journal/Conference database interfaces (vtiger tables)
+export interface VtigerAccount {
+  accountid: number;
+  account_no: string;
+  accountname: string;
+  parentid: number;
+  account_type?: string;
+  industry?: string;
+  annualrevenue?: number;
+  rating?: string;
+  ownership?: string;
+  siccode?: string;
+  tickersymbol?: string;
+  phone?: string;
+  otherphone?: string;
+  email1?: string;
+  email2?: string;
+  website?: string;
+  fax?: string;
+  employees: string; // Magazine numbers (0000-5999) or Conference numbers (6000-9999)
+  emailoptout?: string;
+  notify_owner?: string;
+  isconvertedfromlead?: string;
+}
+
+export interface VtigerAccountsCF {
+  accountid: number;
+  cf_703?: string; // Publisher/Organization
+  cf_707?: string; // Rights status
+  cf_709?: string; // ISSN
+  cf_711?: string; // ISBN
+  cf_715?: string; // Status (متوقفة/مستمرة)
+  cf_717?: string; // 
+  cf_719?: string; // Frequency (فصلية/نصف سنوية)
+  cf_721?: number;
+  cf_723?: string;
+  cf_725?: string;
+  cf_727?: string; // Database/Category
+  cf_729?: string; // Full database name
+  cf_873?: number;
+  cf_875?: string;
+  cf_877?: string; // Country
+  cf_883?: string; // English title
+  cf_885?: string; // Transliteration
+  cf_887?: string;
+  cf_901?: string; // Subject area
+  cf_903?: string; // English subject
+  cf_905?: string;
+  cf_907?: string;
+  cf_919?: string;
+  cf_921?: string;
+  cf_923?: string;
+  cf_925?: string;
+  cf_931?: string; // Website URL
+  cf_933?: Date;
+}
+
+// Combined journal/conference data for export
+export interface JournalData extends VtigerAccount, VtigerAccountsCF {}

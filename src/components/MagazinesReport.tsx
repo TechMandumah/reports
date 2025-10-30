@@ -99,8 +99,8 @@ export default function MagazinesReport() {
         </p>
         <p className="text-sm text-gray-500 bg-blue-50 rounded-lg p-3 border border-blue-200 max-w-2xl mx-auto">
           {language === 'ar' 
-            ? 'يتضمن التقرير جميع البيانات من جدول vtiger_account و vtiger_accountscf للدوريات ذات الأرقام من 0000 إلى 5999.'
-            : 'The report includes all data from vtiger_account and vtiger_accountscf tables for magazines with numbers 0000 to 5999.'
+            ? 'يتضمن التقرير جميع البيانات من جدول للدوريات ذات الأرقام من 0000 إلى 5999.'
+            : 'The report includes all data from tables for magazines with numbers 0000 to 5999.'
           }
         </p>
       </div>

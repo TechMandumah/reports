@@ -21,9 +21,15 @@ export default function JobStatusTracker() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const fetchJobs = async () => {
+  const fetchJobs = async (isManualRefresh = false) => {
     try {
+      if (isManualRefresh) {
+        setIsRefreshing(true);
+      }
+
       const userEmail = localStorage.getItem('userEmail');
       if (!userEmail) {
         throw new Error('User email not found');
@@ -37,24 +43,37 @@ export default function JobStatusTracker() {
       const jobsData = await response.json();
       setJobs(jobsData);
       setError(null);
+      setLastUpdate(new Date());
     } catch (err) {
       console.error('Error fetching jobs:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   };
 
+  const handleManualRefresh = () => {
+    fetchJobs(true);
+  };
+
   useEffect(() => {
+    // Initial fetch
     fetchJobs();
+  }, []);
+
+  useEffect(() => {
+    // Poll for updates only if there are running or pending jobs
+    const hasActiveJobs = jobs.some(job => job.status === 'running' || job.status === 'pending');
     
-    // Poll for updates every 5 seconds for running jobs
+    if (!hasActiveJobs) {
+      return; // Don't poll if no active jobs
+    }
+
+    // Poll every 10 seconds (reduced from 5 seconds to reduce server load)
     const interval = setInterval(() => {
-      const hasRunningJobs = jobs.some(job => job.status === 'running' || job.status === 'pending');
-      if (hasRunningJobs) {
-        fetchJobs();
-      }
-    }, 5000);
+      fetchJobs();
+    }, 10000);
 
     return () => clearInterval(interval);
   }, [jobs]);
@@ -129,7 +148,7 @@ export default function JobStatusTracker() {
           {language === 'ar' ? 'خطأ في تحميل المهام:' : 'Error loading jobs:'} {error}
         </p>
         <button
-          onClick={fetchJobs}
+          onClick={handleManualRefresh}
           className="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
         >
           {language === 'ar' ? 'إعادة المحاولة' : 'Retry'}
@@ -160,16 +179,46 @@ export default function JobStatusTracker() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-xl font-bold text-gray-900">
-          {language === 'ar' ? 'مهام الخلفية' : 'Background Jobs'}
-        </h3>
+        <div>
+          <h3 className="text-xl font-bold text-gray-900">
+            {language === 'ar' ? 'مهام الخلفية' : 'Background Jobs'}
+          </h3>
+          {lastUpdate && (
+            <p className="text-xs text-gray-500 mt-1">
+              {language === 'ar' ? 'آخر تحديث:' : 'Last updated:'} {lastUpdate.toLocaleTimeString()}
+            </p>
+          )}
+        </div>
         <button
-          onClick={fetchJobs}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+          onClick={handleManualRefresh}
+          disabled={isRefreshing}
+          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
         >
-          {language === 'ar' ? '🔄 تحديث' : '🔄 Refresh'}
+          {isRefreshing ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              {language === 'ar' ? 'جارٍ التحديث...' : 'Refreshing...'}
+            </>
+          ) : (
+            <>
+              🔄 {language === 'ar' ? 'تحديث' : 'Refresh'}
+            </>
+          )}
         </button>
       </div>
+
+      {jobs.some(job => job.status === 'running' || job.status === 'pending') && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+          <div className="flex items-center gap-2">
+            <div className="animate-pulse">⏱️</div>
+            <span>
+              {language === 'ar' 
+                ? 'يتم التحديث تلقائيًا كل 10 ثوانٍ للمهام النشطة'
+                : 'Auto-refreshing every 10 seconds for active jobs'}
+            </span>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-3">
         {jobs.map((job) => (

@@ -169,9 +169,10 @@ sudo systemctl restart exim4
 1. **Job Submission** → User selects "Background Export"
 2. **Job Queue** → Job added to queue with user email
 3. **Job Processing** → Report generated in background
-4. **File Creation** → Excel file saved to `/tmp/`
+4. **File Creation** → Excel file saved to `/tmp/` (writable temp directory)
 5. **Email Sending** → Exim4 sends email with attachment
-6. **File Cleanup** → Temporary file can be deleted after sending
+6. **Automatic Cleanup** → Temporary file deleted immediately after email sent
+7. **Scheduled Cleanup** → Old export files (>1 day) automatically cleaned from `/tmp/`
 
 ## Report Types Supporting Background Jobs
 
@@ -198,11 +199,33 @@ All report types now support background export:
 3. **File Permissions**: Excel files are created with restricted permissions
 4. **Temporary Files**: Should be cleaned up after sending (optional)
 
+## File Storage
+
+### Temporary Export Files
+- **Location**: `/tmp/` directory (standard Linux temp directory)
+- **Why /tmp**: Guaranteed to be writable, no permission issues
+- **Automatic Cleanup**: Files deleted immediately after email sent
+- **Scheduled Cleanup**: Old files (>1 day) cleaned up automatically
+- **File Pattern**: `All_Magazines_Data_*.xlsx`, `All_Conferences_Data_*.xlsx`, `export_*.xlsx`
+
+### Cleanup Strategy
+1. **Immediate**: File deleted right after successful email delivery
+2. **Scheduled**: `cleanupOldFiles()` function removes files older than 1 day
+3. **Safe**: Only deletes files matching export patterns, not other /tmp files
+
+### No Permission Issues
+Unlike `/var/www/reports/public/exports/`, the `/tmp/` directory:
+- ✅ Always writable by all processes
+- ✅ No need to set folder permissions
+- ✅ Standard location for temporary files on Linux
+- ✅ Automatically cleaned by system on reboot (optional)
+
 ## Performance
 
 - **Email Sending**: < 1 second (local delivery)
 - **Attachment Size**: Supports large Excel files (no size limit by default)
 - **Concurrent Jobs**: Limited to 2 concurrent background jobs by job queue
+- **File Cleanup**: Automatic, no manual intervention needed
 
 ## Future Enhancements
 

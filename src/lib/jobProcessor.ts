@@ -8,11 +8,12 @@ import { sendJobCompletionEmail } from '@/lib/emailService';
 import { exportToExcel } from '@/utils/excelExport';
 import { exportCustomEstenadToExcel } from '@/utils/excelExport';
 
-// Create uploads directory if it doesn't exist
-const UPLOADS_DIR = path.join(process.cwd(), 'public', 'exports');
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-}
+// Use /tmp directory for temporary export files
+// This directory is guaranteed to be writable on Linux systems
+const UPLOADS_DIR = '/tmp';
+
+// Log the directory being used
+console.log(`📁 Export files will be saved to: ${UPLOADS_DIR}`);
 
 export async function processJob(job: Job): Promise<JobResult> {
   console.log(`🔄 Processing job ${job.id} of type ${job.type}`);
@@ -53,6 +54,17 @@ export async function processJob(job: Job): Promise<JobResult> {
         result.filePath,
         result.recordCount
       );
+      
+      // Clean up the file after sending email
+      try {
+        if (fs.existsSync(result.filePath)) {
+          fs.unlinkSync(result.filePath);
+          console.log(`🗑️ Cleaned up temporary file: ${result.fileName}`);
+        }
+      } catch (cleanupError) {
+        console.error(`⚠️ Failed to cleanup file ${result.fileName}:`, cleanupError);
+        // Don't fail the job if cleanup fails
+      }
     }
     
     return result;
@@ -423,8 +435,9 @@ async function processEstenadReport(job: Job): Promise<JobResult> {
   }
 }
 
-// Clean up old files (call this periodically)
-export function cleanupOldFiles(olderThanDays: number = 7): void {
+// Clean up old export files (call this periodically)
+// Only removes our export files, not other files in /tmp
+export function cleanupOldFiles(olderThanDays: number = 1): void {
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
   
@@ -432,20 +445,35 @@ export function cleanupOldFiles(olderThanDays: number = 7): void {
     const files = fs.readdirSync(UPLOADS_DIR);
     let cleanedCount = 0;
     
+    // Only clean up our export files (those matching our naming pattern)
+    const exportFilePattern = /^(All_Magazines_Data_|All_Conferences_Data_|export_.*\.xlsx$)/;
+    
     for (const file of files) {
-      const filePath = path.join(UPLOADS_DIR, file);
-      const stats = fs.statSync(filePath);
+      // Only process files that match our export file pattern
+      if (!exportFilePattern.test(file)) {
+        continue;
+      }
       
-      if (stats.mtime < cutoffDate) {
-        fs.unlinkSync(filePath);
-        cleanedCount++;
+      const filePath = path.join(UPLOADS_DIR, file);
+      
+      try {
+        const stats = fs.statSync(filePath);
+        
+        if (stats.mtime < cutoffDate) {
+          fs.unlinkSync(filePath);
+          cleanedCount++;
+          console.log(`🗑️ Deleted old export file: ${file}`);
+        }
+      } catch (fileError) {
+        // Skip files we can't access
+        continue;
       }
     }
     
     if (cleanedCount > 0) {
-      console.log(`🗑️ Cleaned up ${cleanedCount} old export files`);
+      console.log(`✅ Cleaned up ${cleanedCount} old export files from ${UPLOADS_DIR}`);
     }
   } catch (error) {
-    console.error('Error cleaning up old files:', error);
+    console.error('❌ Error cleaning up old files:', error);
   }
 }

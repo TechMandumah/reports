@@ -7,13 +7,37 @@ import jobQueue from '@/lib/jobQueue';
 import { sendJobCompletionEmail } from '@/lib/emailService';
 import { exportToExcel } from '@/utils/excelExport';
 import { exportCustomEstenadToExcel } from '@/utils/excelExport';
+import os from 'os';
 
-// Use /tmp directory for temporary export files
-// This directory is guaranteed to be writable on Linux systems
-const UPLOADS_DIR = '/tmp';
+// Determine the best writable directory for temporary export files
+function getWritableDirectory(): string {
+  const candidates = [
+    '/tmp',                              // Standard Linux temp dir
+    os.tmpdir(),                         // Node.js OS temp dir
+    path.join(process.cwd(), 'temp'),    // Local temp dir
+  ];
 
-// Log the directory being used
-console.log(`📁 Export files will be saved to: ${UPLOADS_DIR}`);
+  for (const dir of candidates) {
+    try {
+      // Try to create directory if it doesn't exist
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      
+      // Check if writable
+      fs.accessSync(dir, fs.constants.W_OK);
+      console.log(`✅ Using export directory: ${dir}`);
+      return dir;
+    } catch (error) {
+      console.warn(`⚠️ Directory not writable: ${dir}`);
+      continue;
+    }
+  }
+
+  throw new Error('No writable directory found for export files');
+}
+
+const UPLOADS_DIR = getWritableDirectory();
 
 export async function processJob(job: Job): Promise<JobResult> {
   console.log(`🔄 Processing job ${job.id} of type ${job.type}`);
@@ -130,7 +154,21 @@ async function processMagazinesExport(job: Job): Promise<JobResult> {
   const fileName = `All_Magazines_Data_${new Date().toISOString().split('T')[0]}_${job.id.substring(0, 8)}.xlsx`;
   const filePath = path.join(UPLOADS_DIR, fileName);
   
-  XLSX.writeFile(workbook, filePath);
+  try {
+    console.log(`💾 Attempting to save file: ${filePath}`);
+    XLSX.writeFile(workbook, filePath);
+    
+    // Verify file was created
+    if (!fs.existsSync(filePath)) {
+      throw new Error(`File was not created at ${filePath}`);
+    }
+    
+    const stats = fs.statSync(filePath);
+    console.log(`✅ File created successfully: ${fileName} (${stats.size} bytes)`);
+  } catch (writeError) {
+    console.error(`❌ Failed to write Excel file:`, writeError);
+    throw new Error(`Cannot save file ${filePath}: ${writeError instanceof Error ? writeError.message : 'Unknown error'}`);
+  }
   
   jobQueue.updateJobProgress(job.id, 100);
   
@@ -185,7 +223,21 @@ async function processConferencesExport(job: Job): Promise<JobResult> {
   const fileName = `All_Conferences_Data_${new Date().toISOString().split('T')[0]}_${job.id.substring(0, 8)}.xlsx`;
   const filePath = path.join(UPLOADS_DIR, fileName);
   
-  XLSX.writeFile(workbook, filePath);
+  try {
+    console.log(`💾 Attempting to save file: ${filePath}`);
+    XLSX.writeFile(workbook, filePath);
+    
+    // Verify file was created
+    if (!fs.existsSync(filePath)) {
+      throw new Error(`File was not created at ${filePath}`);
+    }
+    
+    const stats = fs.statSync(filePath);
+    console.log(`✅ File created successfully: ${fileName} (${stats.size} bytes)`);
+  } catch (writeError) {
+    console.error(`❌ Failed to write Excel file:`, writeError);
+    throw new Error(`Cannot save file ${filePath}: ${writeError instanceof Error ? writeError.message : 'Unknown error'}`);
+  }
   
   jobQueue.updateJobProgress(job.id, 100);
   
@@ -257,8 +309,22 @@ async function processGeneralReport(job: Job): Promise<JobResult> {
 
     jobQueue.updateJobProgress(job.id, 80);
 
-    // Save file
-    XLSX.writeFile(workbook, filePath);
+    // Save file with error handling
+    try {
+      console.log(`💾 Attempting to save file: ${filePath}`);
+      XLSX.writeFile(workbook, filePath);
+      
+      // Verify file was created
+      if (!fs.existsSync(filePath)) {
+        throw new Error(`File was not created at ${filePath}`);
+      }
+      
+      const stats = fs.statSync(filePath);
+      console.log(`✅ File created successfully: ${fileName} (${stats.size} bytes)`);
+    } catch (writeError) {
+      console.error(`❌ Failed to write Excel file:`, writeError);
+      throw new Error(`Cannot save file ${filePath}: ${writeError instanceof Error ? writeError.message : 'Unknown error'}`);
+    }
 
     jobQueue.updateJobProgress(job.id, 100);
 
@@ -353,7 +419,21 @@ async function processCitationReport(job: Job): Promise<JobResult> {
     const fileName = `citation_report_${new Date().toISOString().split('T')[0]}_${job.id.substring(0, 8)}.xlsx`;
     const filePath = path.join(UPLOADS_DIR, fileName);
 
-    XLSX.writeFile(workbook, filePath);
+    try {
+      console.log(`💾 Attempting to save file: ${filePath}`);
+      XLSX.writeFile(workbook, filePath);
+      
+      // Verify file was created
+      if (!fs.existsSync(filePath)) {
+        throw new Error(`File was not created at ${filePath}`);
+      }
+      
+      const stats = fs.statSync(filePath);
+      console.log(`✅ File created successfully: ${fileName} (${stats.size} bytes)`);
+    } catch (writeError) {
+      console.error(`❌ Failed to write Excel file:`, writeError);
+      throw new Error(`Cannot save file ${filePath}: ${writeError instanceof Error ? writeError.message : 'Unknown error'}`);
+    }
 
     jobQueue.updateJobProgress(job.id, 100);
 
@@ -412,8 +492,22 @@ async function processEstenadReport(job: Job): Promise<JobResult> {
 
     jobQueue.updateJobProgress(job.id, 80);
 
-    // Save file
-    XLSX.writeFile(workbook, filePath);
+    // Save file with error handling
+    try {
+      console.log(`💾 Attempting to save file: ${filePath}`);
+      XLSX.writeFile(workbook, filePath);
+      
+      // Verify file was created
+      if (!fs.existsSync(filePath)) {
+        throw new Error(`File was not created at ${filePath}`);
+      }
+      
+      const stats = fs.statSync(filePath);
+      console.log(`✅ File created successfully: ${fileName} (${stats.size} bytes)`);
+    } catch (writeError) {
+      console.error(`❌ Failed to write Excel file:`, writeError);
+      throw new Error(`Cannot save file ${filePath}: ${writeError instanceof Error ? writeError.message : 'Unknown error'}`);
+    }
 
     jobQueue.updateJobProgress(job.id, 100);
 

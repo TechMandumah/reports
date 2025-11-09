@@ -523,6 +523,7 @@ export default function ReportContent({ activeReport, setActiveReport }: ReportC
         isGenerating={safeIsGenerating}
         recordCount={safeRecordCount}
         showSuccessMessage={safeShowSuccess}
+        setActiveReport={setActiveReport}
       />
     </div>;
   }

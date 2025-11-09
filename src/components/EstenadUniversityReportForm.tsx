@@ -9,13 +9,15 @@ interface EstenadUniversityReportFormProps {
   isGenerating: boolean;
   recordCount?: number;
   showSuccessMessage?: boolean;
+  setActiveReport?: (report: string) => void;
 }
 
 export default function EstenadUniversityReportForm({ 
   onGenerate, 
   isGenerating,
   recordCount = 0,
-  showSuccessMessage = false 
+  showSuccessMessage = false,
+  setActiveReport
 }: EstenadUniversityReportFormProps) {
   const { language, isRTL } = useLanguage();
   const t = getTranslation(language);
@@ -254,6 +256,11 @@ export default function EstenadUniversityReportForm({
           ? `تم إضافة التقرير إلى قائمة الانتظار. معرف الوظيفة: ${result.jobId}`
           : `Report queued for generation. Job ID: ${result.jobId}`);
         clearFormInputs();
+        
+        // Navigate to job status page
+        if (setActiveReport) {
+          setActiveReport('job_status_tracker');
+        }
       } else {
         const error = await response.json();
         alert(language === 'ar'

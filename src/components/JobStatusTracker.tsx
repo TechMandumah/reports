@@ -296,8 +296,8 @@ export default function JobStatusTracker() {
           <div className="flex items-center justify-center">
             <div className="animate-pulse w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
             {language === 'ar' 
-              ? 'يتم التحديث التلقائي كل 5 ثواني...'
-              : 'Auto-refreshing every 5 seconds...'
+              ? 'يتم التحديث التلقائي كل 10 ثواني...'
+              : 'Auto-refreshing every 10 seconds...'
             }
           </div>
         </div>

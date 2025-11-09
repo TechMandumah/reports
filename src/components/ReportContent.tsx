@@ -12,6 +12,7 @@ import CustomEstenadReportForm from './CustomEstenadReportForm';
 import EstenadUniversityReportForm from './EstenadUniversityReportForm';
 import MagazinesReport from './MagazinesReport';
 import ConferencesReport from './ConferencesReport';
+import JobStatusTracker from './JobStatusTracker';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation, Translations } from '@/utils/localization';
 
@@ -69,8 +70,18 @@ export default function ReportContent({ activeReport }: ReportContentProps) {
   const { language, isRTL } = useLanguage();
   const t = getTranslation(language);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [exportMethod, setExportMethod] = useState<'instant' | 'background'>('instant');
+  const [isSubmittingJob, setIsSubmittingJob] = useState(false);
 
   const handleGenerateReport = async (formData: any) => {
+    if (exportMethod === 'background') {
+      await handleBackgroundGenerateReport(formData);
+    } else {
+      await handleInstantGenerateReport(formData);
+    }
+  };
+
+  const handleInstantGenerateReport = async (formData: any) => {
     setIsGenerating(true);
     setShowSuccessMessage(false);
     
@@ -120,7 +131,70 @@ export default function ReportContent({ activeReport }: ReportContentProps) {
     }
   };
 
+  const handleBackgroundGenerateReport = async (formData: any) => {
+    try {
+      setIsSubmittingJob(true);
+      setShowSuccessMessage(false);
+
+      const userEmail = localStorage.getItem('userEmail');
+      if (!userEmail) {
+        throw new Error('User email not found');
+      }
+
+      // Submit background job
+      const response = await fetch('/api/jobs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'general_report',
+          userEmail: userEmail,
+          parameters: {
+            reportType: activeReport,
+            urlList: formData.urlList,
+            startYear: formData.startYear,
+            endYear: formData.endYear,
+            filters: {
+              magazineNumbers: formData.magazineNumbers,
+              biblioNumbers: formData.biblioNumbers,
+              startYear: formData.startYear ? parseInt(formData.startYear) : undefined,
+              endYear: formData.endYear ? parseInt(formData.endYear) : undefined,
+              authorName: formData.authorName,
+              selectedFields: formData.selectedFields
+            }
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to submit job');
+      }
+
+      const result = await response.json();
+      
+      // Show success message
+      setShowSuccessMessage(true);
+      setTimeout(() => setShowSuccessMessage(false), 10000);
+
+    } catch (error) {
+      console.error('Error submitting background job:', error);
+      alert(`Error submitting job: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsSubmittingJob(false);
+    }
+  };
+
   const handleGenerateCustomCitationReport = async (formData: any) => {
+    if (exportMethod === 'background') {
+      await handleBackgroundGenerateCustomCitationReport(formData);
+    } else {
+      await handleInstantGenerateCustomCitationReport(formData);
+    }
+  };
+
+  const handleInstantGenerateCustomCitationReport = async (formData: any) => {
     setIsGenerating(true);
     setShowSuccessMessage(false);
     
@@ -175,7 +249,64 @@ export default function ReportContent({ activeReport }: ReportContentProps) {
     }
   };
 
+  const handleBackgroundGenerateCustomCitationReport = async (formData: any) => {
+    try {
+      setIsSubmittingJob(true);
+      setShowSuccessMessage(false);
+
+      const userEmail = localStorage.getItem('userEmail');
+      if (!userEmail) {
+        throw new Error('User email not found');
+      }
+
+      // Submit background job
+      const response = await fetch('/api/jobs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'citation_report',
+          userEmail: userEmail,
+          parameters: {
+            magazineNumbers: formData.magazineNumbers,
+            startYear: formData.startYear,
+            endYear: formData.endYear,
+            selectedFields: formData.selectedFields,
+            biblioNumbers: formData.biblioNumbers,
+            isPreview: false
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to submit job');
+      }
+
+      const result = await response.json();
+      
+      // Show success message
+      setShowSuccessMessage(true);
+      setTimeout(() => setShowSuccessMessage(false), 10000);
+
+    } catch (error) {
+      console.error('Error submitting background citation job:', error);
+      alert(`Error submitting job: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsSubmittingJob(false);
+    }
+  };
+
   const handleGenerateEstenadReport = async (formData: any) => {
+    if (exportMethod === 'background') {
+      await handleBackgroundGenerateEstenadReport(formData);
+    } else {
+      await handleInstantGenerateEstenadReport(formData);
+    }
+  };
+
+  const handleInstantGenerateEstenadReport = async (formData: any) => {
     setIsGenerating(true);
     setShowSuccessMessage(false);
     
@@ -224,11 +355,69 @@ export default function ReportContent({ activeReport }: ReportContentProps) {
     }
   };
 
+  const handleBackgroundGenerateEstenadReport = async (formData: any) => {
+    try {
+      setIsSubmittingJob(true);
+      setShowSuccessMessage(false);
+
+      const userEmail = localStorage.getItem('userEmail');
+      if (!userEmail) {
+        throw new Error('User email not found');
+      }
+
+      // Submit background job
+      const response = await fetch('/api/jobs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'estenad_report',
+          userEmail: userEmail,
+          parameters: {
+            reportType: 'custom_estenad_report',
+            authorIds: formData.authorIds,
+            biblioNumbers: formData.biblioNumbers,
+            selectedFields: formData.selectedFields,
+            isPreview: false
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to submit job');
+      }
+
+      const result = await response.json();
+      
+      // Show success message
+      setShowSuccessMessage(true);
+      setTimeout(() => setShowSuccessMessage(false), 10000);
+
+    } catch (error) {
+      console.error('Error submitting background estenad job:', error);
+      alert(`Error submitting job: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsSubmittingJob(false);
+    }
+  };
+
   const isCustomReport = activeReport === 'custom_report';
   const isCitationReport = ['export_citation_titles', 'export_citation_authors', 'custom_citation_report'].includes(activeReport);
   const isEstenadReport = activeReport === 'custom_estenad_report';
   const isEstenadUniversityReport = activeReport === 'estenad_university_report';
   const isJournalReport = ['all_magazines', 'all_conferences'].includes(activeReport);
+  const isJobStatusTracker = activeReport === 'job_status_tracker';
+
+  // Render job status tracker
+  if (isJobStatusTracker) {
+    return (
+      <div className="bg-white rounded-2xl shadow-lg border-2 border-gray-100 p-8">
+        <JobStatusTracker />
+      </div>
+    );
+  }
 
   // Render journal reports
   if (isJournalReport) {
@@ -256,18 +445,104 @@ export default function ReportContent({ activeReport }: ReportContentProps) {
     const safeIsGenerating = typeof isGenerating === 'boolean' ? isGenerating : false;
     const safeShowSuccess = typeof showSuccessMessage === 'boolean' ? showSuccessMessage : false;
     
-    return    <div className="bg-white rounded-2xl shadow-lg border-2 border-gray-100 p-8">
-        <div className={`flex items-center ${isRTL ? 'space-x-reverse space-x-3' : 'space-x-3'} mb-6`}>
-          <h3 className={`text-xl font-bold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>
-            {t.forms.reportParameters}
-          </h3>
-        </div> <CustomEstenadReportForm 
-      onGenerate={handleGenerateEstenadReport}
-      isGenerating={safeIsGenerating}
-      recordCount={safeRecordCount}
-      showSuccessMessage={safeShowSuccess}
-    />
-      </div>;
+    return (
+      <div className="max-w-6xl mx-auto">
+        {/* Success Message */}
+        {showSuccessMessage && (
+          <div className="mb-6 bg-green-50 border-2 border-green-200 rounded-xl p-4">
+            <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : ''}`}>
+              <div className={`w-6 h-6 bg-green-600 rounded-full flex items-center justify-center ${isRTL ? 'ml-3' : 'mr-3'}`}>
+                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <div>
+                <h4 className={`text-sm font-semibold text-green-900 ${isRTL ? 'text-right' : 'text-left'}`}>
+                  {exportMethod === 'background'
+                    ? (language === 'ar' ? 'تم إرسال المهمة بنجاح!' : 'Job Submitted Successfully!')
+                    : (language === 'ar' ? 'تم تصدير إكسل بنجاح!' : 'Excel Export Successful!')
+                  }
+                </h4>
+                <p className={`text-sm text-green-700 ${isRTL ? 'text-right' : 'text-left'}`}>
+                  {exportMethod === 'background'
+                    ? (language === 'ar' 
+                        ? 'تم إرسال مهمة التصدير للخلفية. سيتم إرسال الملف عبر البريد الإلكتروني عند الانتهاء.'
+                        : 'Export job submitted to background. You will receive the file via email when complete.'
+                      )
+                    : (language === 'ar' ? 'تم تصدير تقريرك وتحميله تلقائياً.' : 'Your report has been exported and downloaded automatically.')
+                  }
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Export Method Selection */}
+        <div className="bg-gray-50 rounded-lg p-6 mb-6">
+          <h4 className="text-lg font-semibold text-gray-900 mb-4">
+            {language === 'ar' ? 'طريقة التصدير' : 'Export Method'}
+          </h4>
+          <div className="space-y-3">
+            <label className="flex items-start space-x-3 cursor-pointer">
+              <input
+                type="radio"
+                name="exportMethod"
+                value="instant"
+                checked={exportMethod === 'instant'}
+                onChange={(e) => setExportMethod(e.target.value as 'instant' | 'background')}
+                className="mt-1"
+              />
+              <div>
+                <div className="font-medium text-gray-900">
+                  {language === 'ar' ? '🚀 تصدير فوري' : '🚀 Instant Export'}
+                </div>
+                <div className="text-sm text-gray-600">
+                  {language === 'ar' 
+                    ? 'للبيانات الصغيرة والمتوسطة (أقل من 12 دقيقة)' 
+                    : 'For small to medium datasets (under 12 minutes)'
+                  }
+                </div>
+              </div>
+            </label>
+            <label className="flex items-start space-x-3 cursor-pointer">
+              <input
+                type="radio"
+                name="exportMethod"
+                value="background"
+                checked={exportMethod === 'background'}
+                onChange={(e) => setExportMethod(e.target.value as 'instant' | 'background')}
+                className="mt-1"
+              />
+              <div>
+                <div className="font-medium text-gray-900">
+                  {language === 'ar' ? '📧 تصدير في الخلفية' : '📧 Background Export'}
+                </div>
+                <div className="text-sm text-gray-600">
+                  {language === 'ar'
+                    ? 'للبيانات الكبيرة - سيتم إرسال الملف عبر البريد الإلكتروني عند الانتهاء'
+                    : 'For large datasets - file will be emailed when complete'
+                  }
+                </div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-lg border-2 border-gray-100 p-8">
+          <div className={`flex items-center ${isRTL ? 'space-x-reverse space-x-3' : 'space-x-3'} mb-6`}>
+            <h3 className={`text-xl font-bold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>
+              {t.forms.reportParameters}
+            </h3>
+          </div>
+          <CustomEstenadReportForm 
+            onGenerate={handleGenerateEstenadReport}
+            isGenerating={safeIsGenerating || isSubmittingJob}
+            recordCount={safeRecordCount}
+            showSuccessMessage={safeShowSuccess}
+          />
+        </div>
+      </div>
+    );
   }
 
   // Render estenad university report
@@ -299,12 +574,97 @@ export default function ReportContent({ activeReport }: ReportContentProps) {
       case 'export_citation_authors':
         return <CitationAuthorTranslations />;
       case 'custom_citation_report':
-        return <CustomCitationReportForm 
-          onGenerate={handleGenerateCustomCitationReport}
-          isGenerating={isGenerating}
-          recordCount={recordCount}
-          showSuccessMessage={showSuccessMessage}
-        />;
+        return (
+          <div className="max-w-6xl mx-auto">
+            {/* Success Message */}
+            {showSuccessMessage && (
+              <div className="mb-6 bg-green-50 border-2 border-green-200 rounded-xl p-4">
+                <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : ''}`}>
+                  <div className={`w-6 h-6 bg-green-600 rounded-full flex items-center justify-center ${isRTL ? 'ml-3' : 'mr-3'}`}>
+                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 className={`text-sm font-semibold text-green-900 ${isRTL ? 'text-right' : 'text-left'}`}>
+                      {exportMethod === 'background'
+                        ? (language === 'ar' ? 'تم إرسال المهمة بنجاح!' : 'Job Submitted Successfully!')
+                        : (language === 'ar' ? 'تم تصدير إكسل بنجاح!' : 'Excel Export Successful!')
+                      }
+                    </h4>
+                    <p className={`text-sm text-green-700 ${isRTL ? 'text-right' : 'text-left'}`}>
+                      {exportMethod === 'background'
+                        ? (language === 'ar' 
+                            ? 'تم إرسال مهمة التصدير للخلفية. سيتم إرسال الملف عبر البريد الإلكتروني عند الانتهاء.'
+                            : 'Export job submitted to background. You will receive the file via email when complete.'
+                          )
+                        : (language === 'ar' ? 'تم تصدير تقريرك وتحميله تلقائياً.' : 'Your report has been exported and downloaded automatically.')
+                      }
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Export Method Selection */}
+            <div className="bg-gray-50 rounded-lg p-6 mb-6">
+              <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                {language === 'ar' ? 'طريقة التصدير' : 'Export Method'}
+              </h4>
+              <div className="space-y-3">
+                <label className="flex items-start space-x-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="exportMethod"
+                    value="instant"
+                    checked={exportMethod === 'instant'}
+                    onChange={(e) => setExportMethod(e.target.value as 'instant' | 'background')}
+                    className="mt-1"
+                  />
+                  <div>
+                    <div className="font-medium text-gray-900">
+                      {language === 'ar' ? '🚀 تصدير فوري' : '🚀 Instant Export'}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      {language === 'ar' 
+                        ? 'للبيانات الصغيرة والمتوسطة (أقل من 12 دقيقة)' 
+                        : 'For small to medium datasets (under 12 minutes)'
+                      }
+                    </div>
+                  </div>
+                </label>
+                <label className="flex items-start space-x-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="exportMethod"
+                    value="background"
+                    checked={exportMethod === 'background'}
+                    onChange={(e) => setExportMethod(e.target.value as 'instant' | 'background')}
+                    className="mt-1"
+                  />
+                  <div>
+                    <div className="font-medium text-gray-900">
+                      {language === 'ar' ? '📧 تصدير في الخلفية' : '📧 Background Export'}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      {language === 'ar'
+                        ? 'للبيانات الكبيرة - سيتم إرسال الملف عبر البريد الإلكتروني عند الانتهاء'
+                        : 'For large datasets - file will be emailed when complete'
+                      }
+                    </div>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <CustomCitationReportForm 
+              onGenerate={handleGenerateCustomCitationReport}
+              isGenerating={isGenerating || isSubmittingJob}
+              recordCount={recordCount}
+              showSuccessMessage={showSuccessMessage}
+            />
+          </div>
+        );
       default:
         return null;
     }
@@ -323,10 +683,19 @@ export default function ReportContent({ activeReport }: ReportContentProps) {
             </div>
             <div>
               <h4 className={`text-sm font-semibold text-green-900 ${isRTL ? 'text-right' : 'text-left'}`}>
-                {language === 'ar' ? 'تم تصدير إكسل بنجاح!' : 'Excel Export Successful!'}
+                {exportMethod === 'background'
+                  ? (language === 'ar' ? 'تم إرسال المهمة بنجاح!' : 'Job Submitted Successfully!')
+                  : (language === 'ar' ? 'تم تصدير إكسل بنجاح!' : 'Excel Export Successful!')
+                }
               </h4>
               <p className={`text-sm text-green-700 ${isRTL ? 'text-right' : 'text-left'}`}>
-                {language === 'ar' ? 'تم تصدير تقريرك وتحميله تلقائياً.' : 'Your report has been exported and downloaded automatically.'}
+                {exportMethod === 'background'
+                  ? (language === 'ar' 
+                      ? 'تم إرسال مهمة التصدير للخلفية. سيتم إرسال الملف عبر البريد الإلكتروني عند الانتهاء.'
+                      : 'Export job submitted to background. You will receive the file via email when complete.'
+                    )
+                  : (language === 'ar' ? 'تم تصدير تقريرك وتحميله تلقائياً.' : 'Your report has been exported and downloaded automatically.')
+                }
               </p>
             </div>
           </div>
@@ -366,6 +735,57 @@ export default function ReportContent({ activeReport }: ReportContentProps) {
       </div> */}
       
 
+      {/* Export Method Selection */}
+      <div className="bg-gray-50 rounded-lg p-6 mb-6">
+        <h4 className="text-lg font-semibold text-gray-900 mb-4">
+          {language === 'ar' ? 'طريقة التصدير' : 'Export Method'}
+        </h4>
+        <div className="space-y-3">
+          <label className="flex items-start space-x-3 cursor-pointer">
+            <input
+              type="radio"
+              name="exportMethod"
+              value="instant"
+              checked={exportMethod === 'instant'}
+              onChange={(e) => setExportMethod(e.target.value as 'instant' | 'background')}
+              className="mt-1"
+            />
+            <div>
+              <div className="font-medium text-gray-900">
+                {language === 'ar' ? '🚀 تصدير فوري' : '🚀 Instant Export'}
+              </div>
+              <div className="text-sm text-gray-600">
+                {language === 'ar' 
+                  ? 'للبيانات الصغيرة والمتوسطة (أقل من 12 دقيقة)' 
+                  : 'For small to medium datasets (under 12 minutes)'
+                }
+              </div>
+            </div>
+          </label>
+          <label className="flex items-start space-x-3 cursor-pointer">
+            <input
+              type="radio"
+              name="exportMethod"
+              value="background"
+              checked={exportMethod === 'background'}
+              onChange={(e) => setExportMethod(e.target.value as 'instant' | 'background')}
+              className="mt-1"
+            />
+            <div>
+              <div className="font-medium text-gray-900">
+                {language === 'ar' ? '📧 تصدير في الخلفية' : '📧 Background Export'}
+              </div>
+              <div className="text-sm text-gray-600">
+                {language === 'ar'
+                  ? 'للبيانات الكبيرة - سيتم إرسال الملف عبر البريد الإلكتروني عند الانتهاء'
+                  : 'For large datasets - file will be emailed when complete'
+                }
+              </div>
+            </div>
+          </label>
+        </div>
+      </div>
+
       {/* Report Form */}
       <div className="bg-white rounded-2xl shadow-lg border-2 border-gray-100 p-8">
         <div className={`flex items-center ${isRTL ? 'space-x-reverse space-x-3' : 'space-x-3'} mb-6`}>
@@ -377,7 +797,7 @@ export default function ReportContent({ activeReport }: ReportContentProps) {
         {isCustomReport ? (
           <CustomReportForm 
             onGenerate={handleGenerateReport}
-            isGenerating={isGenerating}
+            isGenerating={isGenerating || isSubmittingJob}
             recordCount={recordCount}
             showSuccessMessage={showSuccessMessage}
           />
@@ -385,7 +805,7 @@ export default function ReportContent({ activeReport }: ReportContentProps) {
           <PredefinedReportForm 
             reportType={activeReport}
             onGenerate={handleGenerateReport}
-            isGenerating={isGenerating}
+            isGenerating={isGenerating || isSubmittingJob}
             recordCount={recordCount}
             showSuccessMessage={showSuccessMessage}
           />

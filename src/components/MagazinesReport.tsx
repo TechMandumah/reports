@@ -122,6 +122,8 @@ export default function MagazinesReport() {
         </div>
       )}
 
+
+
       {/* Generate Button */}
       <div className="flex flex-col items-center pt-4">
         <button

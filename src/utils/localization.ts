@@ -89,6 +89,7 @@ export interface Translations {
     citationReports: string;
     estenadReports: string;
     utilities: string;
+    jobManagement: string;
     journalReports: string;
     reports: {
       researchTitles: string;
@@ -113,6 +114,7 @@ export interface Translations {
       estenadUniversityReport: string;
       allMagazines: string;
       allConferences: string;
+      jobStatus: string;
     };
   };
 
@@ -388,6 +390,7 @@ export const translations: Record<Language, Translations> = {
       citationReports: 'Citation Reports',
       estenadReports: 'Estenad Reports',
       utilities: 'Utilities',
+      jobManagement: 'Job Management',
       journalReports: 'Journal & Conference Reports',
       reports: {
         researchTitles: 'Export Research Titles for Review',
@@ -412,6 +415,7 @@ export const translations: Record<Language, Translations> = {
         estenadUniversityReport: 'Estenad Universities Translations',
         allMagazines: 'All Magazines Data',
         allConferences: 'All Conferences Data',
+        jobStatus: 'Background Jobs Status',
       },
     },
     reportContent: {
@@ -703,6 +707,7 @@ export const translations: Record<Language, Translations> = {
       citationReports: 'تقارير الاستشهاد',
       estenadReports: 'تقارير الإستناد',
       utilities: 'الأدوات المساعدة',
+      jobManagement: 'إدارة المهام',
       journalReports: 'تقارير الدوريات والمؤتمرات',
       reports: {
         researchTitles: 'تصدير عناوين البحوث للمراجعة',
@@ -727,6 +732,7 @@ export const translations: Record<Language, Translations> = {
         estenadUniversityReport: 'تقرير ترجمات الجامعات للإسناد',
         allMagazines: 'بيانات جميع الدوريات',
         allConferences: 'بيانات جميع المؤتمرات',
+        jobStatus: 'حالة مهام الخلفية',
       },
     },
     reportContent: {

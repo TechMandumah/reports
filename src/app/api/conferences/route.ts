@@ -36,6 +36,21 @@ export async function GET() {
         cell.v = String(id); // Ensure it displays as the ID
       }
     }
+    //Row with color light green, the next one with very light green from the beginning to the end
+    for (let row = 1; row <= range.e.r; row++) {
+      const fillColor = (row % 2 === 1) ? 'FFCCFFCC' : 'FFE6FFE6'; // Light green and very light green
+      for (let col = 0; col <= range.e.c; col++) {
+        const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+        const cell = worksheet[cellAddress];
+        if (cell) {
+          cell.s = {
+            fill: {
+              fgColor: { rgb: fillColor }
+            }
+          };
+        }
+      }
+    }
 
     // Generate Excel buffer
     const excelBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });

@@ -31,6 +31,8 @@ export default function CitationTitleTranslations() {
   const [fileNumbers, setFileNumbers] = useState<string[]>([]);
   const [biblioUploadedFile, setBiblioUploadedFile] = useState<File | null>(null);
   const [biblioNumbers, setBiblioNumbers] = useState<string[]>([]);
+  const [exportMethod, setExportMethod] = useState<'instant' | 'background'>('instant');
+  const [isSubmittingJob, setIsSubmittingJob] = useState(false);
 
   const validateMagazineNumbers = (input: string): { isValid: boolean; errors: string[] } => {
     if (!input.trim()) {
@@ -171,6 +173,88 @@ export default function CitationTitleTranslations() {
     setBiblioNumbers([]);
   };
 
+  const handleBackgroundGenerate = async () => {
+    setIsSubmittingJob(true);
+
+    // Validate input based on input method
+    let validation: { isValid: boolean; errors: string[] };
+    let numbersToUse: string[] = [];
+    let biblioNumbersToUse: string[] = [];
+    
+    if (inputMethod === 'manual') {
+      validation = validateMagazineNumbers(magazineNumbers);
+      numbersToUse = magazineNumbers.split(',').map((m: string) => m.trim()).filter((m: string) => m !== '');
+    } else if (inputMethod === 'file') {
+      validation = validateFileNumbers(fileNumbers);
+      numbersToUse = fileNumbers;
+    } else if (inputMethod === 'biblio') {
+      if (biblioNumbers.length === 0) {
+        setValidationErrors(['Please upload a biblio file with valid numbers']);
+        setIsSubmittingJob(false);
+        return;
+      }
+      validation = { isValid: true, errors: [] };
+      biblioNumbersToUse = biblioNumbers;
+    } else {
+      validation = { isValid: false, errors: ['Invalid input method'] };
+    }
+    
+    if (!validation.isValid) {
+      setValidationErrors(validation.errors);
+      setIsSubmittingJob(false);
+      return;
+    }
+
+    setValidationErrors([]);
+
+    try {
+      const userEmail = localStorage.getItem('userEmail');
+      if (!userEmail) {
+        alert('Please log in to submit background jobs');
+        setIsSubmittingJob(false);
+        return;
+      }
+
+      const response = await fetch('/api/jobs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'citation_report',
+          userEmail,
+          parameters: {
+            reportType: 'citation_title_translations',
+            magazineNumbers: numbersToUse.length > 0 ? numbersToUse.join(',') : null,
+            biblioNumbers: biblioNumbersToUse.length > 0 ? biblioNumbersToUse.join(',') : null,
+            startYear: startYear || null,
+            endYear: endYear || null,
+          },
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        alert(language === 'ar' 
+          ? `تم إضافة التقرير إلى قائمة الانتظار. معرف الوظيفة: ${result.jobId}`
+          : `Report queued for generation. Job ID: ${result.jobId}`);
+        clearFormInputs();
+      } else {
+        const error = await response.json();
+        alert(language === 'ar'
+          ? `فشل في إضافة التقرير إلى قائمة الانتظار: ${error.error}`
+          : `Failed to queue report: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error submitting background job:', error);
+      alert(language === 'ar'
+        ? 'حدث خطأ أثناء إضافة التقرير إلى قائمة الانتظار'
+        : 'Error submitting background job');
+    } finally {
+      setIsSubmittingJob(false);
+    }
+  };
+
   const handleBiblioFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -261,6 +345,13 @@ export default function CitationTitleTranslations() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Handle background export
+    if (exportMethod === 'background') {
+      await handleBackgroundGenerate();
+      return;
+    }
+
     setIsGenerating(true);
 
     // Validate input based on input method
@@ -686,18 +777,57 @@ export default function CitationTitleTranslations() {
           </div>
         </div>
 
+        {/* Export Method Selection */}
+        <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-6">
+          <label className="block text-sm font-bold text-gray-900 mb-4 flex items-center">
+            <svg className="w-5 h-5 mr-2 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            <span>{language === 'ar' ? 'طريقة التصدير' : 'Export Method'}</span>
+          </label>
+          <div className="flex gap-4">
+            <label className="flex items-center space-x-2 cursor-pointer bg-white p-4 rounded-lg border-2 border-gray-200 hover:border-red-500 transition-all duration-200 flex-1">
+              <input
+                type="radio"
+                name="exportMethod"
+                value="instant"
+                checked={exportMethod === 'instant'}
+                onChange={(e) => setExportMethod(e.target.value as 'instant' | 'background')}
+                className="w-4 h-4 text-red-600"
+              />
+              <span className="text-gray-900 font-medium">{language === 'ar' ? 'تصدير فوري' : 'Instant Export'}</span>
+            </label>
+            <label className="flex items-center space-x-2 cursor-pointer bg-white p-4 rounded-lg border-2 border-gray-200 hover:border-red-500 transition-all duration-200 flex-1">
+              <input
+                type="radio"
+                name="exportMethod"
+                value="background"
+                checked={exportMethod === 'background'}
+                onChange={(e) => setExportMethod(e.target.value as 'instant' | 'background')}
+                className="w-4 h-4 text-red-600"
+              />
+              <span className="text-gray-900 font-medium">{language === 'ar' ? 'تصدير في الخلفية (إرسال بالبريد)' : 'Background Export (Email)'}</span>
+            </label>
+          </div>
+          <p className="mt-3 text-sm text-gray-600">
+            {exportMethod === 'instant' 
+              ? (language === 'ar' ? 'سيتم تنزيل التقرير مباشرة بعد الإنشاء' : 'Report will be downloaded immediately after generation')
+              : (language === 'ar' ? 'سيتم إرسال التقرير إلى بريدك الإلكتروني عند الانتهاء' : 'Report will be emailed to you when ready')}
+          </p>
+        </div>
+
         {/* Generate Button */}
         <div className="flex flex-col items-center pt-4 space-y-4">
           <button
             type="submit"
-            disabled={isGenerating}
+            disabled={isGenerating || isSubmittingJob}
             style={{ backgroundColor: '#C02025' }}
             className="px-8 py-4 text-white rounded-xl hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-bold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1 min-w-[200px]"
           >
-            {isGenerating ? (
+            {isGenerating || isSubmittingJob ? (
               <div className="flex items-center justify-center">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mr-3"></div>
-                <span>{t.forms.generating}</span>
+                <span>{isSubmittingJob ? (language === 'ar' ? 'جاري الإرسال...' : 'Submitting...') : t.forms.generating}</span>
               </div>
             ) : (
               <div className="flex items-center justify-center">

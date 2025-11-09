@@ -25,6 +25,10 @@ export default function EstenadUniversityReportForm({
   const [inputMethod, setInputMethod] = useState<'author' | 'biblio'>('author');
   const [biblioUploadedFile, setBiblioUploadedFile] = useState<File | null>(null);
   const [biblioNumbers, setBiblioNumbers] = useState<string[]>([]);
+  const [exportMethod, setExportMethod] = useState<'instant' | 'background'>('instant');
+  const [isSubmittingJob, setIsSubmittingJob] = useState(false);
+  const [localRecordCount, setLocalRecordCount] = useState(0);
+  const [localShowSuccess, setLocalShowSuccess] = useState(false);
 
   // Fixed field 373 (Associated Group) with subfields a and q
   const selectedFields = ['373'];
@@ -204,7 +208,69 @@ export default function EstenadUniversityReportForm({
     setBiblioNumbers([]);
   };
 
-  const handleGenerate = () => {
+  const handleBackgroundGenerate = async () => {
+    if (inputMethod === 'author' && authorIds.length === 0) {
+      setValidationErrors([String(t.estenad.pleaseUploadAuthorIdsFile)]);
+      return;
+    }
+
+    if (inputMethod === 'biblio' && biblioNumbers.length === 0) {
+      setValidationErrors([String(t.estenad.pleaseUploadBiblioNumbersFile)]);
+      return;
+    }
+
+    setValidationErrors([]);
+    setIsSubmittingJob(true);
+
+    try {
+      const userEmail = localStorage.getItem('userEmail');
+      if (!userEmail) {
+        alert('Please log in to submit background jobs');
+        setIsSubmittingJob(false);
+        return;
+      }
+
+      const response = await fetch('/api/jobs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'estenad_report',
+          userEmail,
+          parameters: {
+            reportType: 'estenad_university_report',
+            authorIds: inputMethod === 'author' ? authorIds : undefined,
+            biblioNumbers: inputMethod === 'biblio' ? biblioNumbers : undefined,
+            selectedFields: ['373'],
+            exportType: 'full'
+          },
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        alert(language === 'ar' 
+          ? `تم إضافة التقرير إلى قائمة الانتظار. معرف الوظيفة: ${result.jobId}`
+          : `Report queued for generation. Job ID: ${result.jobId}`);
+        clearFormInputs();
+      } else {
+        const error = await response.json();
+        alert(language === 'ar'
+          ? `فشل في إضافة التقرير إلى قائمة الانتظار: ${error.error}`
+          : `Failed to queue report: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error submitting background job:', error);
+      alert(language === 'ar'
+        ? 'حدث خطأ أثناء إضافة التقرير إلى قائمة الانتظار'
+        : 'Error submitting background job');
+    } finally {
+      setIsSubmittingJob(false);
+    }
+  };
+
+  const handleInstantGenerate = () => {
     if (inputMethod === 'author' && authorIds.length === 0) {
       setValidationErrors([String(t.estenad.pleaseUploadAuthorIdsFile)]);
       return;
@@ -228,6 +294,14 @@ export default function EstenadUniversityReportForm({
     
     onGenerate(formData);
     clearFormInputs();
+  };
+
+  const handleGenerate = () => {
+    if (exportMethod === 'background') {
+      handleBackgroundGenerate();
+    } else {
+      handleInstantGenerate();
+    }
   };
 
   return (
@@ -405,14 +479,53 @@ export default function EstenadUniversityReportForm({
         )}
       </div>
 
+      {/* Export Method Selection */}
+      <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-6">
+        <label className="block text-sm font-bold text-gray-900 mb-4 flex items-center">
+          <svg className="w-5 h-5 mr-2 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+          </svg>
+          <span>{language === 'ar' ? 'طريقة التصدير' : 'Export Method'}</span>
+        </label>
+        <div className="flex gap-4">
+          <label className="flex items-center space-x-2 cursor-pointer bg-white p-4 rounded-lg border-2 border-gray-200 hover:border-red-500 transition-all duration-200 flex-1">
+            <input
+              type="radio"
+              name="exportMethod"
+              value="instant"
+              checked={exportMethod === 'instant'}
+              onChange={(e) => setExportMethod(e.target.value as 'instant' | 'background')}
+              className="w-4 h-4 text-red-600"
+            />
+            <span className="text-gray-900 font-medium">{language === 'ar' ? 'تصدير فوري' : 'Instant Export'}</span>
+          </label>
+          <label className="flex items-center space-x-2 cursor-pointer bg-white p-4 rounded-lg border-2 border-gray-200 hover:border-red-500 transition-all duration-200 flex-1">
+            <input
+              type="radio"
+              name="exportMethod"
+              value="background"
+              checked={exportMethod === 'background'}
+              onChange={(e) => setExportMethod(e.target.value as 'instant' | 'background')}
+              className="w-4 h-4 text-red-600"
+            />
+            <span className="text-gray-900 font-medium">{language === 'ar' ? 'تصدير في الخلفية (إرسال بالبريد)' : 'Background Export (Email)'}</span>
+          </label>
+        </div>
+        <p className="mt-3 text-sm text-gray-600">
+          {exportMethod === 'instant' 
+            ? (language === 'ar' ? 'سيتم تنزيل التقرير مباشرة بعد الإنشاء' : 'Report will be downloaded immediately after generation')
+            : (language === 'ar' ? 'سيتم إرسال التقرير إلى بريدك الإلكتروني عند الانتهاء' : 'Report will be emailed to you when ready')}
+        </p>
+      </div>
+
       {/* Generate Button */}
       <div className={`flex ${isRTL ? 'justify-start' : 'justify-end'}`}>
         <button
           onClick={handleGenerate}
-          disabled={isGenerating || ((inputMethod === 'author' && authorIds.length === 0) || (inputMethod === 'biblio' && biblioNumbers.length === 0))}
+          disabled={isGenerating || isSubmittingJob || ((inputMethod === 'author' && authorIds.length === 0) || (inputMethod === 'biblio' && biblioNumbers.length === 0))}
           className="bg-red-600 text-white px-6 py-2 rounded-md hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isGenerating ? String(t.forms.generating) : String(t.forms.generateReport)}
+          {(isGenerating || isSubmittingJob) ? (isSubmittingJob ? (language === 'ar' ? 'جاري الإرسال...' : 'Submitting...') : String(t.forms.generating)) : String(t.forms.generateReport)}
         </button>
       </div>
 

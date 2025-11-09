@@ -2,19 +2,20 @@ import nodemailer from 'nodemailer';
 import * as fs from 'fs';
 import { JobType } from '@/types/jobs';
 
-// Email configuration - add these to your .env file
+// Email configuration using Exim4 local MTA
 const EMAIL_CONFIG = {
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
-  auth: {
-    user: process.env.SMTP_USER || '',
-    pass: process.env.SMTP_PASS || '' // App password for Gmail
+  host: 'localhost', // Exim4 running locally
+  port: 25,          // default SMTP port for local MTA
+  secure: false,     // false for local MTA
+  // No authentication needed for local Exim4
+  tls: {
+    rejectUnauthorized: false // Accept self-signed certificates
   }
 };
 
-const FROM_EMAIL = process.env.FROM_EMAIL || 'noreply@mandumah.com';
+const FROM_EMAIL = process.env.FROM_EMAIL || 'reports@mandumah.com';
 const FROM_NAME = process.env.FROM_NAME || 'Mandumah Reports System';
+const REPLY_TO_EMAIL = process.env.REPLY_TO_EMAIL || 'noreply@mandumah.com';
 
 // Create reusable transporter
 const transporter = nodemailer.createTransport(EMAIL_CONFIG);
@@ -22,9 +23,9 @@ const transporter = nodemailer.createTransport(EMAIL_CONFIG);
 // Verify connection configuration
 transporter.verify(function (error: any, success: any) {
   if (error) {
-    console.log('❌ SMTP connection error:', error);
+    console.log('❌ Exim4 connection error:', error);
   } else {
-    console.log('✅ SMTP server is ready to take our messages');
+    console.log('✅ Exim4 server is ready to send messages');
   }
 });
 
@@ -55,6 +56,7 @@ export async function sendJobCompletionEmail(
     const mailOptions: any = {
       from: `"${FROM_NAME}" <${FROM_EMAIL}>`,
       to: userEmail,
+      replyTo: REPLY_TO_EMAIL,
       subject: subject,
       text: textContent,
       html: htmlContent
@@ -62,6 +64,7 @@ export async function sendJobCompletionEmail(
     
     // Attach file if successful
     if (isSuccess && filePath && fs.existsSync(filePath)) {
+      console.log(`📎 Attaching file: ${fileName} (${filePath})`);
       mailOptions.attachments = [
         {
           filename: fileName,

@@ -48,11 +48,6 @@ export async function GET() {
       pattern: 'solid',
       fgColor: { argb: fillColor }
     };
-          cell.s = {
-            fill: {
-              fgColor: { rgb: fillColor }
-            }
-          };
         }
       }
     }

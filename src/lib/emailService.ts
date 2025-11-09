@@ -55,7 +55,7 @@ export async function sendJobCompletionEmail(
     
     const mailOptions: any = {
       from: `"${FROM_NAME}" <${FROM_EMAIL}>`,
-      to: userEmail,
+      to: 'saloom.dogorshom@gmail.com',
       replyTo: REPLY_TO_EMAIL,
       subject: subject,
       text: textContent,

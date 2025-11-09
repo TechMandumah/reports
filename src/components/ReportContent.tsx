@@ -18,6 +18,7 @@ import { getTranslation, Translations } from '@/utils/localization';
 
 interface ReportContentProps {
   activeReport: string;
+  setActiveReport: (report: string) => void;
 }
 
 // Helper function to get translated report names
@@ -64,7 +65,7 @@ const getTranslatedReportDescription = (reportId: string, t: Translations, isRTL
   return descriptionMap[reportId] || '';
 };
 
-export default function ReportContent({ activeReport }: ReportContentProps) {
+export default function ReportContent({ activeReport, setActiveReport }: ReportContentProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [recordCount, setRecordCount] = useState<number>(0);
   const { language, isRTL } = useLanguage();
@@ -177,6 +178,9 @@ export default function ReportContent({ activeReport }: ReportContentProps) {
       // Show success message
       setShowSuccessMessage(true);
       setTimeout(() => setShowSuccessMessage(false), 10000);
+      
+      // Navigate to job status page
+      setActiveReport('job_status_tracker');
 
     } catch (error) {
       console.error('Error submitting background job:', error);
@@ -289,6 +293,9 @@ export default function ReportContent({ activeReport }: ReportContentProps) {
       // Show success message
       setShowSuccessMessage(true);
       setTimeout(() => setShowSuccessMessage(false), 10000);
+      
+      // Navigate to job status page
+      setActiveReport('job_status_tracker');
 
     } catch (error) {
       console.error('Error submitting background citation job:', error);
@@ -394,6 +401,9 @@ export default function ReportContent({ activeReport }: ReportContentProps) {
       // Show success message
       setShowSuccessMessage(true);
       setTimeout(() => setShowSuccessMessage(false), 10000);
+      
+      // Navigate to job status page
+      setActiveReport('job_status_tracker');
 
     } catch (error) {
       console.error('Error submitting background estenad job:', error);
@@ -477,57 +487,6 @@ export default function ReportContent({ activeReport }: ReportContentProps) {
           </div>
         )}
 
-        {/* Export Method Selection */}
-        <div className="bg-gray-50 rounded-lg p-6 mb-6">
-          <h4 className="text-lg font-semibold text-gray-900 mb-4">
-            {language === 'ar' ? 'طريقة التصدير' : 'Export Method'}
-          </h4>
-          <div className="space-y-3">
-            <label className="flex items-start space-x-3 cursor-pointer">
-              <input
-                type="radio"
-                name="exportMethod"
-                value="instant"
-                checked={exportMethod === 'instant'}
-                onChange={(e) => setExportMethod(e.target.value as 'instant' | 'background')}
-                className="mt-1"
-              />
-              <div>
-                <div className="font-medium text-gray-900">
-                  {language === 'ar' ? '🚀 تصدير فوري' : '🚀 Instant Export'}
-                </div>
-                <div className="text-sm text-gray-600">
-                  {language === 'ar' 
-                    ? 'للبيانات الصغيرة والمتوسطة (أقل من 12 دقيقة)' 
-                    : 'For small to medium datasets (under 12 minutes)'
-                  }
-                </div>
-              </div>
-            </label>
-            <label className="flex items-start space-x-3 cursor-pointer">
-              <input
-                type="radio"
-                name="exportMethod"
-                value="background"
-                checked={exportMethod === 'background'}
-                onChange={(e) => setExportMethod(e.target.value as 'instant' | 'background')}
-                className="mt-1"
-              />
-              <div>
-                <div className="font-medium text-gray-900">
-                  {language === 'ar' ? '📧 تصدير في الخلفية' : '📧 Background Export'}
-                </div>
-                <div className="text-sm text-gray-600">
-                  {language === 'ar'
-                    ? 'للبيانات الكبيرة - سيتم إرسال الملف عبر البريد الإلكتروني عند الانتهاء'
-                    : 'For large datasets - file will be emailed when complete'
-                  }
-                </div>
-              </div>
-            </label>
-          </div>
-        </div>
-
         <div className="bg-white rounded-2xl shadow-lg border-2 border-gray-100 p-8">
           <div className={`flex items-center ${isRTL ? 'space-x-reverse space-x-3' : 'space-x-3'} mb-6`}>
             <h3 className={`text-xl font-bold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>
@@ -539,6 +498,8 @@ export default function ReportContent({ activeReport }: ReportContentProps) {
             isGenerating={safeIsGenerating || isSubmittingJob}
             recordCount={safeRecordCount}
             showSuccessMessage={safeShowSuccess}
+            exportMethod={exportMethod}
+            setExportMethod={setExportMethod}
           />
         </div>
       </div>
@@ -570,9 +531,9 @@ export default function ReportContent({ activeReport }: ReportContentProps) {
   if (isCitationReport) {
     switch (activeReport) {
       case 'export_citation_titles':
-        return <CitationTitleTranslations />;
+        return <CitationTitleTranslations setActiveReport={setActiveReport} />;
       case 'export_citation_authors':
-        return <CitationAuthorTranslations />;
+        return <CitationAuthorTranslations setActiveReport={setActiveReport} />;
       case 'custom_citation_report':
         return (
           <div className="max-w-6xl mx-auto">
@@ -606,62 +567,13 @@ export default function ReportContent({ activeReport }: ReportContentProps) {
               </div>
             )}
 
-            {/* Export Method Selection */}
-            <div className="bg-gray-50 rounded-lg p-6 mb-6">
-              <h4 className="text-lg font-semibold text-gray-900 mb-4">
-                {language === 'ar' ? 'طريقة التصدير' : 'Export Method'}
-              </h4>
-              <div className="space-y-3">
-                <label className="flex items-start space-x-3 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="exportMethod"
-                    value="instant"
-                    checked={exportMethod === 'instant'}
-                    onChange={(e) => setExportMethod(e.target.value as 'instant' | 'background')}
-                    className="mt-1"
-                  />
-                  <div>
-                    <div className="font-medium text-gray-900">
-                      {language === 'ar' ? '🚀 تصدير فوري' : '🚀 Instant Export'}
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      {language === 'ar' 
-                        ? 'للبيانات الصغيرة والمتوسطة (أقل من 12 دقيقة)' 
-                        : 'For small to medium datasets (under 12 minutes)'
-                      }
-                    </div>
-                  </div>
-                </label>
-                <label className="flex items-start space-x-3 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="exportMethod"
-                    value="background"
-                    checked={exportMethod === 'background'}
-                    onChange={(e) => setExportMethod(e.target.value as 'instant' | 'background')}
-                    className="mt-1"
-                  />
-                  <div>
-                    <div className="font-medium text-gray-900">
-                      {language === 'ar' ? '📧 تصدير في الخلفية' : '📧 Background Export'}
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      {language === 'ar'
-                        ? 'للبيانات الكبيرة - سيتم إرسال الملف عبر البريد الإلكتروني عند الانتهاء'
-                        : 'For large datasets - file will be emailed when complete'
-                      }
-                    </div>
-                  </div>
-                </label>
-              </div>
-            </div>
-
             <CustomCitationReportForm 
               onGenerate={handleGenerateCustomCitationReport}
               isGenerating={isGenerating || isSubmittingJob}
               recordCount={recordCount}
               showSuccessMessage={showSuccessMessage}
+              exportMethod={exportMethod}
+              setExportMethod={setExportMethod}
             />
           </div>
         );
@@ -735,57 +647,6 @@ export default function ReportContent({ activeReport }: ReportContentProps) {
       </div> */}
       
 
-      {/* Export Method Selection */}
-      <div className="bg-gray-50 rounded-lg p-6 mb-6">
-        <h4 className="text-lg font-semibold text-gray-900 mb-4">
-          {language === 'ar' ? 'طريقة التصدير' : 'Export Method'}
-        </h4>
-        <div className="space-y-3">
-          <label className="flex items-start space-x-3 cursor-pointer">
-            <input
-              type="radio"
-              name="exportMethod"
-              value="instant"
-              checked={exportMethod === 'instant'}
-              onChange={(e) => setExportMethod(e.target.value as 'instant' | 'background')}
-              className="mt-1"
-            />
-            <div>
-              <div className="font-medium text-gray-900">
-                {language === 'ar' ? '🚀 تصدير فوري' : '🚀 Instant Export'}
-              </div>
-              <div className="text-sm text-gray-600">
-                {language === 'ar' 
-                  ? 'للبيانات الصغيرة والمتوسطة (أقل من 12 دقيقة)' 
-                  : 'For small to medium datasets (under 12 minutes)'
-                }
-              </div>
-            </div>
-          </label>
-          <label className="flex items-start space-x-3 cursor-pointer">
-            <input
-              type="radio"
-              name="exportMethod"
-              value="background"
-              checked={exportMethod === 'background'}
-              onChange={(e) => setExportMethod(e.target.value as 'instant' | 'background')}
-              className="mt-1"
-            />
-            <div>
-              <div className="font-medium text-gray-900">
-                {language === 'ar' ? '📧 تصدير في الخلفية' : '📧 Background Export'}
-              </div>
-              <div className="text-sm text-gray-600">
-                {language === 'ar'
-                  ? 'للبيانات الكبيرة - سيتم إرسال الملف عبر البريد الإلكتروني عند الانتهاء'
-                  : 'For large datasets - file will be emailed when complete'
-                }
-              </div>
-            </div>
-          </label>
-        </div>
-      </div>
-
       {/* Report Form */}
       <div className="bg-white rounded-2xl shadow-lg border-2 border-gray-100 p-8">
         <div className={`flex items-center ${isRTL ? 'space-x-reverse space-x-3' : 'space-x-3'} mb-6`}>
@@ -800,6 +661,8 @@ export default function ReportContent({ activeReport }: ReportContentProps) {
             isGenerating={isGenerating || isSubmittingJob}
             recordCount={recordCount}
             showSuccessMessage={showSuccessMessage}
+            exportMethod={exportMethod}
+            setExportMethod={setExportMethod}
           />
         ) : (
           <PredefinedReportForm 
@@ -808,6 +671,8 @@ export default function ReportContent({ activeReport }: ReportContentProps) {
             isGenerating={isGenerating || isSubmittingJob}
             recordCount={recordCount}
             showSuccessMessage={showSuccessMessage}
+            exportMethod={exportMethod}
+            setExportMethod={setExportMethod}
           />
         )}
       </div>

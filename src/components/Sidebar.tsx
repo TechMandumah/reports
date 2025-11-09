@@ -62,12 +62,6 @@ export default function Sidebar({ activeReport, setActiveReport }: SidebarProps)
       ]
     },
     {
-      nameKey: 'sidebar.jobManagement',
-      items: [
-        { nameKey: 'sidebar.reports.jobStatus', id: "job_status_tracker" }
-      ]
-    },
-    {
       nameKey: 'sidebar.journalReports',
       items: [
         { nameKey: 'sidebar.reports.allMagazines', id: "all_magazines" },

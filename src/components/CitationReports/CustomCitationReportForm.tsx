@@ -9,6 +9,8 @@ interface CustomCitationReportFormProps {
   isGenerating: boolean;
   recordCount?: number;
   showSuccessMessage?: boolean;
+  exportMethod?: 'instant' | 'background';
+  setExportMethod?: (method: 'instant' | 'background') => void;
 }
 
 // Citation-specific MARC fields based on the koha_citation database
@@ -38,7 +40,9 @@ export default function CustomCitationReportForm({
   onGenerate, 
   isGenerating,
   recordCount = 0,
-  showSuccessMessage = false 
+  showSuccessMessage = false,
+  exportMethod = 'instant',
+  setExportMethod
 }: CustomCitationReportFormProps) {
   console.log('🔍 CustomCitationReportForm component mounted - this should appear in console!');
   const { language, isRTL } = useLanguage();
@@ -1049,6 +1053,47 @@ export default function CustomCitationReportForm({
                   <li>• {isRTL ? 'الحقول المحددة:' : 'Selected Fields:'} {selectedFields.length} {isRTL ? 'حقول' : 'fields'}</li>
                 </ul>
               </div>
+
+              {/* Export Method Selection */}
+              {setExportMethod && (
+                <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-6 mb-6">
+                  <label className="block text-sm font-bold text-gray-900 mb-4 flex items-center">
+                    <svg className="w-5 h-5 mr-2 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    <span>{language === 'ar' ? 'طريقة التصدير' : 'Export Method'}</span>
+                  </label>
+                  <div className="flex gap-4">
+                    <label className="flex items-center space-x-2 cursor-pointer bg-white p-4 rounded-lg border-2 border-gray-200 hover:border-red-500 transition-all duration-200 flex-1">
+                      <input
+                        type="radio"
+                        name="exportMethod"
+                        value="instant"
+                        checked={exportMethod === 'instant'}
+                        onChange={(e) => setExportMethod(e.target.value as 'instant' | 'background')}
+                        className="w-4 h-4 text-red-600"
+                      />
+                      <span className="text-gray-900 font-medium">{language === 'ar' ? 'تصدير فوري' : 'Instant Export'}</span>
+                    </label>
+                    <label className="flex items-center space-x-2 cursor-pointer bg-white p-4 rounded-lg border-2 border-gray-200 hover:border-red-500 transition-all duration-200 flex-1">
+                      <input
+                        type="radio"
+                        name="exportMethod"
+                        value="background"
+                        checked={exportMethod === 'background'}
+                        onChange={(e) => setExportMethod(e.target.value as 'instant' | 'background')}
+                        className="w-4 h-4 text-red-600"
+                      />
+                      <span className="text-gray-900 font-medium">{language === 'ar' ? 'تصدير في الخلفية (إرسال بالبريد)' : 'Background Export (Email)'}</span>
+                    </label>
+                  </div>
+                  <p className="mt-3 text-sm text-gray-600">
+                    {exportMethod === 'instant' 
+                      ? (language === 'ar' ? 'سيتم تنزيل التقرير مباشرة بعد الإنشاء' : 'Report will be downloaded immediately after generation')
+                      : (language === 'ar' ? 'سيتم إرسال التقرير إلى بريدك الإلكتروني عند الانتهاء' : 'Report will be emailed to you when ready')}
+                  </p>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 gap-4">
                 <button

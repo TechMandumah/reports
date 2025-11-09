@@ -107,17 +107,33 @@ export default function Dashboard() {
           <p className="text-sm text-gray-600">{userEmail}</p>
         </div>
 
-        <div className={`flex items-center space-x-4`}>
+        <div className={`flex items-center ${isRTL ? 'space-x-reverse' : ''} space-x-4`}>
           {/* Language Toggle Button */}
           <button
             onClick={toggleLanguage}
-            className="flex items-center px-3 py-2 rounded-xl bg-blue-500 hover:bg-blue-600 transition-all duration-200 text-sm font-medium border border-gray-300"
+            className="flex items-center px-3 py-2 rounded-xl bg-blue-500 hover:bg-blue-600 transition-all duration-200 text-sm font-medium border border-gray-300 text-white"
             title={t.dashboard.changeLanguage}
           >
             <svg className={`w-4 h-4 ${isRTL ? 'ml-2' : 'mr-2'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
             </svg>
             <span>{language === 'en' ? 'عربي' : 'English'}</span>
+          </button>
+
+          {/* Background Jobs Status Button */}
+          <button
+            onClick={() => setActiveReport('job_status_tracker')}
+            className={`flex items-center px-3 py-2 rounded-xl transition-all duration-200 text-sm font-medium border shadow-md hover:shadow-lg ${
+              activeReport === 'job_status_tracker'
+                ? 'bg-green-600 text-white border-green-700'
+                : 'bg-white text-gray-700 border-gray-300 hover:bg-green-50'
+            }`}
+            title={language === 'ar' ? 'حالة المهام' : 'Background Jobs'}
+          >
+            <svg className={`w-4 h-4 ${isRTL ? 'ml-2' : 'mr-2'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+            </svg>
+            <span>{language === 'ar' ? 'حالة المهام' : 'Jobs'}</span>
           </button>
           
           <button
@@ -138,7 +154,7 @@ export default function Dashboard() {
 
         {/* Main Content */}
         <main className="flex-1 overflow-auto p-6">
-          <ReportContent activeReport={activeReport} />
+          <ReportContent activeReport={activeReport} setActiveReport={setActiveReport} />
         </main>
       </div>
     </div>

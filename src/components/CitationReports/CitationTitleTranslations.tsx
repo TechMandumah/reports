@@ -17,7 +17,11 @@ interface CitationTitleData {
   additionalAuthorIds?: string[];
 }
 
-export default function CitationTitleTranslations() {
+interface CitationTitleTranslationsProps {
+  setActiveReport?: (report: string) => void;
+}
+
+export default function CitationTitleTranslations({ setActiveReport }: CitationTitleTranslationsProps = {}) {
   const { language, isRTL } = useLanguage();
   const t = getTranslation(language);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -239,6 +243,11 @@ export default function CitationTitleTranslations() {
           ? `تم إضافة التقرير إلى قائمة الانتظار. معرف الوظيفة: ${result.jobId}`
           : `Report queued for generation. Job ID: ${result.jobId}`);
         clearFormInputs();
+        
+        // Navigate to job status page
+        if (setActiveReport) {
+          setActiveReport('job_status_tracker');
+        }
       } else {
         const error = await response.json();
         alert(language === 'ar'

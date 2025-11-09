@@ -23,7 +23,6 @@ export async function GET() {
     // Create Excel workbook
     const worksheet = XLSX.utils.json_to_sheet(conferencesData);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Conferences');
     
     // Convert ID column to hyperlinks
     const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
@@ -43,16 +42,22 @@ export async function GET() {
         const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
         const cell = worksheet[cellAddress];
         if (cell) {
-              cell.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: fillColor }
-    };
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: fillColor }
+          };
+          cell.s = {
+            fill: {
+              fgColor: { rgb: fillColor }
+            }
+          };
         }
       }
     }
-
+    
     // Generate Excel buffer
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Conferences');
     const excelBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
     
     // Return Excel file

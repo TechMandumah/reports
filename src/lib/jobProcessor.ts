@@ -39,6 +39,51 @@ function getWritableDirectory(): string {
 
 const UPLOADS_DIR = getWritableDirectory();
 
+// Helper function to safely write Excel files
+function writeExcelFile(workbook: XLSX.WorkBook, filePath: string, fileName: string): void {
+  console.log(`💾 Attempting to save file: ${filePath}`);
+  console.log(`📂 Directory: ${UPLOADS_DIR}`);
+  
+  try {
+    // Write Excel file using buffer approach (more reliable than direct file write)
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    console.log(`📦 Generated buffer size: ${buffer.length} bytes`);
+    
+    // Write buffer to file
+    fs.writeFileSync(filePath, buffer);
+    console.log(`💾 Buffer written to file`);
+    
+    // Verify file was created and has content
+    if (!fs.existsSync(filePath)) {
+      throw new Error(`File was not created at ${filePath}`);
+    }
+    
+    const stats = fs.statSync(filePath);
+    if (stats.size === 0) {
+      throw new Error(`File was created but is empty`);
+    }
+    
+    console.log(`✅ File created successfully: ${fileName} (${stats.size} bytes)`);
+  } catch (writeError) {
+    console.error(`❌ Failed to write Excel file:`, writeError);
+    
+    // Provide detailed error information
+    const errorDetails = writeError instanceof Error ? writeError.message : 'Unknown error';
+    console.error(`Error details: ${errorDetails}`);
+    console.error(`Attempted path: ${filePath}`);
+    console.error(`Directory exists: ${fs.existsSync(UPLOADS_DIR)}`);
+    
+    try {
+      fs.accessSync(UPLOADS_DIR, fs.constants.W_OK);
+      console.error(`Directory writable: true`);
+    } catch {
+      console.error(`Directory writable: false`);
+    }
+    
+    throw new Error(`Cannot save file ${filePath}: ${errorDetails}`);
+  }
+}
+
 export async function processJob(job: Job): Promise<JobResult> {
   console.log(`🔄 Processing job ${job.id} of type ${job.type}`);
   
@@ -154,21 +199,8 @@ async function processMagazinesExport(job: Job): Promise<JobResult> {
   const fileName = `All_Magazines_Data_${new Date().toISOString().split('T')[0]}_${job.id.substring(0, 8)}.xlsx`;
   const filePath = path.join(UPLOADS_DIR, fileName);
   
-  try {
-    console.log(`💾 Attempting to save file: ${filePath}`);
-    XLSX.writeFile(workbook, filePath);
-    
-    // Verify file was created
-    if (!fs.existsSync(filePath)) {
-      throw new Error(`File was not created at ${filePath}`);
-    }
-    
-    const stats = fs.statSync(filePath);
-    console.log(`✅ File created successfully: ${fileName} (${stats.size} bytes)`);
-  } catch (writeError) {
-    console.error(`❌ Failed to write Excel file:`, writeError);
-    throw new Error(`Cannot save file ${filePath}: ${writeError instanceof Error ? writeError.message : 'Unknown error'}`);
-  }
+  // Save file using helper function
+  writeExcelFile(workbook, filePath, fileName);
   
   jobQueue.updateJobProgress(job.id, 100);
   
@@ -223,21 +255,8 @@ async function processConferencesExport(job: Job): Promise<JobResult> {
   const fileName = `All_Conferences_Data_${new Date().toISOString().split('T')[0]}_${job.id.substring(0, 8)}.xlsx`;
   const filePath = path.join(UPLOADS_DIR, fileName);
   
-  try {
-    console.log(`💾 Attempting to save file: ${filePath}`);
-    XLSX.writeFile(workbook, filePath);
-    
-    // Verify file was created
-    if (!fs.existsSync(filePath)) {
-      throw new Error(`File was not created at ${filePath}`);
-    }
-    
-    const stats = fs.statSync(filePath);
-    console.log(`✅ File created successfully: ${fileName} (${stats.size} bytes)`);
-  } catch (writeError) {
-    console.error(`❌ Failed to write Excel file:`, writeError);
-    throw new Error(`Cannot save file ${filePath}: ${writeError instanceof Error ? writeError.message : 'Unknown error'}`);
-  }
+  // Save file using helper function
+  writeExcelFile(workbook, filePath, fileName);
   
   jobQueue.updateJobProgress(job.id, 100);
   
@@ -309,22 +328,8 @@ async function processGeneralReport(job: Job): Promise<JobResult> {
 
     jobQueue.updateJobProgress(job.id, 80);
 
-    // Save file with error handling
-    try {
-      console.log(`💾 Attempting to save file: ${filePath}`);
-      XLSX.writeFile(workbook, filePath);
-      
-      // Verify file was created
-      if (!fs.existsSync(filePath)) {
-        throw new Error(`File was not created at ${filePath}`);
-      }
-      
-      const stats = fs.statSync(filePath);
-      console.log(`✅ File created successfully: ${fileName} (${stats.size} bytes)`);
-    } catch (writeError) {
-      console.error(`❌ Failed to write Excel file:`, writeError);
-      throw new Error(`Cannot save file ${filePath}: ${writeError instanceof Error ? writeError.message : 'Unknown error'}`);
-    }
+    // Save file using helper function
+    writeExcelFile(workbook, filePath, fileName);
 
     jobQueue.updateJobProgress(job.id, 100);
 
@@ -419,21 +424,8 @@ async function processCitationReport(job: Job): Promise<JobResult> {
     const fileName = `citation_report_${new Date().toISOString().split('T')[0]}_${job.id.substring(0, 8)}.xlsx`;
     const filePath = path.join(UPLOADS_DIR, fileName);
 
-    try {
-      console.log(`💾 Attempting to save file: ${filePath}`);
-      XLSX.writeFile(workbook, filePath);
-      
-      // Verify file was created
-      if (!fs.existsSync(filePath)) {
-        throw new Error(`File was not created at ${filePath}`);
-      }
-      
-      const stats = fs.statSync(filePath);
-      console.log(`✅ File created successfully: ${fileName} (${stats.size} bytes)`);
-    } catch (writeError) {
-      console.error(`❌ Failed to write Excel file:`, writeError);
-      throw new Error(`Cannot save file ${filePath}: ${writeError instanceof Error ? writeError.message : 'Unknown error'}`);
-    }
+    // Save file using helper function
+    writeExcelFile(workbook, filePath, fileName);
 
     jobQueue.updateJobProgress(job.id, 100);
 
@@ -492,22 +484,8 @@ async function processEstenadReport(job: Job): Promise<JobResult> {
 
     jobQueue.updateJobProgress(job.id, 80);
 
-    // Save file with error handling
-    try {
-      console.log(`💾 Attempting to save file: ${filePath}`);
-      XLSX.writeFile(workbook, filePath);
-      
-      // Verify file was created
-      if (!fs.existsSync(filePath)) {
-        throw new Error(`File was not created at ${filePath}`);
-      }
-      
-      const stats = fs.statSync(filePath);
-      console.log(`✅ File created successfully: ${fileName} (${stats.size} bytes)`);
-    } catch (writeError) {
-      console.error(`❌ Failed to write Excel file:`, writeError);
-      throw new Error(`Cannot save file ${filePath}: ${writeError instanceof Error ? writeError.message : 'Unknown error'}`);
-    }
+    // Save file using helper function
+    writeExcelFile(workbook, filePath, fileName);
 
     jobQueue.updateJobProgress(job.id, 100);
 

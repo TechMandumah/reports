@@ -43,6 +43,11 @@ export async function GET() {
         const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
         const cell = worksheet[cellAddress];
         if (cell) {
+              cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: fillColor }
+    };
           cell.s = {
             fill: {
               fgColor: { rgb: fillColor }

@@ -1,13 +1,14 @@
 import mysql from 'mysql2/promise';
 
 // Citation Database configuration
+// Uses DB_HOST_CIT environment variables (same as main database but different DB_NAME)
 
 const citationDbConfig = {
-  host: process.env.DB_HOST_CITATION || '127.0.0.1',
-  port: parseInt(process.env.DB_PORT_CITATION || '3306'),
-  user: process.env.DB_USER_CITATION || 'root',
-  password: process.env.DB_PASS_CITATION || '',
-  database: process.env.DB_NAME_CITATION ||  'koha_citation',
+  host: process.env.DB_HOST_CIT || process.env.DB_HOST_BIB || '127.0.0.1',
+  port: parseInt(process.env.DB_PORT_CIT || process.env.DB_PORT_BIB || '3306'),
+  user: process.env.DB_USER_CIT || process.env.DB_USER_BIB || 'root',
+  password: process.env.DB_PASS_CIT || process.env.DB_PASS_BIB || '',
+  database: process.env.DB_NAME_CIT ||  'koha_citation',
   // Timeout configurations for large citation queries
   acquireTimeout: parseInt(process.env.DB_ACQUIRE_TIMEOUT || '60000'), // 60 seconds to acquire connection
   timeout: parseInt(process.env.DB_QUERY_TIMEOUT || '1200000'), // 20 minutes for queries

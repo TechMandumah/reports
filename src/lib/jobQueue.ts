@@ -1,11 +1,67 @@
 import { Job, JobStatus, JobType, JobResult } from '@/types/jobs';
 import { v4 as uuidv4 } from 'uuid';
+import fs from 'fs';
+import path from 'path';
 
 class JobQueue {
   private jobs: Map<string, Job> = new Map();
   private processingQueue: Job[] = [];
   private maxConcurrentJobs = 2; // Adjust based on server capacity
   private runningJobs = 0;
+  private persistencePath = path.join('/tmp', 'jobs-data.json');
+
+  constructor() {
+    // Load jobs from persistence on initialization
+    this.loadJobsFromDisk();
+  }
+
+  // Load jobs from disk
+  private loadJobsFromDisk(): void {
+    try {
+      if (fs.existsSync(this.persistencePath)) {
+        const data = fs.readFileSync(this.persistencePath, 'utf-8');
+        const savedJobs = JSON.parse(data);
+        
+        // Restore jobs, converting date strings back to Date objects
+        savedJobs.forEach((job: any) => {
+          const restoredJob: Job = {
+            ...job,
+            createdAt: new Date(job.createdAt),
+            startedAt: job.startedAt ? new Date(job.startedAt) : undefined,
+            completedAt: job.completedAt ? new Date(job.completedAt) : undefined,
+          };
+          this.jobs.set(restoredJob.id, restoredJob);
+          
+          // Add pending jobs back to processing queue
+          if (restoredJob.status === 'pending' || restoredJob.status === 'running') {
+            // Reset running jobs to pending on restart
+            if (restoredJob.status === 'running') {
+              restoredJob.status = 'pending';
+              console.log(`🔄 Job ${restoredJob.id} was running, reset to pending`);
+            }
+            this.processingQueue.push(restoredJob);
+          }
+        });
+        
+        console.log(`✅ Loaded ${this.jobs.size} jobs from disk`);
+        
+        // Process pending jobs
+        this.processNext();
+      }
+    } catch (error) {
+      console.error('❌ Error loading jobs from disk:', error);
+    }
+  }
+
+  // Save jobs to disk
+  private saveJobsToDisk(): void {
+    try {
+      const jobsArray = Array.from(this.jobs.values());
+      fs.writeFileSync(this.persistencePath, JSON.stringify(jobsArray, null, 2));
+    } catch (error) {
+      console.error('❌ Error saving jobs to disk:', error);
+    }
+  }
 
   // Add a new job to the queue
   addJob(type: JobType, userEmail: string, parameters: any): string {
@@ -22,6 +78,7 @@ class JobQueue {
 
     this.jobs.set(jobId, job);
     this.processingQueue.push(job);
+    this.saveJobsToDisk(); // Persist changes
     
     console.log(`📋 Job ${jobId} added to queue (${type}) for user: ${userEmail}`);
     
@@ -65,6 +122,7 @@ class JobQueue {
         this.processNext();
       }
       
+      this.saveJobsToDisk(); // Persist changes
       console.log(`📊 Job ${jobId} status updated to: ${status}`);
     }
   }
@@ -146,6 +204,7 @@ class JobQueue {
     );
     
     if (cleanedCount > 0) {
+      this.saveJobsToDisk(); // Persist changes
       console.log(`🧹 Cleaned up ${cleanedCount} old jobs`);
     }
   }

@@ -23,6 +23,7 @@ export default function JobStatusTracker() {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [cancellingJobs, setCancellingJobs] = useState<Set<string>>(new Set());
 
   const fetchJobs = async (isManualRefresh = false) => {
     try {
@@ -55,6 +56,54 @@ export default function JobStatusTracker() {
 
   const handleManualRefresh = () => {
     fetchJobs(true);
+  };
+
+  const handleCancelJob = async (jobId: string) => {
+    // Show confirmation dialog
+    const confirmMessage = language === 'ar' 
+      ? 'هل أنت متأكد من إلغاء هذه المهمة؟' 
+      : 'Are you sure you want to cancel this job?';
+    
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      setCancellingJobs(prev => new Set(prev).add(jobId));
+
+      const userEmail = localStorage.getItem('userEmail');
+      if (!userEmail) {
+        throw new Error('User email not found');
+      }
+
+      const response = await fetch(`/api/jobs?jobId=${jobId}&userEmail=${encodeURIComponent(userEmail)}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to cancel job');
+      }
+
+      // Refresh the jobs list
+      await fetchJobs();
+
+      // Show success message
+      alert(language === 'ar' ? 'تم إلغاء المهمة بنجاح' : 'Job cancelled successfully');
+    } catch (err) {
+      console.error('Error cancelling job:', err);
+      alert(
+        language === 'ar' 
+          ? `فشل إلغاء المهمة: ${err instanceof Error ? err.message : 'خطأ غير معروف'}`
+          : `Failed to cancel job: ${err instanceof Error ? err.message : 'Unknown error'}`
+      );
+    } finally {
+      setCancellingJobs(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(jobId);
+        return newSet;
+      });
+    }
   };
 
   useEffect(() => {
@@ -232,9 +281,24 @@ export default function JobStatusTracker() {
                   {language === 'ar' ? 'تم الإرسال:' : 'Submitted:'} {formatDate(job.createdAt)}
                 </p>
               </div>
-              <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(job.status)}`}>
-                {getStatusLabel(job.status)}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(job.status)}`}>
+                  {getStatusLabel(job.status)}
+                </span>
+                {(job.status === 'pending' || job.status === 'running') && (
+                  <button
+                    onClick={() => handleCancelJob(job.id)}
+                    disabled={cancellingJobs.has(job.id)}
+                    className="px-3 py-1 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={language === 'ar' ? 'إلغاء المهمة' : 'Cancel Job'}
+                  >
+                    {cancellingJobs.has(job.id) 
+                      ? (language === 'ar' ? 'جارٍ الإلغاء...' : 'Cancelling...') 
+                      : (language === 'ar' ? '✕ إلغاء' : '✕ Cancel')
+                    }
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Progress Bar */}

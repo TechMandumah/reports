@@ -112,3 +112,59 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const jobId = searchParams.get('jobId');
+    const userEmail = searchParams.get('userEmail');
+
+    if (!jobId || !userEmail) {
+      return NextResponse.json(
+        { error: 'Job ID and user email are required' },
+        { status: 400 }
+      );
+    }
+
+    // Verify the job belongs to the user
+    const job = jobQueue.getJob(jobId);
+    if (!job) {
+      return NextResponse.json(
+        { error: 'Job not found' },
+        { status: 404 }
+      );
+    }
+
+    if (job.userEmail !== userEmail) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 403 }
+      );
+    }
+
+    // Cancel the job
+    const cancelled = jobQueue.cancelJob(jobId);
+    
+    if (cancelled) {
+      return NextResponse.json({
+        success: true,
+        message: 'Job cancelled successfully'
+      });
+    } else {
+      return NextResponse.json(
+        { error: 'Job cannot be cancelled' },
+        { status: 400 }
+      );
+    }
+
+  } catch (error) {
+    console.error('❌ Error cancelling job:', error);
+    return NextResponse.json(
+      { 
+        error: 'Failed to cancel job',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 500 }
+    );
+  }
+}

@@ -150,6 +150,35 @@ class JobQueue {
     }
   }
 
+  // Cancel/kill a job
+  cancelJob(jobId: string): boolean {
+    const job = this.jobs.get(jobId);
+    if (!job) {
+      console.log(`❌ Job ${jobId} not found`);
+      return false;
+    }
+
+    // Can only cancel pending or running jobs
+    if (job.status !== 'pending' && job.status !== 'running') {
+      console.log(`⚠️ Job ${jobId} cannot be cancelled (status: ${job.status})`);
+      return false;
+    }
+
+    // Remove from processing queue if pending
+    if (job.status === 'pending') {
+      this.processingQueue = this.processingQueue.filter(j => j.id !== jobId);
+    }
+
+    // Update job status to failed with cancellation message
+    this.updateJobStatus(jobId, 'failed', {
+      error: 'Job cancelled by user',
+      completedAt: new Date()
+    });
+
+    console.log(`🛑 Job ${jobId} cancelled`);
+    return true;
+  }
+
   // Process next job in queue
   private processNext(): void {
     if (this.runningJobs >= this.maxConcurrentJobs) {

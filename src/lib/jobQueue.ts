@@ -23,6 +23,7 @@ class JobQueue {
         const savedJobs = JSON.parse(data);
         
         // Restore jobs, converting date strings back to Date objects
+        const now = new Date();
         savedJobs.forEach((job: any) => {
           const restoredJob: Job = {
             ...job,
@@ -32,14 +33,27 @@ class JobQueue {
           };
           this.jobs.set(restoredJob.id, restoredJob);
           
-          // Add pending jobs back to processing queue
-          if (restoredJob.status === 'pending' || restoredJob.status === 'running') {
-            // Reset running jobs to pending on restart
-            if (restoredJob.status === 'running') {
-              restoredJob.status = 'pending';
-              console.log(`🔄 Job ${restoredJob.id} was running, reset to pending`);
-            }
+          if (restoredJob.status === 'pending') {
+            // Add pending jobs to processing queue
             this.processingQueue.push(restoredJob);
+          } else if (restoredJob.status === 'running') {
+            // Check if job has been running for too long (stuck)
+            // Allow up to 60 minutes for long-running jobs
+            const maxRunningTime = 60 * 60 * 1000; // 60 minutes
+            const runningTime = restoredJob.startedAt 
+              ? now.getTime() - restoredJob.startedAt.getTime()
+              : 0;
+            
+            if (runningTime > maxRunningTime) {
+              // Job is stuck, mark as failed
+              restoredJob.status = 'failed';
+              restoredJob.error = 'Job timed out after 60 minutes';
+              restoredJob.completedAt = now;
+              console.log(`⏰ Job ${restoredJob.id} timed out (${Math.round(runningTime / 60000)} minutes)`);
+            } else {
+              // Job is still within acceptable time, keep it running
+              console.log(`ℹ️ Job ${restoredJob.id} is running (${Math.round(runningTime / 60000)} minutes elapsed)`);
+            }
           }
         });
         

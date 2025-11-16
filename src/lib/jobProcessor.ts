@@ -121,7 +121,9 @@ export async function processJob(job: Job): Promise<JobResult> {
         job.type,
         result.fileName,
         result.filePath,
-        result.recordCount
+        result.recordCount,
+        undefined,
+        job.parameters?.customEmails
       );
       
       // Clean up the file after sending email
@@ -148,7 +150,8 @@ export async function processJob(job: Job): Promise<JobResult> {
       'Export Failed',
       null,
       0,
-      error instanceof Error ? error.message : 'Unknown error'
+      error instanceof Error ? error.message : 'Unknown error',
+      job.parameters?.customEmails
     );
     
     return {

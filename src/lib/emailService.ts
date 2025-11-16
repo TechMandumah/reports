@@ -35,7 +35,8 @@ export async function sendJobCompletionEmail(
   fileName: string,
   filePath: string | null,
   recordCount?: number,
-  errorMessage?: string
+  errorMessage?: string,
+  customEmails?: string
 ): Promise<void> {
   try {
     const isSuccess = !errorMessage && filePath;
@@ -53,10 +54,16 @@ export async function sendJobCompletionEmail(
       ? generateSuccessEmailText(jobTypeLabel, fileName, recordCount)
       : generateFailureEmailText(jobTypeLabel, errorMessage);
     
+    // Build recipient list: always include user email, plus custom emails if provided
+    const recipients: string[] = [userEmail];
+    if (customEmails && customEmails.trim()) {
+      const additionalEmails = customEmails.split(',').map(email => email.trim()).filter(email => email);
+      recipients.push(...additionalEmails);
+    }
+    
     const mailOptions: any = {
       from: `"${FROM_NAME}" <${FROM_EMAIL}>`,
-      to: 'saloom.dogorshom@gmail.com', // Testing email address
-        // to: userEmail, --- IGNORE ---
+      to: recipients.join(', '),
       replyTo: REPLY_TO_EMAIL,
       subject: subject,
       text: textContent,
@@ -75,10 +82,10 @@ export async function sendJobCompletionEmail(
       ];
     }
     
-    console.log(`📧 Sending ${isSuccess ? 'success' : 'failure'} email to: ${userEmail}`);
+    console.log(`📧 Sending ${isSuccess ? 'success' : 'failure'} email to: ${recipients.join(', ')}`);
     
     const info = await transporter.sendMail(mailOptions);
-    console.log(`✅ Email sent successfully: ${info.messageId}`);
+    console.log(`✅ Email sent successfully to ${recipients.length} recipient(s): ${info.messageId}`);
     
   } catch (error) {
     console.error('❌ Error sending email:', error);

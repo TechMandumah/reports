@@ -36,6 +36,7 @@ export default function CitationAuthorTranslations({ setActiveReport }: Citation
   const [biblioNumbers, setBiblioNumbers] = useState<string[]>([]);
   const [exportMethod, setExportMethod] = useState<'instant' | 'background'>('instant');
   const [isSubmittingJob, setIsSubmittingJob] = useState(false);
+  const [customEmails, setCustomEmails] = useState<string>('');
 
   const validateMagazineNumbers = (input: string): { isValid: boolean; errors: string[] } => {
     if (!input.trim()) {
@@ -260,6 +261,7 @@ export default function CitationAuthorTranslations({ setActiveReport }: Citation
     setInputMethod('manual');
     setUploadedFile(null);
     setFileNumbers([]);
+    setCustomEmails('');
   };
 
   const handleBackgroundGenerate = async () => {
@@ -319,6 +321,7 @@ export default function CitationAuthorTranslations({ setActiveReport }: Citation
             biblioNumbers: biblioToUse.length > 0 ? biblioToUse : null,
             startYear: startYear || null,
             endYear: endYear || null,
+            customEmails: customEmails.trim() || null,
           },
         }),
       });
@@ -780,6 +783,28 @@ export default function CitationAuthorTranslations({ setActiveReport }: Citation
               ? (language === 'ar' ? 'سيتم تنزيل التقرير مباشرة بعد الإنشاء' : 'Report will be downloaded immediately after generation')
               : (language === 'ar' ? 'سيتم إرسال التقرير إلى بريدك الإلكتروني عند الانتهاء' : 'Report will be emailed to you when ready')}
           </p>
+          
+          {/* Custom Email Input for Background Export */}
+          {exportMethod === 'background' && (
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {language === 'ar' ? 'عناوين البريد الإلكتروني (اختياري)' : 'Email Addresses (Optional)'}
+              </label>
+              <input
+                type="text"
+                style={{ color: 'black' }}
+                value={customEmails}
+                onChange={(e) => setCustomEmails(e.target.value)}
+                placeholder={language === 'ar' ? 'أدخل عناوين البريد الإلكتروني مفصولة بفواصل' : 'Enter email addresses separated by commas'}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200"
+              />
+              <p className="mt-2 text-xs text-gray-500">
+                {language === 'ar' 
+                  ? 'اترك فارغًا لإرسال التقرير إلى بريدك الإلكتروني المسجل فقط. أدخل عناوين بريد إلكتروني إضافية مفصولة بفواصل.'
+                  : 'Leave empty to send report to your registered email only. Enter additional email addresses separated by commas.'}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Generate Button */}

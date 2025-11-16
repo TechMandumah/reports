@@ -39,6 +39,7 @@ export default function PredefinedReportForm({
   const [authorTypeFilter, setAuthorTypeFilter] = useState<string[]>([]);
   const [urlUploadedFile, setUrlUploadedFile] = useState<File | null>(null);
   const [urlList, setUrlList] = useState<string[]>([]);
+  const [customEmails, setCustomEmails] = useState<string>('');
 
   const validateMagazineNumbers = (input: string): { isValid: boolean; errors: string[] } => {
     if (!input.trim()) {
@@ -312,22 +313,43 @@ export default function PredefinedReportForm({
         return;
       }
       
-      // Check if line contains comma-separated values
-      if (trimmedLine.includes(',')) {
-        const values = trimmedLine.split(',');
-        values.forEach((value, valueIndex) => {
-          const trimmedValue = value.trim();
-          if (trimmedValue === '') return;
-          
-          const validation = validateSingleUrl(trimmedValue, lineNumber, valueIndex + 1, true);
-          if (validation.isValid) {
-            urls.push(trimmedValue);
-          } else {
-            errors.push(...validation.errors);
-          }
-        });
+      // Split by comma, but only if the comma is followed by a space or is at a position that suggests it's a separator
+      // This regex matches commas that are NOT part of the PDF filename (i.e., commas between .pdf and next digit)
+      // Pattern: look for .pdf followed by optional whitespace and comma, or comma with space after it
+      const hasSeparatorComma = /\.pdf\s*,|,\s+\d/.test(trimmedLine);
+      
+      if (hasSeparatorComma) {
+        // Split by comma, but preserve commas within filenames (between digits)
+        // Match PDF filenames with potential commas in version numbers
+        const pdfPattern = /\d{4}-\d{3}-\d{3}(?:,\d{3})*-\d{3}\.pdf/g;
+        const matches = trimmedLine.match(pdfPattern);
+        
+        if (matches && matches.length > 0) {
+          matches.forEach((value, valueIndex) => {
+            const validation = validateSingleUrl(value, lineNumber, valueIndex + 1, true);
+            if (validation.isValid) {
+              urls.push(value);
+            } else {
+              errors.push(...validation.errors);
+            }
+          });
+        } else {
+          // Fallback: try splitting by comma if no matches found
+          const values = trimmedLine.split(',');
+          values.forEach((value, valueIndex) => {
+            const trimmedValue = value.trim();
+            if (trimmedValue === '') return;
+            
+            const validation = validateSingleUrl(trimmedValue, lineNumber, valueIndex + 1, true);
+            if (validation.isValid) {
+              urls.push(trimmedValue);
+            } else {
+              errors.push(...validation.errors);
+            }
+          });
+        }
       } else {
-        // Single value per line
+        // Single value per line (no separator comma)
         const validation = validateSingleUrl(trimmedLine, lineNumber, 1, false);
         if (validation.isValid) {
           urls.push(trimmedLine);
@@ -344,12 +366,13 @@ export default function PredefinedReportForm({
     const errors: string[] = [];
     const positionText = isCommaSeparated ? `, position ${position}` : '';
     
-    // Check for URL pattern like '0005-343-232-123.pdf'
+    // Check for URL pattern like '0005-343-232-123.pdf' or '0055-056-001,002-067.pdf' (merged versions)
     // Format: XXXX-xxx-xxx-xxx.pdf where X is a digit
-    const urlPattern = /^\d{4}-\d{3}-\d{3}-\d{3}\.pdf$/;
+    // Also supports XXXX-xxx-xxx,xxx-xxx.pdf for merged magazine versions (comma-separated version numbers)
+    const urlPattern = /^\d{4}-\d{3}-\d{3}(?:,\d{3})*-\d{3}\.pdf$/;
     
     if (!urlPattern.test(value)) {
-      errors.push(`Line ${lineNumber}${positionText}: "${value}" is not a valid URL format. Expected format: XXXX-xxx-xxx-xxx.pdf (e.g., 0005-343-232-123.pdf)`);
+      errors.push(`Line ${lineNumber}${positionText}: "${value}" is not a valid URL format. Expected format: XXXX-xxx-xxx-xxx.pdf (e.g., 0005-343-232-123.pdf) or XXXX-xxx-xxx,xxx-xxx.pdf for merged versions (e.g., 0055-056-001,002-067.pdf)`);
       return { isValid: false, errors };
     }
     
@@ -371,6 +394,7 @@ export default function PredefinedReportForm({
     setAuthorTypeFilter([]);
     setUrlUploadedFile(null);
     setUrlList([]);
+    setCustomEmails('');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -406,7 +430,8 @@ export default function PredefinedReportForm({
         reportType,
         urlList: urlList,
         startYear: startYear ? parseInt(startYear) : undefined,
-        endYear: endYear ? parseInt(endYear) : undefined
+        endYear: endYear ? parseInt(endYear) : undefined,
+        customEmails: customEmails.trim() || undefined
       };
       
       onGenerate(formData);
@@ -432,7 +457,8 @@ export default function PredefinedReportForm({
       authorName: authorName || undefined,
       abstractFilter: abstractFilter || undefined,
       biblioNumbers: biblioToUse.length > 0 ? biblioToUse : undefined,
-      authorTypeFilter: authorTypeFilter.length > 0 ? authorTypeFilter : undefined
+      authorTypeFilter: authorTypeFilter.length > 0 ? authorTypeFilter : undefined,
+      customEmails: customEmails.trim() || undefined
     };
     
     onGenerate(formData);
@@ -698,7 +724,7 @@ export default function PredefinedReportForm({
                 className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 bg-gray-50 focus:bg-white text-gray-900"
               />
               <p className="mt-2 text-sm text-gray-600">
-                Upload a .txt file with URLs in format: XXXX-xxx-xxx-xxx.pdf (e.g., 0005-343-232-123.pdf), one per line or comma-separated
+                Upload a .txt file with URLs in format: XXXX-xxx-xxx-xxx.pdf (e.g., 0005-343-232-123.pdf) or XXXX-xxx-xxx,xxx-xxx.pdf for merged versions (e.g., 0055-056-001,002-067.pdf), one per line or comma-separated
               </p>
               
               {urlUploadedFile && (
@@ -1040,6 +1066,28 @@ export default function PredefinedReportForm({
               ? (language === 'ar' ? 'سيتم تنزيل التقرير مباشرة بعد الإنشاء' : 'Report will be downloaded immediately after generation')
               : (language === 'ar' ? 'سيتم إرسال التقرير إلى بريدك الإلكتروني عند الانتهاء' : 'Report will be emailed to you when ready')}
           </p>
+          
+          {/* Custom Email Input for Background Export */}
+          {exportMethod === 'background' && (
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {language === 'ar' ? 'عناوين البريد الإلكتروني (اختياري)' : 'Email Addresses (Optional)'}
+              </label>
+              <input
+                type="text"
+                style={{ color: 'black' }}
+                value={customEmails}
+                onChange={(e) => setCustomEmails(e.target.value)}
+                placeholder={language === 'ar' ? 'أدخل عناوين البريد الإلكتروني مفصولة بفواصل' : 'Enter email addresses separated by commas'}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200"
+              />
+              <p className="mt-2 text-xs text-gray-500">
+                {language === 'ar' 
+                  ? 'اترك فارغًا لإرسال التقرير إلى بريدك الإلكتروني المسجل فقط. أدخل عناوين بريد إلكتروني إضافية مفصولة بفواصل.'
+                  : 'Leave empty to send report to your registered email only. Enter additional email addresses separated by commas.'}
+              </p>
+            </div>
+          )}
         </div>
       )}
 

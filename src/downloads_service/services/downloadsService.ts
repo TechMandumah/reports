@@ -29,8 +29,9 @@ export function parseActionLabel(actionLabel: string): ParsedDownload | null {
     if (!biblioMatch) return null;
     const biblionumber = parseInt(biblioMatch[1]);
 
-    // Extract filename (format: XXXX-XXX-XXX-XXXX.pdf)
-    const urlMatch = actionLabel.match(/(\d{4}-\d{3}-\d{3}-\d{4}[^#]*\.pdf)/);
+    // Extract filename (format: XXXX-XXX-XXX-XXXX.pdf or variations)
+    // Match any PDF filename that starts with 4 digits followed by dashes and more digits
+    const urlMatch = actionLabel.match(/(\d{4}-[\d-]+\.pdf[^#]*)/);
     if (!urlMatch) return null;
     const url = urlMatch[1];
     const fileName = url;
@@ -158,10 +159,11 @@ function buildDownloadsWhereClause(filters: DownloadsFilters): { clause: string;
 export async function getDownloadActions(filters: DownloadsFilters): Promise<DownloadAction[]> {
   const { clause, params } = buildDownloadsWhereClause(filters);
   
-  // When date filters are applied, don't use LIMIT - let the date range naturally restrict results
-  // This is essential for millions of records where LIMIT would cut off before date filtering
+  // When date filters are applied, use a much higher limit to get all matching records
+  // Otherwise use the specified limit or default to 1000
   const hasDateFilter = filters.startDate || filters.endDate;
-  const limitClause = hasDateFilter ? '' : `LIMIT ${filters.limit || 1000} OFFSET ${filters.offset || 0}`;
+  const limit = hasDateFilter ? (filters.limit || 100000) : (filters.limit || 1000);
+  const offset = filters.offset || 0;
 
   const query = `
     SELECT 
@@ -185,13 +187,14 @@ export async function getDownloadActions(filters: DownloadsFilters): Promise<Dow
     FROM stats.owa_action_fact
     ${clause}
     ORDER BY \`timestamp\` DESC
-    ${limitClause}
+    LIMIT ${limit} OFFSET ${offset}
   `;
 
   const results = await executeStatsQuery<DownloadAction>(query, params);
   console.log('Download actions retrieved:', results.length);
   if (results.length > 0) {
     console.log('Sample yyyymmdd values:', results.slice(0, 3).map(r => r.yyyymmdd));
+    console.log('ALL action_labels:', results.map(r => r.action_label));
   }
   return results;
 }
@@ -205,12 +208,42 @@ export async function getDownloadRecords(filters: DownloadsFilters): Promise<Dow
   const biblioNumbers = new Set<number>();
 
   // Parse action labels and collect biblionumbers
+  console.log('Filtering records by magazine:', filters.magazineNumber);
+  let matchCount = 0;
+  let mismatchCount = 0;
+  let parseFailCount = 0;
+  
   for (const action of actions) {
     const parsed = parseActionLabel(action.action_label);
-    if (!parsed) continue;
+    if (!parsed) {
+      parseFailCount++;
+      console.log('Failed to parse action_label:', action.action_label);
+      continue;
+    }
 
     // Apply additional filters based on parsed data
-    if (filters.magazineNumber && parsed.magazineNumber !== filters.magazineNumber) continue;
+    if (filters.magazineNumber && parsed.magazineNumber !== filters.magazineNumber) {
+      mismatchCount++;
+      if (mismatchCount <= 3) {
+        console.log('Magazine filter mismatch:', { 
+          parsed: parsed.magazineNumber, 
+          filter: filters.magazineNumber,
+          actionLabel: action.action_label 
+        });
+      }
+      continue;
+    }
+    
+    if (filters.magazineNumber && parsed.magazineNumber === filters.magazineNumber) {
+      matchCount++;
+      if (matchCount <= 3) {
+        console.log('Magazine filter MATCH:', { 
+          parsed: parsed.magazineNumber, 
+          filter: filters.magazineNumber,
+          actionLabel: action.action_label 
+        });
+      }
+    }
     if (filters.magazineNumbers && !filters.magazineNumbers.includes(parsed.magazineNumber)) continue;
     if (filters.biblionumber && parsed.biblionumber !== filters.biblionumber) continue;
     if (filters.biblionumbers && !filters.biblionumbers.includes(parsed.biblionumber)) continue;
@@ -223,6 +256,9 @@ export async function getDownloadRecords(filters: DownloadsFilters): Promise<Dow
 
     biblioNumbers.add(parsed.biblionumber);
   }
+  
+  console.log(`Parsed ${actions.length} actions: ${matchCount} matches, ${mismatchCount} mismatches, ${parseFailCount} parse failures for magazine ${filters.magazineNumber}`);
+  console.log(`Final filtered records: ${downloadRecords.length}`);
 
   // Fetch biblio details for all parsed biblionumbers
   const biblioMap = await getBiblioDetails(Array.from(biblioNumbers));

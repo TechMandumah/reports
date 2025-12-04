@@ -125,13 +125,17 @@ function buildDownloadsWhereClause(filters: DownloadsFilters): { clause: string;
   const params: any[] = [];
 
   if (filters.startDate) {
+    const startDateInt = parseInt(filters.startDate);
+    console.log('Start Date Filter:', filters.startDate, '-> Parsed:', startDateInt);
     conditions.push('yyyymmdd >= ?');
-    params.push(parseInt(filters.startDate));
+    params.push(startDateInt);
   }
 
   if (filters.endDate) {
+    const endDateInt = parseInt(filters.endDate);
+    console.log('End Date Filter:', filters.endDate, '-> Parsed:', endDateInt);
     conditions.push('yyyymmdd <= ?');
-    params.push(parseInt(filters.endDate));
+    params.push(endDateInt);
   }
 
   if (filters.username) {
@@ -143,6 +147,8 @@ function buildDownloadsWhereClause(filters: DownloadsFilters): { clause: string;
   // will be applied after parsing action_label in application code
 
   const clause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  console.log('WHERE clause:', clause);
+  console.log('WHERE params:', params);
   return { clause, params };
 }
 
@@ -180,7 +186,12 @@ export async function getDownloadActions(filters: DownloadsFilters): Promise<Dow
     LIMIT ${limit} OFFSET ${offset}
   `;
 
-  return await executeStatsQuery<DownloadAction>(query, params);
+  const results = await executeStatsQuery<DownloadAction>(query, params);
+  console.log('Download actions retrieved:', results.length);
+  if (results.length > 0) {
+    console.log('Sample yyyymmdd values:', results.slice(0, 3).map(r => r.yyyymmdd));
+  }
+  return results;
 }
 
 /**

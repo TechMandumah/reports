@@ -2,11 +2,11 @@ import mysql from 'mysql2/promise';
 
 // Stats database configuration (separate from the main Koha database)
 const statsDbConfig = {
-  host: process.env.STATS_DB_HOST || '127.0.0.1',
-  port: parseInt(process.env.STATS_DB_PORT || '3306'),
-  user: process.env.STATS_DB_USER || 'root',
-  password: process.env.STATS_DB_PASS || '',
-  database: process.env.STATS_DB_NAME || 'stats',
+  host: process.env.DB_HOST_BIB || '127.0.0.1',
+  port: parseInt(process.env.DB_PORT_BIB || '3306'),
+  user: process.env.DB_USER_BIB || 'root',
+  password: process.env.DB_PASS_BIB || '',
+  database: process.env.DB_NAME_BIB || 'stats',
 };
 
 // Koha database configuration (for biblio details)

@@ -158,8 +158,10 @@ function buildDownloadsWhereClause(filters: DownloadsFilters): { clause: string;
 export async function getDownloadActions(filters: DownloadsFilters): Promise<DownloadAction[]> {
   const { clause, params } = buildDownloadsWhereClause(filters);
   
-  const limit = filters.limit || 1000;
-  const offset = filters.offset || 0;
+  // When date filters are applied, don't use LIMIT - let the date range naturally restrict results
+  // This is essential for millions of records where LIMIT would cut off before date filtering
+  const hasDateFilter = filters.startDate || filters.endDate;
+  const limitClause = hasDateFilter ? '' : `LIMIT ${filters.limit || 1000} OFFSET ${filters.offset || 0}`;
 
   const query = `
     SELECT 
@@ -183,7 +185,7 @@ export async function getDownloadActions(filters: DownloadsFilters): Promise<Dow
     FROM stats.owa_action_fact
     ${clause}
     ORDER BY \`timestamp\` DESC
-    LIMIT ${limit} OFFSET ${offset}
+    ${limitClause}
   `;
 
   const results = await executeStatsQuery<DownloadAction>(query, params);

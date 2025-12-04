@@ -77,6 +77,9 @@ export const translations = {
     // Empty state
     noDataAvailable: 'لا توجد بيانات متاحة',
     useFiltersToSearch: 'استخدم الفلاتر أعلاه للبحث عن إحصائيات التحميلات',
+    selectDateRange: 'اختر نطاق التاريخ',
+    selectDateRangeDescription: 'الرجاء اختيار تاريخ البداية والنهاية للبحث عن إحصائيات التحميلات',
+    dateRangeRequired: 'يجب تحديد تاريخ البداية والنهاية',
   },
   en: {
     // Page titles and headers
@@ -151,6 +154,9 @@ export const translations = {
     // Empty state
     noDataAvailable: 'No Data Available',
     useFiltersToSearch: 'Use the filters above to search for download statistics',
+    selectDateRange: 'Select Date Range',
+    selectDateRangeDescription: 'Please select start and end dates to search for download statistics',
+    dateRangeRequired: 'Start date and end date are required',
   },
 };
 

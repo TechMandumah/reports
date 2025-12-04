@@ -70,7 +70,7 @@ export const DownloadsFiltersForm: React.FC<DownloadsFiltersFormProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">
-              {t('startDate')}
+              {t('startDate')} <span className="text-red-500">*</span>
             </label>
             <input
               type="date"
@@ -79,12 +79,13 @@ export const DownloadsFiltersForm: React.FC<DownloadsFiltersFormProps> = ({
               onChange={(e) => setStartDate(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={loading}
+              required
             />
           </div>
 
           <div>
             <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">
-              {t('endDate')}
+              {t('endDate')} <span className="text-red-500">*</span>
             </label>
             <input
               type="date"
@@ -93,6 +94,7 @@ export const DownloadsFiltersForm: React.FC<DownloadsFiltersFormProps> = ({
               onChange={(e) => setEndDate(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={loading}
+              required
             />
           </div>
 

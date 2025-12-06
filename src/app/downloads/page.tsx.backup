@@ -1,0 +1,184 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { DownloadsFilters, DownloadStats } from '@/downloads_service/types/downloads';
+import { t } from '@/downloads_service/utils/localization';
+
+export default function DownloadsPage() {
+  const [stats, setStats] = useState<DownloadStats | null>(null);
+  const [filters, setFilters] = useState<DownloadsFilters>({});
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<{
+    stats: boolean;
+    koha: boolean;
+    message: string;
+  } | null>(null);
+
+  // Test database connection on mount
+  useEffect(() => {
+    testConnection();
+  }, []);
+
+  const testConnection = async () => {
+    try {
+      const response = await fetch('/api/downloads/test-connection');
+      const data = await response.json();
+      setConnectionStatus(data);
+      
+      if (!data.success) {
+        setError(t('connectionFailed', 'ar', { message: data.message }));
+      }
+    } catch (err) {
+      console.error('Error testing connection:', err);
+      setError(t('connectionFailed', 'ar', { message: 'Connection test failed' }));
+    }
+  };
+
+  const loadStatistics = async (newFilters: DownloadsFilters) => {
+    // Validate that date range is provided
+    if (!newFilters.startDate || !newFilters.endDate) {
+      setError(t('dateRangeRequired'));
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setHasSearched(true);
+
+    try {
+      // Build query parameters
+      const params = new URLSearchParams();
+      params.append('type', 'all');
+
+      if (newFilters.startDate) params.append('startDate', newFilters.startDate);
+      if (newFilters.endDate) params.append('endDate', newFilters.endDate);
+      if (newFilters.magazineNumber) params.append('magazineNumber', newFilters.magazineNumber);
+      if (newFilters.database) params.append('database', newFilters.database);
+      if (newFilters.username) params.append('username', newFilters.username);
+      if (newFilters.category) params.append('category', newFilters.category);
+
+      const response = await fetch(`/api/downloads/stats?${params.toString()}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      setStats(result.data);
+      setFilters(newFilters);
+    } catch (err) {
+      console.error('Error loading statistics:', err);
+      setError(err instanceof Error ? err.message : t('errorLoadingStats'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFilterChange = (newFilters: DownloadsFilters) => {
+    loadStatistics(newFilters);
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100" dir="rtl">
+      {/* Top Header Bar */}
+      <div className="bg-white border-b border-gray-200 shadow-sm">
+        <div className="container mx-auto px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-[#C02025] to-[#A01820] rounded-lg flex items-center justify-center shadow-md">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+              </svg>
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {t('pageTitle')}
+              </h1>
+              <p className="text-sm text-gray-500">
+                {t('pageDescription')}
+              </p>
+            </div>
+            {connectionStatus && (
+              <div className="mr-auto flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-50">
+                <span className={`w-2 h-2 rounded-full ${
+                  connectionStatus.stats && connectionStatus.koha ? 'bg-green-500 animate-pulse' : 'bg-red-500'
+                }`}></span>
+                <span className="text-xs font-medium text-gray-600">
+                  {connectionStatus.stats && connectionStatus.koha ? 'متصل' : 'غير متصل'}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="container mx-auto px-6 py-8 max-w-7xl">
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <span className="text-red-800 font-medium">{error}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Filters */}
+        <DownloadsFiltersForm onFilterChange={handleFilterChange} loading={loading} />
+
+        {/* Overview Cards */}
+        {stats && <DownloadsOverview stats={stats} loading={loading} />}
+
+        {/* Date Chart */}
+        {stats && stats.downloadsByDate.length > 0 && (
+          <div className="mb-8">
+            <DownloadsChart data={stats.downloadsByDate} loading={loading} />
+          </div>
+        )}
+
+        {/* Magazines Table */}
+        {stats && stats.downloadsByMagazine.length > 0 && (
+          <div className="mb-8">
+            <MagazineDownloadsTable magazines={stats.downloadsByMagazine} loading={loading} />
+          </div>
+        )}
+
+        {/* Top Articles Table */}
+        {stats && stats.topArticles.length > 0 && (
+          <div className="mb-8">
+            <TopArticlesTable articles={stats.topArticles} loading={loading} limit={20} />
+          </div>
+        )}
+
+        {/* Database and Category Groups */}
+        {stats && (stats.downloadsByDatabase.length > 0 || stats.downloadsByCategory.length > 0) && (
+          <div className="mb-8">
+            <DownloadsByGroup
+              databases={stats.downloadsByDatabase}
+              categories={stats.downloadsByCategory}
+              loading={loading}
+            />
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!loading && !stats && !hasSearched && (
+          <div className="bg-white rounded-lg shadow-md p-12 text-center">
+            <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <h3 className="text-xl font-semibold text-gray-700 mb-2">
+              {t('selectDateRange')}
+            </h3>
+            <p className="text-gray-500">
+              {t('selectDateRangeDescription')}
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

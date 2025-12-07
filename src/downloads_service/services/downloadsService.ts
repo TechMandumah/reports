@@ -144,14 +144,7 @@ function buildDownloadsWhereClause(filters: DownloadsFilters): { clause: string;
     params.push(filters.username);
   }
 
-  // Filter by magazine number using SQL substring extraction from action_label
-  // Extract magazine number from filename pattern: /record/XXX#xx#pdf-xxx#1876-xxx-xxx-xxx.pdf#
-  if (filters.magazineNumber) {
-    conditions.push(`SUBSTRING_INDEX(SUBSTRING_INDEX(action_label, '#', -2), '-', 1) = ?`);
-    params.push(filters.magazineNumber);
-  }
-
-  // Note: biblionumber, database, and category filters
+  // Note: magazineNumber, biblionumber, database, and category filters
   // will be applied after parsing action_label in application code
 
   const clause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';

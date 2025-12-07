@@ -35,10 +35,8 @@ export const translations = {
     topArticles: 'المقالات الأكثر تحميلاً',
     topArticlesLimit: 'المقالات الأكثر تحميلاً (أفضل {limit})',
     downloadsByDatabase: 'التحميلات حسب قاعدة البيانات',
-    downloadsByCategory: 'التحميلات حسب الفئة',
+    downloadsByCategory: 'التحميلات حسب التصنيف',
     downloadsByDate: 'التحميلات حسب التاريخ',
-    topUniversities: 'أكثر الجامعات تحميلاً',
-    downloadsByUniversity: 'التحميلات حسب الجامعة',
     
     // Table headers
     rank: '#',
@@ -116,8 +114,6 @@ export const translations = {
     downloadsByDatabase: 'Downloads by Database',
     downloadsByCategory: 'Downloads by Category',
     downloadsByDate: 'Downloads by Date',
-    topUniversities: 'Top Universities',
-    downloadsByUniversity: 'Downloads by University',
     
     // Table headers
     rank: '#',

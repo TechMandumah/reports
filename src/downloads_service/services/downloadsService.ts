@@ -11,7 +11,6 @@ import {
   DatabaseDownloadCount,
   CategoryDownloadCount,
   ArticleDownloadCount,
-  UniversityDownloadCount,
   DownloadsQueryResult,
 } from '../types/downloads';
 
@@ -56,34 +55,6 @@ export function parseActionLabel(actionLabel: string): ParsedDownload | null {
     console.error('Error parsing action label:', actionLabel, error);
     return null;
   }
-}
-
-/**
- * Get university names from borrowers table in koha database
- */
-export async function getUniversityNames(usernames: string[]): Promise<Map<string, string>> {
-  if (usernames.length === 0) {
-    return new Map();
-  }
-
-  const placeholders = usernames.map(() => '?').join(',');
-  
-  const query = `
-    SELECT 
-      userid,
-      surname as university_name
-    FROM borrowers
-    WHERE userid IN (${placeholders})
-  `;
-
-  const results = await executeKohaQuery<{ userid: string; university_name: string }>(query, usernames);
-  const universityMap = new Map<string, string>();
-
-  for (const row of results) {
-    universityMap.set(row.userid, row.university_name || row.userid);
-  }
-
-  return universityMap;
 }
 
 /**
@@ -446,34 +417,6 @@ export async function getDownloadStatistics(filters: DownloadsFilters): Promise<
     .sort((a, b) => b.count - a.count)
     .slice(0, 50); // Top 50 articles
 
-  // Group by university (cv1_value - username)
-  const universityMap = new Map<string, { count: number; visitors: Set<number>; sessions: Set<number> }>();
-  for (const record of records) {
-    const username = record.cv1_value || 'unknown';
-    if (!universityMap.has(username)) {
-      universityMap.set(username, { count: 0, visitors: new Set(), sessions: new Set() });
-    }
-    const uniData = universityMap.get(username)!;
-    uniData.count++;
-    uniData.visitors.add(record.visitor_id);
-    uniData.sessions.add(record.session_id);
-  }
-
-  // Get university names from borrowers table
-  const usernames = Array.from(universityMap.keys()).filter(u => u !== 'unknown');
-  const universityNames = await getUniversityNames(usernames);
-
-  const topUniversities: UniversityDownloadCount[] = Array.from(universityMap.entries())
-    .map(([username, data]) => ({
-      username,
-      universityName: universityNames.get(username) || username,
-      count: data.count,
-      uniqueVisitors: data.visitors.size,
-      uniqueSessions: data.sessions.size,
-    }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 50); // Top 50 universities
-
   return {
     totalDownloads,
     uniqueVisitors,
@@ -483,7 +426,6 @@ export async function getDownloadStatistics(filters: DownloadsFilters): Promise<
     downloadsByDatabase,
     downloadsByCategory,
     topArticles,
-    topUniversities,
   };
 }
 

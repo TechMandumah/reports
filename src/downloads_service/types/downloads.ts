@@ -78,7 +78,6 @@ export interface DownloadStats {
   downloadsByDatabase: DatabaseDownloadCount[];
   downloadsByCategory: CategoryDownloadCount[];
   topArticles: ArticleDownloadCount[];
-  topUniversities: UniversityDownloadCount[];
 }
 
 // Date-based download count
@@ -123,15 +122,6 @@ export interface ArticleDownloadCount {
   magazineTitle?: string;
   count: number;
   uniqueVisitors: number;
-}
-
-// University-based download count
-export interface UniversityDownloadCount {
-  username: string; // cv1_value from stats
-  universityName?: string; // from borrowers table
-  count: number;
-  uniqueVisitors: number;
-  uniqueSessions: number;
 }
 
 // University-based download statistics

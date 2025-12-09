@@ -87,40 +87,36 @@ export default function DownloadsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100" dir="rtl">
-      <div className="container mx-auto px-4 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100" dir="rtl">
+      <div className="container mx-auto px-4 py-6">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">
+        <div className="mb-6 bg-gradient-to-r from-[#C02025] to-red-700 rounded-2xl shadow-xl p-8 text-white">
+          <h1 className="text-4xl font-bold mb-3">
             {t('pageTitle')}
           </h1>
-          <p className="text-gray-600">
+          <p className="text-red-50 text-lg">
             {t('pageDescription')}
           </p>
           
           {/* Connection Status */}
           {connectionStatus && (
-            <div className={`mt-4 p-4 rounded-lg ${
+            <div className={`mt-6 p-4 rounded-xl backdrop-blur-sm ${
               connectionStatus.stats && connectionStatus.koha
-                ? 'bg-green-50 border border-green-200'
-                : 'bg-red-50 border border-red-200'
+                ? 'bg-white/20 border border-white/30'
+                : 'bg-white/20 border border-white/30'
             }`}>
-              <div className="flex items-center gap-2">
-                <span className={`w-3 h-3 rounded-full ${
+              <div className="flex items-center gap-3">
+                <span className={`w-2.5 h-2.5 rounded-full ${
                   connectionStatus.stats && connectionStatus.koha
-                    ? 'bg-green-500'
-                    : 'bg-red-500'
+                    ? 'bg-green-400 animate-pulse'
+                    : 'bg-yellow-400 animate-pulse'
                 }`}></span>
-                <span className={`font-medium ${
-                  connectionStatus.stats && connectionStatus.koha
-                    ? 'text-green-800'
-                    : 'text-red-800'
-                }`}>
+                <span className="font-medium text-white">
                   {connectionStatus.message}
                 </span>
               </div>
-              <div className="mt-2 text-sm text-gray-600">
-                <span className="ml-4">
+              <div className="mt-2 text-sm text-red-50 flex gap-4">
+                <span>
                   {connectionStatus.stats ? t('statsDbConnected') : t('statsDbDisconnected')}
                 </span>
                 <span>
@@ -133,12 +129,12 @@ export default function DownloadsPage() {
 
         {/* Error Message */}
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <div className="flex items-center gap-2">
-              <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+          <div className="mb-6 p-5 bg-white border-l-4 border-red-500 rounded-xl shadow-lg">
+            <div className="flex items-center gap-3">
+              <svg className="w-6 h-6 text-red-500" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
               </svg>
-              <span className="text-red-800 font-medium">{error}</span>
+              <span className="text-gray-800 font-semibold">{error}</span>
             </div>
           </div>
         )}
@@ -149,12 +145,12 @@ export default function DownloadsPage() {
         {/* Overview Cards */}
         {stats && <DownloadsOverview stats={stats} loading={loading} />}
 
-        {/* Date Chart */}
-        {stats && stats.downloadsByDate.length > 0 && (
+        {/* Date Chart - Hidden */}
+        {/* {stats && stats.downloadsByDate.length > 0 && (
           <div className="mb-8">
             <DownloadsChart data={stats.downloadsByDate} loading={loading} />
           </div>
-        )}
+        )} */}
 
         {/* Magazines Table */}
         {stats && stats.downloadsByMagazine.length > 0 && (
@@ -183,14 +179,16 @@ export default function DownloadsPage() {
 
         {/* Empty State */}
         {!loading && !stats && !hasSearched && (
-          <div className="bg-white rounded-lg shadow-md p-12 text-center">
-            <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            <h3 className="text-xl font-semibold text-gray-700 mb-2">
+          <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-xl p-16 text-center border border-gray-100">
+            <div className="bg-gradient-to-br from-[#C02025] to-red-600 w-20 h-20 rounded-2xl mx-auto mb-6 flex items-center justify-center shadow-lg">
+              <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <h3 className="text-2xl font-bold text-gray-800 mb-3">
               {t('selectDateRange')}
             </h3>
-            <p className="text-gray-500">
+            <p className="text-gray-600 text-lg max-w-md mx-auto">
               {t('selectDateRangeDescription')}
             </p>
           </div>

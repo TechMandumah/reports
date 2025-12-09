@@ -144,8 +144,25 @@ function buildDownloadsWhereClause(filters: DownloadsFilters): { clause: string;
     params.push(filters.username);
   }
 
-  // Note: magazineNumber, biblionumber, database, and category filters
-  // will be applied after parsing action_label in application code
+  // Filter by magazine number using LIKE pattern (e.g., '%#0096-%' for magazine 0096)
+  if (filters.magazineNumber) {
+    conditions.push('action_label LIKE ?');
+    params.push(`%#${filters.magazineNumber}-%`);
+  }
+
+  // Filter by biblionumber using LIKE pattern (e.g., '%/record/12345#%')
+  if (filters.biblionumber) {
+    conditions.push('action_label LIKE ?');
+    params.push(`%/record/${filters.biblionumber}#%`);
+  }
+
+  // Filter by database using LIKE pattern (e.g., '%#edusearch#' at the end)
+  if (filters.database) {
+    conditions.push('action_label LIKE ?');
+    params.push(`%#${filters.database}#`);
+  }
+
+  // Note: category filter will be applied after fetching biblio details in application code
 
   const clause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
   console.log('WHERE clause:', clause);

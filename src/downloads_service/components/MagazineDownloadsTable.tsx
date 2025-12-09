@@ -60,10 +60,10 @@ export const MagazineDownloadsTable: React.FC<MagazineDownloadsTableProps> = ({
                 <td className="px-6 py-4 font-medium text-gray-900">
                   {mag.magazineNumber}
                 </td>
-                <td className="px-6 py-4">
+                <td className="px-6 py-4 text-gray-900">
                   {mag.magazineTitle || t('notAvailable')}
                 </td>
-                <td className="px-6 py-4 text-gray-600">
+                <td className="px-6 py-4 text-gray-900">
                   {mag.issn || '-'}
                 </td>
                 <td className="px-6 py-4 text-blue-600 font-semibold">

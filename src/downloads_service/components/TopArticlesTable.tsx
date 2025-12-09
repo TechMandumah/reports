@@ -69,13 +69,13 @@ export const TopArticlesTable: React.FC<TopArticlesTableProps> = ({
                 <td className="px-6 py-4 font-medium text-gray-900">
                   {article.biblionumber}
                 </td>
-                <td className="px-6 py-4 max-w-md truncate" title={article.title || ''}>
+                <td className="px-6 py-4 max-w-md truncate text-gray-900" title={article.title || ''}>
                   {article.title || t('notAvailable')}
                 </td>
-                <td className="px-6 py-4 text-gray-600">
+                <td className="px-6 py-4 text-gray-900">
                   {article.author || '-'}
                 </td>
-                <td className="px-6 py-4 text-gray-600">
+                <td className="px-6 py-4 text-gray-900">
                   {article.magazineTitle || article.magazineNumber || '-'}
                 </td>
                 <td className="px-6 py-4 text-blue-600 font-semibold">

@@ -58,7 +58,7 @@ export const DownloadsByGroup: React.FC<DownloadsByGroupProps> = ({
                 >
                   <div className="flex-1">
                     <p className="font-medium text-gray-900">{db.database}</p>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-gray-800">
                       {db.uniqueVisitors.toLocaleString('ar-EG')} {t('uniqueVisitor')}
                     </p>
                   </div>
@@ -92,7 +92,7 @@ export const DownloadsByGroup: React.FC<DownloadsByGroupProps> = ({
                 >
                   <div className="flex-1">
                     <p className="font-medium text-gray-900">{cat.category}</p>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-gray-800">
                       {cat.uniqueVisitors.toLocaleString('ar-EG')} {t('uniqueVisitor')}
                     </p>
                   </div>

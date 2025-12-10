@@ -1,31 +1,17 @@
-import mysql from 'mysql2/promise';
-
-// Vtiger database configuration
-const vtigerDbConfig = {
-  host: process.env.DB_HOST_JOURNAL || '127.0.0.1',
-  port: parseInt(process.env.DB_PORT_JOURNAL || '3306'),
-  user: process.env.DB_USER_JOURNAL || 'root',
-  password: process.env.DB_PASS_JOURNAL || '',
-  database: process.env.DB_NAME_JOURNAL || 'vtiger',
-};
-
-// Create connection pool for vtiger database
-const vtigerPool = mysql.createPool({
-  ...vtigerDbConfig,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
-});
+import { executeJournalQuery, testJournalConnection } from '@/lib/journal_db';
 
 /**
- * Execute a query on the vtiger database
+ * Execute a query on the vtiger database (using existing journal_db connection)
  */
 export async function executeVtigerQuery<T>(query: string, params: any[] = []): Promise<T[]> {
   try {
-    const [rows] = await vtigerPool.execute(query, params);
-    return rows as T[];
+    console.log('🔍 Executing vtiger query:', query);
+    console.log('📊 With params:', params);
+    const rows = await executeJournalQuery<T>(query, params);
+    console.log('✅ Vtiger query returned', rows.length, 'rows');
+    return rows;
   } catch (error) {
-    console.error('Error executing vtiger query:', error);
+    console.error('❌ Error executing vtiger query:', error);
     throw error;
   }
 }
@@ -35,10 +21,11 @@ export async function executeVtigerQuery<T>(query: string, params: any[] = []): 
  */
 export async function testVtigerConnection(): Promise<boolean> {
   try {
-    await vtigerPool.query('SELECT 1');
-    return true;
+    const result = await testJournalConnection();
+    console.log('🔗 Vtiger connection test:', result ? '✅ Success' : '❌ Failed');
+    return result;
   } catch (error) {
-    console.error('Vtiger database connection failed:', error);
+    console.error('❌ Vtiger database connection failed:', error);
     return false;
   }
 }
@@ -53,6 +40,7 @@ export async function getMagazineFromVtiger(magazineNumber: string): Promise<{
 } | null> {
   try {
     const numericMagazineNumber = parseInt(magazineNumber);
+    console.log(`🔍 Fetching single magazine from vtiger: ${magazineNumber} (numeric: ${numericMagazineNumber})`);
     
     const query = `
       SELECT 
@@ -66,8 +54,10 @@ export async function getMagazineFromVtiger(magazineNumber: string): Promise<{
     `;
     
     const results = await executeVtigerQuery<any>(query, [numericMagazineNumber]);
+    console.log(`📊 Single magazine query returned ${results.length} results for magazine ${magazineNumber}`);
     
     if (results.length > 0) {
+      console.log(`✅ Found magazine: ${results[0].magazineName}, Category C: ${results[0].categoryC}`);
       return {
         magazineName: results[0].magazineName,
         categoryC: results[0].categoryC,
@@ -75,9 +65,10 @@ export async function getMagazineFromVtiger(magazineNumber: string): Promise<{
       };
     }
     
+    console.log(`⚠️ No vtiger data found for magazine ${magazineNumber}`);
     return null;
   } catch (error) {
-    console.error('Error fetching magazine from vtiger:', magazineNumber, error);
+    console.error('❌ Error fetching magazine from vtiger:', magazineNumber, error);
     return null;
   }
 }
@@ -92,7 +83,11 @@ export async function getMagazinesFromVtiger(magazineNumbers: string[]): Promise
 }>> {
   const magazineMap = new Map<string, { magazineName?: string; categoryC?: string; issn?: string }>();
   
+  console.log(`🔍 Fetching ${magazineNumbers.length} magazines from vtiger...`);
+  console.log(`📋 Magazine numbers requested:`, magazineNumbers.slice(0, 10), magazineNumbers.length > 10 ? `... and ${magazineNumbers.length - 10} more` : '');
+  
   if (magazineNumbers.length === 0) {
+    console.log('⚠️ No magazine numbers provided to vtiger query');
     return magazineMap;
   }
   
@@ -102,7 +97,11 @@ export async function getMagazinesFromVtiger(magazineNumbers: string[]): Promise
       .map(num => parseInt(num))
       .filter(num => !isNaN(num));
     
+    console.log(`🔢 Converted to numeric: ${numericNumbers.length} valid numbers`);
+    console.log(`📊 Numeric values:`, numericNumbers.slice(0, 10), numericNumbers.length > 10 ? `... and ${numericNumbers.length - 10} more` : '');
+    
     if (numericNumbers.length === 0) {
+      console.log('⚠️ No valid numeric magazine numbers after conversion');
       return magazineMap;
     }
     
@@ -119,7 +118,17 @@ export async function getMagazinesFromVtiger(magazineNumbers: string[]): Promise
       WHERE CAST(a.employees AS UNSIGNED) IN (${placeholders})
     `;
     
+    console.log(`🔍 Executing batch vtiger query for ${numericNumbers.length} magazines...`);
     const results = await executeVtigerQuery<any>(query, numericNumbers);
+    console.log(`✅ Vtiger query returned ${results.length} results`);
+    
+    if (results.length > 0) {
+      console.log('📊 Sample results:', results.slice(0, 3).map(r => ({
+        number: r.magazineNumber,
+        name: r.magazineName,
+        categoryC: r.categoryC
+      })));
+    }
     
     for (const row of results) {
       const magNum = row.magazineNumber?.toString().padStart(4, '0');
@@ -129,10 +138,13 @@ export async function getMagazinesFromVtiger(magazineNumbers: string[]): Promise
           categoryC: row.categoryC,
           issn: row.issn,
         });
+        console.log(`✅ Mapped magazine ${magNum}: ${row.magazineName} (Category C: ${row.categoryC || 'N/A'})`);
       }
     }
+    
+    console.log(`🎯 Final vtiger map size: ${magazineMap.size} magazines with data`);
   } catch (error) {
-    console.error('Error fetching magazines from vtiger:', error);
+    console.error('❌ Error fetching magazines from vtiger:', error);
   }
   
   return magazineMap;

@@ -355,16 +355,33 @@ export async function getDownloadStatistics(filters: DownloadsFilters): Promise<
   }
 
   // Fetch vtiger data for magazines and dissertations
+  console.log('🔍 Fetching vtiger data for magazines and dissertations...');
   const { getMagazinesFromVtiger } = await import('../lib/vtiger_db');
   const allMagazineNumbers = [
     ...Array.from(magazineMap.keys()),
     ...Array.from(dissertationMap.keys())
   ];
+  console.log(`📋 Total magazine/dissertation numbers to fetch from vtiger: ${allMagazineNumbers.length}`);
+  console.log(`📊 Magazine numbers:`, Array.from(magazineMap.keys()).slice(0, 10));
+  console.log(`📊 Dissertation numbers:`, Array.from(dissertationMap.keys()).slice(0, 10));
+  
   const vtigerData = await getMagazinesFromVtiger(allMagazineNumbers);
+  console.log(`✅ Vtiger data fetched: ${vtigerData.size} magazines found`);
+  
+  if (vtigerData.size > 0) {
+    console.log('📊 Sample vtiger data:', Array.from(vtigerData.entries()).slice(0, 3));
+  } else {
+    console.warn('⚠️ No vtiger data was returned! Check database connection and query.');
+  }
 
   const downloadsByMagazine: MagazineDownloadCount[] = Array.from(magazineMap.entries())
     .map(([magazineNumber, data]) => {
       const vtiger = vtigerData.get(magazineNumber);
+      if (vtiger) {
+        console.log(`✅ Enriching magazine ${magazineNumber} with vtiger data:`, vtiger);
+      } else {
+        console.log(`⚠️ No vtiger data for magazine ${magazineNumber}`);
+      }
       return {
         magazineNumber,
         magazineTitle: data.biblio?.magazineTitle,
@@ -378,10 +395,22 @@ export async function getDownloadStatistics(filters: DownloadsFilters): Promise<
     })
     .sort((a, b) => b.count - a.count)
     .slice(0, 30); // Top 30 magazines
+  
+  console.log(`📊 Final downloadsByMagazine array (first 3):`, downloadsByMagazine.slice(0, 3).map(m => ({
+    number: m.magazineNumber,
+    vtigerName: m.vtigerName,
+    kohaTitle: m.magazineTitle,
+    categoryC: m.categoryC
+  })));
 
   const downloadsByDissertation: MagazineDownloadCount[] = Array.from(dissertationMap.entries())
     .map(([magazineNumber, data]) => {
       const vtiger = vtigerData.get(magazineNumber);
+      if (vtiger) {
+        console.log(`✅ Enriching dissertation ${magazineNumber} with vtiger data:`, vtiger);
+      } else {
+        console.log(`⚠️ No vtiger data for dissertation ${magazineNumber}`);
+      }
       return {
         magazineNumber,
         magazineTitle: data.biblio?.magazineTitle,
@@ -395,6 +424,13 @@ export async function getDownloadStatistics(filters: DownloadsFilters): Promise<
     })
     .sort((a, b) => b.count - a.count)
     .slice(0, 30); // Top 30 dissertations
+  
+  console.log(`📊 Final downloadsByDissertation array (first 3):`, downloadsByDissertation.slice(0, 3).map(d => ({
+    number: d.magazineNumber,
+    vtigerName: d.vtigerName,
+    kohaTitle: d.magazineTitle,
+    categoryC: d.categoryC
+  })));
 
   // Group by database
   const databaseMap = new Map<string, { count: number; visitors: Set<number> }>();

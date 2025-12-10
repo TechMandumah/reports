@@ -138,36 +138,6 @@ export const DownloadsFiltersForm: React.FC<DownloadsFiltersFormProps> = ({
               <option value="humanindex">Human Index</option>
             </select>
           </div>
-
-          <div>
-            <label htmlFor="username" className="block text-sm font-semibold text-gray-700 mb-2">
-              {t('username')}
-            </label>
-            <input
-              type="text"
-              id="username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder={t('usernamePlaceholder')}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#C02025] focus:ring-2 focus:ring-red-100 text-gray-900 transition-all placeholder-gray-400"
-              disabled={loading}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="category" className="block text-sm font-semibold text-gray-700 mb-2">
-              {t('category')}
-            </label>
-            <input
-              type="text"
-              id="category"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              placeholder={t('categoryPlaceholder')}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#C02025] focus:ring-2 focus:ring-red-100 text-gray-900 transition-all placeholder-gray-400"
-              disabled={loading}
-            />
-          </div>
         </div>
 
         <div className="flex gap-4 pt-2">

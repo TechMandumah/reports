@@ -105,44 +105,48 @@ export async function getMagazinesFromVtiger(magazineNumbers: string[]): Promise
       return magazineMap;
     }
     
-    const placeholders = numericNumbers.map(() => '?').join(',');
-    
-    const query = `
-      SELECT 
-        a.employees AS magazineNumber,
-        a.accountname AS magazineName,
-        cf.cf_939 AS categoryC,
-        cf.cf_709 AS issn
-      FROM vtiger_account a
-      LEFT JOIN vtiger_accountscf cf ON a.accountid = cf.accountid
-      WHERE CAST(a.employees AS UNSIGNED) IN (${placeholders})
-    `;
-    
-    console.log(`🔍 Executing batch vtiger query for ${numericNumbers.length} magazines...`);
-    const results = await executeVtigerQuery<any>(query, numericNumbers);
-    console.log(`✅ Vtiger query returned ${results.length} results`);
-    
-    if (results.length > 0) {
-      console.log('📊 Sample results:', results.slice(0, 3).map(r => ({
-        number: r.magazineNumber,
-        name: r.magazineName,
-        categoryC: r.categoryC
-      })));
+    // Batch queries to avoid "too many placeholders" error
+    // MySQL limit is typically 65535, we'll use batches of 1000 to be safe
+    const batchSize = 1000;
+    const batches = [];
+    for (let i = 0; i < numericNumbers.length; i += batchSize) {
+      batches.push(numericNumbers.slice(i, i + batchSize));
     }
     
-    for (const row of results) {
-      const magNum = row.magazineNumber?.toString().padStart(4, '0');
-      if (magNum) {
-        magazineMap.set(magNum, {
-          magazineName: row.magazineName,
-          categoryC: row.categoryC,
-          issn: row.issn,
-        });
-        console.log(`✅ Mapped magazine ${magNum}: ${row.magazineName} (Category C: ${row.categoryC || 'N/A'})`);
+    console.log(`🔍 Processing ${batches.length} batches of magazines...`);
+    
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+      const batch = batches[batchIndex];
+      const placeholders = batch.map(() => '?').join(',');
+      
+      const query = `
+        SELECT 
+          a.employees AS magazineNumber,
+          a.accountname AS magazineName,
+          cf.cf_939 AS categoryC,
+          cf.cf_709 AS issn
+        FROM vtiger_account a
+        LEFT JOIN vtiger_accountscf cf ON a.accountid = cf.accountid
+        WHERE CAST(a.employees AS UNSIGNED) IN (${placeholders})
+      `;
+      
+      console.log(`🔍 Batch ${batchIndex + 1}/${batches.length}: Querying ${batch.length} magazines...`);
+      const results = await executeVtigerQuery<any>(query, batch);
+      console.log(`✅ Batch ${batchIndex + 1} returned ${results.length} results`);
+      
+      for (const row of results) {
+        const magNum = row.magazineNumber?.toString().padStart(4, '0');
+        if (magNum) {
+          magazineMap.set(magNum, {
+            magazineName: row.magazineName,
+            categoryC: row.categoryC,
+            issn: row.issn,
+          });
+        }
       }
     }
     
-    console.log(`🎯 Final vtiger map size: ${magazineMap.size} magazines with data`);
+    console.log(`🎯 Final vtiger map size: ${magazineMap.size} magazines with data from ${batches.length} batches`);
   } catch (error) {
     console.error('❌ Error fetching magazines from vtiger:', error);
   }

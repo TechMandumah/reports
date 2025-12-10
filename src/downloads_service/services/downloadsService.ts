@@ -397,17 +397,17 @@ export async function getDownloadStatistics(filters: DownloadsFilters): Promise<
   console.log('📊 Step 4: Getting downloads by database...');
   const databaseQuery = `
     SELECT 
-      SUBSTRING_INDEX(SUBSTRING_INDEX(action_label, '#', -2), '#', 1) as database,
+      SUBSTRING_INDEX(SUBSTRING_INDEX(action_label, '#', -2), '#', 1) as db_name,
       COUNT(*) as count,
       COUNT(DISTINCT visitor_id) as uniqueVisitors
     FROM stats.owa_action_fact
     ${clause}
-    GROUP BY database
+    GROUP BY db_name
     ORDER BY count DESC
   `;
   const databaseResults = await executeStatsQuery<any>(databaseQuery, params);
   const downloadsByDatabase: DatabaseDownloadCount[] = databaseResults.map(row => ({
-    database: row.database || 'unknown',
+    database: row.db_name || 'unknown',
     count: row.count,
     uniqueVisitors: row.uniqueVisitors,
   }));

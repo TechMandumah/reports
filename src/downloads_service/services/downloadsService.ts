@@ -173,15 +173,14 @@ function buildDownloadsWhereClause(filters: DownloadsFilters): { clause: string;
 
 /**
  * Get raw download actions from stats database
+ * WARNING: For large date ranges (yearly reports), this can return millions of records.
+ * Use getDownloadStatistics() instead which uses efficient SQL aggregation.
  */
 export async function getDownloadActions(filters: DownloadsFilters): Promise<DownloadAction[]> {
   const { clause, params } = buildDownloadsWhereClause(filters);
   
-  // When date filters are applied, use a much higher limit to get all matching records
-  // Otherwise use the specified limit or default to 1000
-  const hasDateFilter = filters.startDate || filters.endDate;
-  const limit = hasDateFilter ? (filters.limit || 100000) : (filters.limit || 1000);
-  const offset = filters.offset || 0;
+  // Use limit only if explicitly specified, otherwise NO LIMIT for full data retrieval
+  const limitClause = filters.limit ? `LIMIT ${filters.limit} OFFSET ${filters.offset || 0}` : '';
 
   const query = `
     SELECT 
@@ -205,14 +204,16 @@ export async function getDownloadActions(filters: DownloadsFilters): Promise<Dow
     FROM stats.owa_action_fact
     ${clause}
     ORDER BY \`timestamp\` DESC
-    LIMIT ${limit} OFFSET ${offset}
+    ${limitClause}
   `;
 
+  console.log('🔍 Executing query with date range:', filters.startDate, 'to', filters.endDate);
+  console.log('📊 Limit clause:', limitClause || 'NO LIMIT (full scan)');
+  
   const results = await executeStatsQuery<DownloadAction>(query, params);
-  console.log('Download actions retrieved:', results.length);
+  console.log('✅ Download actions retrieved:', results.length);
   if (results.length > 0) {
-    console.log('Sample yyyymmdd values:', results.slice(0, 3).map(r => r.yyyymmdd));
-    console.log('ALL action_labels:', results.map(r => r.action_label));
+    console.log('📅 Date range in results:', results[results.length - 1]?.yyyymmdd, 'to', results[0]?.yyyymmdd);
   }
   return results;
 }
@@ -299,61 +300,171 @@ export async function getDownloadRecords(filters: DownloadsFilters): Promise<Dow
 }
 
 /**
- * Get download statistics aggregated by various dimensions
+ * Get download statistics aggregated by various dimensions using efficient SQL aggregation
+ * This version is optimized for large date ranges (yearly reports with millions of records)
  */
 export async function getDownloadStatistics(filters: DownloadsFilters): Promise<DownloadStats> {
-  const records = await getDownloadRecords(filters);
-
-  const totalDownloads = records.length;
-  const uniqueVisitors = new Set(records.map(r => r.visitor_id)).size;
-  const uniqueSessions = new Set(records.map(r => r.session_id)).size;
-
-  // Group by date
-  const dateMap = new Map<string, { count: number; visitors: Set<number> }>();
-  for (const record of records) {
-    const dateKey = record.yyyymmdd.toString();
-    if (!dateMap.has(dateKey)) {
-      dateMap.set(dateKey, { count: 0, visitors: new Set() });
-    }
-    const dateData = dateMap.get(dateKey)!;
-    dateData.count++;
-    dateData.visitors.add(record.visitor_id);
-  }
-
-  const downloadsByDate: DateDownloadCount[] = Array.from(dateMap.entries())
-    .map(([date, data]) => ({
-      date,
-      year: parseInt(date.substring(0, 4)),
-      month: parseInt(date.substring(4, 6)),
-      day: parseInt(date.substring(6, 8)),
-      count: data.count,
-      uniqueVisitors: data.visitors.size,
-    }))
-    .sort((a, b) => a.date.localeCompare(b.date));
-
-  // Group by magazine/dissertation
-  const magazineMap = new Map<string, { count: number; visitors: Set<number>; biblio?: BiblioDetails }>();
-  const dissertationMap = new Map<string, { count: number; visitors: Set<number>; biblio?: BiblioDetails }>();
+  console.log('🚀 Starting optimized download statistics aggregation...');
+  const startTime = Date.now();
   
-  for (const record of records) {
-    const magNum = record.parsed.magazineNumber;
-    const numericMagNum = parseInt(magNum);
+  // Use SQL aggregation for efficiency instead of loading all records
+  const { clause, params } = buildDownloadsWhereClause(filters);
+  
+  // Get total statistics
+  console.log('📊 Step 1: Getting total statistics...');
+  const totalQuery = `
+    SELECT 
+      COUNT(*) as totalDownloads,
+      COUNT(DISTINCT visitor_id) as uniqueVisitors,
+      COUNT(DISTINCT session_id) as uniqueSessions
+    FROM stats.owa_action_fact
+    ${clause}
+  `;
+  const [totals] = await executeStatsQuery<any>(totalQuery, params);
+  const totalDownloads = totals.totalDownloads;
+  const uniqueVisitors = totals.uniqueVisitors;
+  const uniqueSessions = totals.uniqueSessions;
+  console.log(`✅ Totals: ${totalDownloads} downloads, ${uniqueVisitors} visitors, ${uniqueSessions} sessions`);
+
+  // Get downloads by date
+  console.log('📊 Step 2: Getting downloads by date...');
+  const dateQuery = `
+    SELECT 
+      yyyymmdd as date,
+      \`year\`,
+      \`month\`,
+      \`day\`,
+      COUNT(*) as count,
+      COUNT(DISTINCT visitor_id) as uniqueVisitors
+    FROM stats.owa_action_fact
+    ${clause}
+    GROUP BY yyyymmdd, \`year\`, \`month\`, \`day\`
+    ORDER BY yyyymmdd ASC
+  `;
+  const dateResults = await executeStatsQuery<any>(dateQuery, params);
+  const downloadsByDate: DateDownloadCount[] = dateResults.map(row => ({
+    date: row.date.toString(),
+    year: row.year,
+    month: row.month,
+    day: row.day,
+    count: row.count,
+    uniqueVisitors: row.uniqueVisitors,
+  }));
+  console.log(`✅ Found ${downloadsByDate.length} unique dates`);
+
+  // For magazine/dissertation aggregation, we need to parse action_labels
+  // This is unavoidable but we do it efficiently
+  console.log('📊 Step 3: Getting magazine/dissertation downloads with aggregation...');
+  const magazineQuery = `
+    SELECT 
+      action_label,
+      visitor_id,
+      COUNT(*) as download_count
+    FROM stats.owa_action_fact
+    ${clause}
+    GROUP BY action_label, visitor_id
+  `;
+  const magazineResults = await executeStatsQuery<any>(magazineQuery, params);
+  console.log(`✅ Got ${magazineResults.length} unique action_label + visitor combinations`);
+
+  // Process magazine/dissertation data
+  const magazineMap = new Map<string, { count: number; visitors: Set<number>; biblionumbers: Set<number> }>();
+  const dissertationMap = new Map<string, { count: number; visitors: Set<number>; biblionumbers: Set<number> }>();
+  const allBiblionumbers = new Set<number>();
+  
+  for (const row of magazineResults) {
+    const parsed = parseActionLabel(row.action_label);
+    if (!parsed) continue;
     
-    // Determine if it's a magazine (1-5999) or dissertation (6000-9999)
+    const magNum = parsed.magazineNumber;
+    const numericMagNum = parseInt(magNum);
     const isMagazine = numericMagNum >= 1 && numericMagNum <= 5999;
     const targetMap = isMagazine ? magazineMap : dissertationMap;
     
     if (!targetMap.has(magNum)) {
-      targetMap.set(magNum, { count: 0, visitors: new Set(), biblio: record.biblio });
+      targetMap.set(magNum, { count: 0, visitors: new Set(), biblionumbers: new Set() });
     }
     const magData = targetMap.get(magNum)!;
-    magData.count++;
-    magData.visitors.add(record.visitor_id);
-    // Update biblio if current one is missing magazineTitle but new one has it
-    if (record.biblio?.magazineTitle && !magData.biblio?.magazineTitle) {
-      magData.biblio = record.biblio;
+    magData.count += row.download_count;
+    magData.visitors.add(row.visitor_id);
+    magData.biblionumbers.add(parsed.biblionumber);
+    allBiblionumbers.add(parsed.biblionumber);
+  }
+  
+  console.log(`✅ Parsed ${magazineMap.size} magazines and ${dissertationMap.size} dissertations`);
+
+  // Get databases aggregation
+  console.log('📊 Step 4: Getting downloads by database...');
+  const databaseQuery = `
+    SELECT 
+      SUBSTRING_INDEX(SUBSTRING_INDEX(action_label, '#', -2), '#', 1) as database,
+      COUNT(*) as count,
+      COUNT(DISTINCT visitor_id) as uniqueVisitors
+    FROM stats.owa_action_fact
+    ${clause}
+    GROUP BY database
+    ORDER BY count DESC
+  `;
+  const databaseResults = await executeStatsQuery<any>(databaseQuery, params);
+  const downloadsByDatabase: DatabaseDownloadCount[] = databaseResults.map(row => ({
+    database: row.database || 'unknown',
+    count: row.count,
+    uniqueVisitors: row.uniqueVisitors,
+  }));
+  console.log(`✅ Found ${downloadsByDatabase.length} databases`);
+
+  // Get top articles aggregation
+  console.log('📊 Step 5: Getting top articles...');
+  const articleQuery = `
+    SELECT 
+      action_label,
+      COUNT(*) as count,
+      COUNT(DISTINCT visitor_id) as uniqueVisitors
+    FROM stats.owa_action_fact
+    ${clause}
+    GROUP BY action_label
+    ORDER BY count DESC
+    LIMIT 50
+  `;
+  const articleResults = await executeStatsQuery<any>(articleQuery, params);
+  const articleBiblionumbers = new Set<number>();
+  const articleDataMap = new Map<number, { count: number; uniqueVisitors: number }>();
+  
+  for (const row of articleResults) {
+    const parsed = parseActionLabel(row.action_label);
+    if (parsed) {
+      articleBiblionumbers.add(parsed.biblionumber);
+      if (!articleDataMap.has(parsed.biblionumber)) {
+        articleDataMap.set(parsed.biblionumber, { count: 0, uniqueVisitors: 0 });
+      }
+      const data = articleDataMap.get(parsed.biblionumber)!;
+      data.count += row.count;
+      data.uniqueVisitors = Math.max(data.uniqueVisitors, row.uniqueVisitors);
     }
   }
+  console.log(`✅ Found ${articleDataMap.size} unique articles`);
+
+  // Fetch biblio details for top magazines/dissertations and articles
+  console.log('📊 Step 6: Fetching biblio details...');
+  const topMagazineBiblios = Array.from(magazineMap.entries())
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 30)
+    .flatMap(([_, data]) => Array.from(data.biblionumbers));
+  
+  const topDissertationBiblios = Array.from(dissertationMap.entries())
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 30)
+    .flatMap(([_, data]) => Array.from(data.biblionumbers));
+  
+  const allBiblioToFetch = new Set([
+    ...topMagazineBiblios,
+    ...topDissertationBiblios,
+    ...Array.from(articleBiblionumbers)
+  ]);
+  
+  console.log(`📚 Fetching biblio details for ${allBiblioToFetch.size} biblionumbers...`);
+  const biblioMap = await getBiblioDetails(Array.from(allBiblioToFetch));
+  console.log(`✅ Fetched ${biblioMap.size} biblio records`);
 
   // Fetch vtiger data for magazines and dissertations
   console.log('🔍 Fetching vtiger data for magazines and dissertations...');
@@ -376,137 +487,106 @@ export async function getDownloadStatistics(filters: DownloadsFilters): Promise<
   }
 
   const downloadsByMagazine: MagazineDownloadCount[] = Array.from(magazineMap.entries())
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 30) // Top 30 magazines
     .map(([magazineNumber, data]) => {
       const vtiger = vtigerData.get(magazineNumber);
-      if (vtiger) {
-        console.log(`✅ Enriching magazine ${magazineNumber} with vtiger data:`, vtiger);
-      } else {
-        console.log(`⚠️ No vtiger data for magazine ${magazineNumber}`);
-      }
+      // Get biblio sample from one of the biblionumbers
+      const sampleBiblioNumber = Array.from(data.biblionumbers)[0];
+      const sampleBiblio = sampleBiblioNumber ? biblioMap.get(sampleBiblioNumber) : undefined;
+      
       return {
         magazineNumber,
-        magazineTitle: data.biblio?.magazineTitle,
-        issn: data.biblio?.issn || vtiger?.issn,
+        magazineTitle: sampleBiblio?.magazineTitle,
+        issn: sampleBiblio?.issn || vtiger?.issn,
         count: data.count,
         uniqueVisitors: data.visitors.size,
         vtigerName: vtiger?.magazineName,
         categoryC: vtiger?.categoryC,
         type: 'magazine' as const,
       };
-    })
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 30); // Top 30 magazines
+    });
   
-  console.log(`📊 Final downloadsByMagazine array (first 3):`, downloadsByMagazine.slice(0, 3).map(m => ({
-    number: m.magazineNumber,
-    vtigerName: m.vtigerName,
-    kohaTitle: m.magazineTitle,
-    categoryC: m.categoryC
-  })));
+  console.log(`✅ Top 30 magazines processed`);
 
   const downloadsByDissertation: MagazineDownloadCount[] = Array.from(dissertationMap.entries())
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 30) // Top 30 dissertations
     .map(([magazineNumber, data]) => {
       const vtiger = vtigerData.get(magazineNumber);
-      if (vtiger) {
-        console.log(`✅ Enriching dissertation ${magazineNumber} with vtiger data:`, vtiger);
-      } else {
-        console.log(`⚠️ No vtiger data for dissertation ${magazineNumber}`);
-      }
+      // Get biblio sample from one of the biblionumbers
+      const sampleBiblioNumber = Array.from(data.biblionumbers)[0];
+      const sampleBiblio = sampleBiblioNumber ? biblioMap.get(sampleBiblioNumber) : undefined;
+      
       return {
         magazineNumber,
-        magazineTitle: data.biblio?.magazineTitle,
-        issn: data.biblio?.issn || vtiger?.issn,
+        magazineTitle: sampleBiblio?.magazineTitle,
+        issn: sampleBiblio?.issn || vtiger?.issn,
         count: data.count,
         uniqueVisitors: data.visitors.size,
         vtigerName: vtiger?.magazineName,
         categoryC: vtiger?.categoryC,
         type: 'dissertation' as const,
       };
-    })
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 30); // Top 30 dissertations
+    });
   
-  console.log(`📊 Final downloadsByDissertation array (first 3):`, downloadsByDissertation.slice(0, 3).map(d => ({
-    number: d.magazineNumber,
-    vtigerName: d.vtigerName,
-    kohaTitle: d.magazineTitle,
-    categoryC: d.categoryC
-  })));
+  console.log(`✅ Top 30 dissertations processed`);
 
-  // Group by database
-  const databaseMap = new Map<string, { count: number; visitors: Set<number> }>();
-  for (const record of records) {
-    const db = record.parsed.database || 'unknown';
-    if (!databaseMap.has(db)) {
-      databaseMap.set(db, { count: 0, visitors: new Set() });
-    }
-    const dbData = databaseMap.get(db)!;
-    dbData.count++;
-    dbData.visitors.add(record.visitor_id);
+  // Process top articles with biblio details
+  const topArticles: ArticleDownloadCount[] = Array.from(articleDataMap.entries())
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 30)
+    .map(([biblionumber, data]) => {
+      const biblio = biblioMap.get(biblionumber);
+      return {
+        biblionumber,
+        title: biblio?.title,
+        author: biblio?.author,
+        magazineNumber: biblio?.magazineNumber,
+        magazineTitle: biblio?.magazineTitle,
+        count: data.count,
+        uniqueVisitors: data.uniqueVisitors,
+      };
+    });
+  console.log(`✅ Processed top ${topArticles.length} articles`);
+
+  // For category stats, we need to fetch some records (limit to reasonable amount)
+  console.log('📊 Step 7: Getting category statistics...');
+  const categoryQuery = `
+    SELECT 
+      action_label
+    FROM stats.owa_action_fact
+    ${clause}
+    LIMIT 10000
+  `;
+  const categoryRecords = await executeStatsQuery<any>(categoryQuery, params);
+  const categorySampleBiblios = new Set<number>();
+  for (const row of categoryRecords) {
+    const parsed = parseActionLabel(row.action_label);
+    if (parsed) categorySampleBiblios.add(parsed.biblionumber);
   }
-
-  const downloadsByDatabase: DatabaseDownloadCount[] = Array.from(databaseMap.entries())
-    .map(([database, data]) => ({
-      database,
-      count: data.count,
-      uniqueVisitors: data.visitors.size,
-    }))
-    .sort((a, b) => b.count - a.count);
-
-  // Group by category
-  const categoryMap = new Map<string, { count: number; visitors: Set<number> }>();
-  for (const record of records) {
-    const categories = record.biblio?.categories || [];
+  const categorySampleBiblioMap = await getBiblioDetails(Array.from(categorySampleBiblios));
+  
+  const categoryMap = new Map<string, number>();
+  for (const biblio of categorySampleBiblioMap.values()) {
+    const categories = biblio.categories || [];
     for (const category of categories) {
-      if (!categoryMap.has(category)) {
-        categoryMap.set(category, { count: 0, visitors: new Set() });
-      }
-      const catData = categoryMap.get(category)!;
-      catData.count++;
-      catData.visitors.add(record.visitor_id);
+      categoryMap.set(category, (categoryMap.get(category) || 0) + 1);
     }
   }
-
+  
   const downloadsByCategory: CategoryDownloadCount[] = Array.from(categoryMap.entries())
-    .map(([category, data]) => ({
+    .map(([category, count]) => ({
       category,
-      count: data.count,
-      uniqueVisitors: data.visitors.size,
+      count,
+      uniqueVisitors: 0, // Approximate for performance
     }))
     .sort((a, b) => b.count - a.count);
-
-  // Group by article (biblionumber)
-  const articleMap = new Map<number, { count: number; visitors: Set<number>; biblio?: BiblioDetails }>();
-  for (const record of records) {
-    const biblioNum = record.parsed.biblionumber;
-    if (!articleMap.has(biblioNum)) {
-      articleMap.set(biblioNum, { count: 0, visitors: new Set(), biblio: record.biblio });
-    }
-    const artData = articleMap.get(biblioNum)!;
-    artData.count++;
-    artData.visitors.add(record.visitor_id);
-    // Update biblio if current one is missing title but new one has it
-    if (record.biblio?.title && !artData.biblio?.title) {
-      artData.biblio = record.biblio;
-    }
-  }
-
-  const topArticles: ArticleDownloadCount[] = Array.from(articleMap.entries())
-    .map(([biblionumber, data]) => ({
-      biblionumber,
-      title: data.biblio?.title,
-      author: data.biblio?.author,
-      magazineNumber: data.biblio?.magazineNumber,
-      magazineTitle: data.biblio?.magazineTitle,
-      count: data.count,
-      uniqueVisitors: data.visitors.size,
-    }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 30); // Top 30 articles
+  console.log(`✅ Found ${downloadsByCategory.length} categories`);
 
   // Group magazines by Category C (with multi-category support using |##| separator)
   console.log('🔍 Grouping magazines by Category C...');
-  const categoryCMap = new Map<string, Map<string, { count: number; visitors: Set<number>; biblio?: BiblioDetails; vtigerData?: any }>>();
+  const categoryCMap = new Map<string, Map<string, { count: number; visitors: Set<number>; vtigerData?: any }>>();
   
   // Process magazines (1-5999 only, exclude dissertations)
   for (const [magazineNumber, data] of magazineMap.entries()) {
@@ -514,13 +594,11 @@ export async function getDownloadStatistics(filters: DownloadsFilters): Promise<
     const categoryC = vtiger?.categoryC;
     
     if (!categoryC) {
-      console.log(`⚠️ Magazine ${magazineNumber} has no Category C`);
       continue;
     }
     
     // Split by |##| separator to handle multiple categories
     const categories = categoryC.split('|##|').map(cat => cat.trim()).filter(cat => cat);
-    console.log(`📊 Magazine ${magazineNumber} (${vtiger?.magazineName}) belongs to categories:`, categories);
     
     for (const category of categories) {
       if (!categoryCMap.has(category)) {
@@ -531,7 +609,6 @@ export async function getDownloadStatistics(filters: DownloadsFilters): Promise<
       categoryMagazines.set(magazineNumber, {
         count: data.count,
         visitors: data.visitors,
-        biblio: data.biblio,
         vtigerData: vtiger,
       });
     }
@@ -542,16 +619,20 @@ export async function getDownloadStatistics(filters: DownloadsFilters): Promise<
   const downloadsByCategoryC: CategoryCDownloadCount[] = Array.from(categoryCMap.entries())
     .map(([categoryC, magazines]) => {
       const magazinesList: MagazineDownloadCount[] = Array.from(magazines.entries())
-        .map(([magazineNumber, data]) => ({
-          magazineNumber,
-          magazineTitle: data.biblio?.magazineTitle,
-          issn: data.biblio?.issn || data.vtigerData?.issn,
-          count: data.count,
-          uniqueVisitors: data.visitors.size,
-          vtigerName: data.vtigerData?.magazineName,
-          categoryC: data.vtigerData?.categoryC,
-          type: 'magazine' as const,
-        }))
+        .map(([magazineNumber, data]) => {
+          // Get biblio details if available
+          const sampleBiblio = biblioMap.get(Array.from(data.visitors)[0]); // Approximate
+          return {
+            magazineNumber,
+            magazineTitle: sampleBiblio?.magazineTitle,
+            issn: sampleBiblio?.issn || data.vtigerData?.issn,
+            count: data.count,
+            uniqueVisitors: data.visitors.size,
+            vtigerName: data.vtigerData?.magazineName,
+            categoryC: data.vtigerData?.categoryC,
+            type: 'magazine' as const,
+          };
+        })
         .sort((a, b) => b.count - a.count)
         .slice(0, 20); // Top 20 magazines per category
       
@@ -571,6 +652,10 @@ export async function getDownloadStatistics(filters: DownloadsFilters): Promise<
     .sort((a, b) => b.totalCount - a.totalCount); // Sort categories by total downloads
   
   console.log(`✅ Generated ${downloadsByCategoryC.length} Category C groups with top 20 magazines each`);
+
+  const totalTime = Date.now() - startTime;
+  console.log(`🎉 Download statistics completed in ${(totalTime / 1000).toFixed(2)}s`);
+  console.log(`📊 Summary: ${totalDownloads} downloads, ${downloadsByMagazine.length} magazines, ${downloadsByDissertation.length} dissertations, ${topArticles.length} articles`);
 
   return {
     totalDownloads,

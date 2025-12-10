@@ -78,6 +78,7 @@ export interface DownloadStats {
   downloadsByDissertation: MagazineDownloadCount[]; // Dissertations (6000-9999)
   downloadsByDatabase: DatabaseDownloadCount[];
   downloadsByCategory: CategoryDownloadCount[];
+  downloadsByCategoryC: CategoryCDownloadCount[]; // Magazines grouped by Category C
   topArticles: ArticleDownloadCount[];
 }
 
@@ -115,6 +116,14 @@ export interface CategoryDownloadCount {
   category: string;
   count: number;
   uniqueVisitors: number;
+}
+
+// Category C magazines download count (magazines grouped by Category C)
+export interface CategoryCDownloadCount {
+  categoryC: string;
+  magazines: MagazineDownloadCount[]; // Top magazines in this category
+  totalCount: number; // Total downloads for this category
+  totalUniqueVisitors: number; // Total unique visitors for this category
 }
 
 // Article-based download count

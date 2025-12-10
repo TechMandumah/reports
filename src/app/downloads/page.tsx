@@ -6,6 +6,7 @@ import { DownloadsOverview } from '@/downloads_service/components/DownloadsOverv
 import { DownloadsFiltersForm } from '@/downloads_service/components/DownloadsFiltersForm';
 import { DownloadsTabbedView } from '@/downloads_service/components/DownloadsTabbedView';
 import { t } from '@/downloads_service/utils/localization';
+import { DownloadsChart } from '@/downloads_service/components/DownloadsChart';
 
 export default function DownloadsPage() {
   const [stats, setStats] = useState<DownloadStats | null>(null);
@@ -142,7 +143,14 @@ export default function DownloadsPage() {
         {/* Overview Cards */}
         {stats && <DownloadsOverview stats={stats} loading={loading} />}
 
-        {/* Tabbed View - Magazines, Dissertations, Articles, Databases */}
+                {/* Date Chart */}
+        {stats && stats.downloadsByDate.length > 0 && (
+                   <div className="mb-8">
+            <DownloadsChart data={stats.downloadsByDate} loading={loading} />
+          </div>
+        )}
+
+        {/* Tabbed View - Magazines, Dissertations, Articles, Databases, Magazines by Category C */}
         {stats && (
           <div className="mb-8">
             <DownloadsTabbedView
@@ -150,6 +158,7 @@ export default function DownloadsPage() {
               dissertations={stats.downloadsByDissertation}
               articles={stats.topArticles}
               databases={stats.downloadsByDatabase}
+              magazinesByCategoryC={stats.downloadsByCategoryC}
               loading={loading}
             />
           </div>

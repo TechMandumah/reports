@@ -86,6 +86,7 @@ export const translations = {
     dissertationsTab: 'الرسائل العلمية',
     articlesTab: 'المقالات',
     databasesTab: 'قواعد البيانات',
+    magazinesByCategoryCTab: 'المجلات حسب التصنيف C',
     
     // Additional fields
     categoryC: 'التصنيف C',
@@ -174,6 +175,7 @@ export const translations = {
     dissertationsTab: 'Dissertations',
     articlesTab: 'Articles',
     databasesTab: 'Databases',
+    magazinesByCategoryCTab: 'Magazines by Category C',
     
     // Additional fields
     categoryC: 'Category C',

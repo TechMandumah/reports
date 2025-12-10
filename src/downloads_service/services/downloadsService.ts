@@ -10,6 +10,7 @@ import {
   MagazineDownloadCount,
   DatabaseDownloadCount,
   CategoryDownloadCount,
+  CategoryCDownloadCount,
   ArticleDownloadCount,
   DownloadsQueryResult,
 } from '../types/downloads';
@@ -503,6 +504,74 @@ export async function getDownloadStatistics(filters: DownloadsFilters): Promise<
     .sort((a, b) => b.count - a.count)
     .slice(0, 30); // Top 30 articles
 
+  // Group magazines by Category C (with multi-category support using |##| separator)
+  console.log('🔍 Grouping magazines by Category C...');
+  const categoryCMap = new Map<string, Map<string, { count: number; visitors: Set<number>; biblio?: BiblioDetails; vtigerData?: any }>>();
+  
+  // Process magazines (1-5999 only, exclude dissertations)
+  for (const [magazineNumber, data] of magazineMap.entries()) {
+    const vtiger = vtigerData.get(magazineNumber);
+    const categoryC = vtiger?.categoryC;
+    
+    if (!categoryC) {
+      console.log(`⚠️ Magazine ${magazineNumber} has no Category C`);
+      continue;
+    }
+    
+    // Split by |##| separator to handle multiple categories
+    const categories = categoryC.split('|##|').map(cat => cat.trim()).filter(cat => cat);
+    console.log(`📊 Magazine ${magazineNumber} (${vtiger?.magazineName}) belongs to categories:`, categories);
+    
+    for (const category of categories) {
+      if (!categoryCMap.has(category)) {
+        categoryCMap.set(category, new Map());
+      }
+      
+      const categoryMagazines = categoryCMap.get(category)!;
+      categoryMagazines.set(magazineNumber, {
+        count: data.count,
+        visitors: data.visitors,
+        biblio: data.biblio,
+        vtigerData: vtiger,
+      });
+    }
+  }
+  
+  console.log(`✅ Found ${categoryCMap.size} unique Category C values`);
+  
+  const downloadsByCategoryC: CategoryCDownloadCount[] = Array.from(categoryCMap.entries())
+    .map(([categoryC, magazines]) => {
+      const magazinesList: MagazineDownloadCount[] = Array.from(magazines.entries())
+        .map(([magazineNumber, data]) => ({
+          magazineNumber,
+          magazineTitle: data.biblio?.magazineTitle,
+          issn: data.biblio?.issn || data.vtigerData?.issn,
+          count: data.count,
+          uniqueVisitors: data.visitors.size,
+          vtigerName: data.vtigerData?.magazineName,
+          categoryC: data.vtigerData?.categoryC,
+          type: 'magazine' as const,
+        }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 20); // Top 20 magazines per category
+      
+      const totalCount = Array.from(magazines.values()).reduce((sum, data) => sum + data.count, 0);
+      const allVisitors = new Set<number>();
+      magazines.forEach(data => data.visitors.forEach(v => allVisitors.add(v)));
+      
+      console.log(`📊 Category "${categoryC}": ${magazinesList.length} magazines, ${totalCount} downloads`);
+      
+      return {
+        categoryC,
+        magazines: magazinesList,
+        totalCount,
+        totalUniqueVisitors: allVisitors.size,
+      };
+    })
+    .sort((a, b) => b.totalCount - a.totalCount); // Sort categories by total downloads
+  
+  console.log(`✅ Generated ${downloadsByCategoryC.length} Category C groups with top 20 magazines each`);
+
   return {
     totalDownloads,
     uniqueVisitors,
@@ -512,6 +581,7 @@ export async function getDownloadStatistics(filters: DownloadsFilters): Promise<
     downloadsByDissertation,
     downloadsByDatabase,
     downloadsByCategory,
+    downloadsByCategoryC,
     topArticles,
   };
 }

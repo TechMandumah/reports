@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { MagazineDownloadCount, DatabaseDownloadCount, ArticleDownloadCount } from '../types/downloads';
+import { MagazineDownloadCount, DatabaseDownloadCount, ArticleDownloadCount, CategoryCDownloadCount } from '../types/downloads';
 import { t } from '../utils/localization';
 
 interface DownloadsTabbedViewProps {
@@ -9,16 +9,18 @@ interface DownloadsTabbedViewProps {
   dissertations: MagazineDownloadCount[];
   articles: ArticleDownloadCount[];
   databases: DatabaseDownloadCount[];
+  magazinesByCategoryC: CategoryCDownloadCount[];
   loading?: boolean;
 }
 
-type TabType = 'magazines' | 'dissertations' | 'articles' | 'databases';
+type TabType = 'magazines' | 'dissertations' | 'articles' | 'databases' | 'magazinesByCategoryC';
 
 export const DownloadsTabbedView: React.FC<DownloadsTabbedViewProps> = ({
   magazines,
   dissertations,
   articles,
   databases,
+  magazinesByCategoryC,
   loading,
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('magazines');
@@ -28,6 +30,7 @@ export const DownloadsTabbedView: React.FC<DownloadsTabbedViewProps> = ({
     { id: 'dissertations' as TabType, label: t('dissertationsTab'), count: dissertations.length, icon: '🎓' },
     { id: 'articles' as TabType, label: t('articlesTab'), count: articles.length, icon: '📄' },
     { id: 'databases' as TabType, label: t('databasesTab'), count: databases.length, icon: '🗄️' },
+    { id: 'magazinesByCategoryC' as TabType, label: t('magazinesByCategoryCTab'), count: magazinesByCategoryC.length, icon: '📊' },
   ];
 
   if (loading) {
@@ -89,6 +92,9 @@ export const DownloadsTabbedView: React.FC<DownloadsTabbedViewProps> = ({
         )}
         {activeTab === 'databases' && (
           <DatabasesContent databases={databases} />
+        )}
+        {activeTab === 'magazinesByCategoryC' && (
+          <MagazinesByCategoryCContent magazinesByCategoryC={magazinesByCategoryC} />
         )}
       </div>
     </div>
@@ -291,6 +297,81 @@ const DatabasesContent: React.FC<{ databases: DatabaseDownloadCount[] }> = ({ da
             <p className="text-4xl font-bold text-blue-600">
               {db.count.toLocaleString('ar-EG')}
             </p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// Magazines by Category C Tab Content
+const MagazinesByCategoryCContent: React.FC<{ magazinesByCategoryC: CategoryCDownloadCount[] }> = ({ magazinesByCategoryC }) => {
+  if (magazinesByCategoryC.length === 0) {
+    return <p className="text-gray-500 text-center py-8">{t('noData')}</p>;
+  }
+
+  return (
+    <div className="space-y-8">
+      {magazinesByCategoryC.map((category, categoryIndex) => (
+        <div key={categoryIndex} className="bg-gradient-to-br from-white to-gray-50 rounded-xl border-2 border-gray-200 overflow-hidden shadow-lg">
+          {/* Category Header */}
+          <div className="bg-gradient-to-r from-[#C02025] to-red-700 text-white px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-2xl font-bold mb-1">{category.categoryC}</h3>
+                <p className="text-red-100 text-sm">
+                  {category.magazines.length} {t('magazine')} • {category.totalCount.toLocaleString('ar-EG')} {t('downloadCount')} • {category.totalUniqueVisitors.toLocaleString('ar-EG')} {t('uniqueVisitor')}
+                </p>
+              </div>
+              <div className="text-5xl">📊</div>
+            </div>
+          </div>
+
+          {/* Magazines Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-right">
+              <thead className="text-xs font-bold text-gray-700 uppercase bg-gradient-to-l from-gray-100 to-gray-50">
+                <tr>
+                  <th className="px-6 py-4">{t('rank')}</th>
+                  <th className="px-6 py-4">{t('magazineNumber')}</th>
+                  <th className="px-6 py-4">{t('magazineName')}</th>
+                  <th className="px-6 py-4">ISSN</th>
+                  <th className="px-6 py-4">{t('downloadCount')}</th>
+                  <th className="px-6 py-4">{t('uniqueVisitorsCol')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {category.magazines.map((mag, index) => (
+                  <tr key={index} className="bg-white border-b border-gray-100 hover:bg-gradient-to-l hover:from-red-50/30 hover:to-transparent transition-all duration-150">
+                    <td className="px-6 py-4 font-bold text-gray-900">
+                      <span className={`inline-flex items-center justify-center w-8 h-8 rounded-lg font-bold ${
+                        index === 0 ? 'bg-gradient-to-br from-amber-400 to-yellow-500 text-white' :
+                        index === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-400 text-white' :
+                        index === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-600 text-white' :
+                        'bg-gray-100 text-gray-600'
+                      }`}>
+                        {index + 1}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 font-bold text-gray-900">
+                      <span className="bg-red-100 text-[#C02025] px-3 py-1 rounded-lg">{mag.magazineNumber}</span>
+                    </td>
+                    <td className="px-6 py-4 text-gray-900 font-medium">
+                      {mag.vtigerName || mag.magazineTitle || t('notAvailable')}
+                    </td>
+                    <td className="px-6 py-4 text-gray-600">
+                      {mag.issn || '-'}
+                    </td>
+                    <td className="px-6 py-4 font-bold text-[#C02025]">
+                      {mag.count.toLocaleString('ar-EG')}
+                    </td>
+                    <td className="px-6 py-4 font-semibold text-emerald-600">
+                      {mag.uniqueVisitors.toLocaleString('ar-EG')}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       ))}

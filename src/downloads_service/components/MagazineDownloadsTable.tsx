@@ -56,7 +56,7 @@ export const MagazineDownloadsTable: React.FC<MagazineDownloadsTableProps> = ({
             <tr>
               <th className="px-6 py-4">{t('magazineNumberCol')}</th>
               <th className="px-6 py-4">{t('magazineName')}</th>
-              <th className="px-6 py-4">{t('issn')}</th>
+              <th className="px-6 py-4">{t('publisher')}</th>
               <th className="px-6 py-4">{t('downloadCount')}</th>
               <th className="px-6 py-4">{t('uniqueVisitorsCol')}</th>
             </tr>
@@ -71,7 +71,7 @@ export const MagazineDownloadsTable: React.FC<MagazineDownloadsTableProps> = ({
                   {mag.magazineTitle || t('notAvailable')}
                 </td>
                 <td className="px-6 py-4 text-gray-600">
-                  {mag.issn || '-'}
+                  {mag.publisher || '-'}
                 </td>
                 <td className="px-6 py-4 font-bold text-[#C02025]">
                   {mag.count.toLocaleString('ar-EG')}

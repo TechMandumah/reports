@@ -86,10 +86,13 @@ export const translations = {
     dissertationsTab: 'الرسائل العلمية',
     articlesTab: 'المقالات',
     databasesTab: 'قواعد البيانات',
+    publishersTab: 'الناشرون',
     magazinesByCategoryCTab: 'المجلات حسب التصنيف C',
     
     // Additional fields
     categoryC: 'التصنيف C',
+    publisher: 'الناشر',
+    magazineCount: 'عدد المجلات',
     dissertationNumber: 'رقم الرسالة',
     dissertationName: 'اسم الرسالة',
   },
@@ -175,10 +178,13 @@ export const translations = {
     dissertationsTab: 'Dissertations',
     articlesTab: 'Articles',
     databasesTab: 'Databases',
+    publishersTab: 'Publishers',
     magazinesByCategoryCTab: 'Magazines by Category C',
     
     // Additional fields
     categoryC: 'Category C',
+    publisher: 'Publisher',
+    magazineCount: 'Magazine Count',
     dissertationNumber: 'Dissertation Number',
     dissertationName: 'Dissertation Name',
   },

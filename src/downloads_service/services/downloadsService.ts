@@ -9,6 +9,7 @@ import {
   DateDownloadCount,
   MagazineDownloadCount,
   DatabaseDownloadCount,
+  PublisherDownloadCount,
   CategoryDownloadCount,
   CategoryCDownloadCount,
   ArticleDownloadCount,
@@ -498,7 +499,7 @@ export async function getDownloadStatistics(filters: DownloadsFilters): Promise<
       return {
         magazineNumber,
         magazineTitle: sampleBiblio?.magazineTitle,
-        issn: sampleBiblio?.issn || vtiger?.issn,
+        publisher: vtiger?.publisher,
         count: data.count,
         uniqueVisitors: data.visitors.size,
         vtigerName: vtiger?.magazineName,
@@ -521,7 +522,7 @@ export async function getDownloadStatistics(filters: DownloadsFilters): Promise<
       return {
         magazineNumber,
         magazineTitle: sampleBiblio?.magazineTitle,
-        issn: sampleBiblio?.issn || vtiger?.issn,
+        publisher: vtiger?.publisher,
         count: data.count,
         uniqueVisitors: data.visitors.size,
         vtigerName: vtiger?.magazineName,
@@ -625,7 +626,7 @@ export async function getDownloadStatistics(filters: DownloadsFilters): Promise<
           return {
             magazineNumber,
             magazineTitle: sampleBiblio?.magazineTitle,
-            issn: sampleBiblio?.issn || data.vtigerData?.issn,
+            publisher: data.vtigerData?.publisher,
             count: data.count,
             uniqueVisitors: data.visitors.size,
             vtigerName: data.vtigerData?.magazineName,
@@ -653,9 +654,69 @@ export async function getDownloadStatistics(filters: DownloadsFilters): Promise<
   
   console.log(`✅ Generated ${downloadsByCategoryC.length} Category C groups with top 20 magazines each`);
 
+  // Group magazines by Publisher
+  console.log('🏢 Grouping magazines by Publisher...');
+  const publisherMap = new Map<string, Map<string, { count: number; visitors: Set<number>; vtigerData?: any }>>();
+  
+  // Process magazines (1-5999 only, exclude dissertations)
+  for (const [magazineNumber, data] of magazineMap.entries()) {
+    const vtiger = vtigerData.get(magazineNumber);
+    const publisher = vtiger?.publisher || 'Unknown Publisher';
+    
+    if (!publisherMap.has(publisher)) {
+      publisherMap.set(publisher, new Map());
+    }
+    
+    const publisherMagazines = publisherMap.get(publisher)!;
+    publisherMagazines.set(magazineNumber, {
+      count: data.count,
+      visitors: data.visitors,
+      vtigerData: vtiger,
+    });
+  }
+  
+  console.log(`✅ Found ${publisherMap.size} unique publishers`);
+  
+  const downloadsByPublisher: PublisherDownloadCount[] = Array.from(publisherMap.entries())
+    .map(([publisher, magazines]) => {
+      const magazinesList: MagazineDownloadCount[] = Array.from(magazines.entries())
+        .map(([magazineNumber, data]) => {
+          // Get biblio details if available
+          const sampleBiblio = biblioMap.get(Array.from(data.visitors)[0]); // Approximate
+          return {
+            magazineNumber,
+            magazineTitle: sampleBiblio?.magazineTitle,
+            publisher: data.vtigerData?.publisher,
+            count: data.count,
+            uniqueVisitors: data.visitors.size,
+            vtigerName: data.vtigerData?.magazineName,
+            categoryC: data.vtigerData?.categoryC,
+            type: 'magazine' as const,
+          };
+        })
+        .sort((a, b) => b.count - a.count);
+      
+      const totalCount = Array.from(magazines.values()).reduce((sum, data) => sum + data.count, 0);
+      const allVisitors = new Set<number>();
+      magazines.forEach(data => data.visitors.forEach(v => allVisitors.add(v)));
+      
+      console.log(`🏢 Publisher "${publisher}": ${magazinesList.length} magazines, ${totalCount} downloads`);
+      
+      return {
+        publisher,
+        magazineCount: magazinesList.length,
+        totalDownloads: totalCount,
+        uniqueVisitors: allVisitors.size,
+        magazines: magazinesList,
+      };
+    })
+    .sort((a, b) => b.totalDownloads - a.totalDownloads); // Sort publishers by total downloads
+  
+  console.log(`✅ Generated ${downloadsByPublisher.length} publisher groups`);
+
   const totalTime = Date.now() - startTime;
   console.log(`🎉 Download statistics completed in ${(totalTime / 1000).toFixed(2)}s`);
-  console.log(`📊 Summary: ${totalDownloads} downloads, ${downloadsByMagazine.length} magazines, ${downloadsByDissertation.length} dissertations, ${topArticles.length} articles`);
+  console.log(`📊 Summary: ${totalDownloads} downloads, ${downloadsByMagazine.length} magazines, ${downloadsByDissertation.length} dissertations, ${topArticles.length} articles, ${downloadsByPublisher.length} publishers`);
 
   return {
     totalDownloads,
@@ -665,6 +726,7 @@ export async function getDownloadStatistics(filters: DownloadsFilters): Promise<
     downloadsByMagazine,
     downloadsByDissertation,
     downloadsByDatabase,
+    downloadsByPublisher,
     downloadsByCategory,
     downloadsByCategoryC,
     topArticles,

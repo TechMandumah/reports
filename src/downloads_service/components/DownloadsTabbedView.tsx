@@ -1,25 +1,25 @@
 'use client';
 
 import React, { useState } from 'react';
-import { MagazineDownloadCount, DatabaseDownloadCount, ArticleDownloadCount, CategoryCDownloadCount } from '../types/downloads';
+import { MagazineDownloadCount, DatabaseDownloadCount, PublisherDownloadCount, ArticleDownloadCount, CategoryCDownloadCount } from '../types/downloads';
 import { t } from '../utils/localization';
 
 interface DownloadsTabbedViewProps {
   magazines: MagazineDownloadCount[];
   dissertations: MagazineDownloadCount[];
   articles: ArticleDownloadCount[];
-  databases: DatabaseDownloadCount[];
+  publishers: PublisherDownloadCount[];
   magazinesByCategoryC: CategoryCDownloadCount[];
   loading?: boolean;
 }
 
-type TabType = 'magazines' | 'dissertations' | 'articles' | 'databases' | 'magazinesByCategoryC';
+type TabType = 'magazines' | 'dissertations' | 'articles' | 'publishers' | 'magazinesByCategoryC';
 
 export const DownloadsTabbedView: React.FC<DownloadsTabbedViewProps> = ({
   magazines,
   dissertations,
   articles,
-  databases,
+  publishers,
   magazinesByCategoryC,
   loading,
 }) => {
@@ -29,7 +29,7 @@ export const DownloadsTabbedView: React.FC<DownloadsTabbedViewProps> = ({
     { id: 'magazines' as TabType, label: t('magazinesTab'), count: magazines.length, icon: '📚' },
     { id: 'dissertations' as TabType, label: t('dissertationsTab'), count: dissertations.length, icon: '🎓' },
     { id: 'articles' as TabType, label: t('articlesTab'), count: articles.length, icon: '📄' },
-    { id: 'databases' as TabType, label: t('databasesTab'), count: databases.length, icon: '🗄️' },
+    { id: 'publishers' as TabType, label: t('publishersTab'), count: publishers.length, icon: '🏢' },
     { id: 'magazinesByCategoryC' as TabType, label: t('magazinesByCategoryCTab'), count: magazinesByCategoryC.length, icon: '📊' },
   ];
 
@@ -90,8 +90,8 @@ export const DownloadsTabbedView: React.FC<DownloadsTabbedViewProps> = ({
         {activeTab === 'articles' && (
           <ArticlesContent articles={articles} />
         )}
-        {activeTab === 'databases' && (
-          <DatabasesContent databases={databases} />
+        {activeTab === 'publishers' && (
+          <PublishersContent publishers={publishers} />
         )}
         {activeTab === 'magazinesByCategoryC' && (
           <MagazinesByCategoryCContent magazinesByCategoryC={magazinesByCategoryC} />
@@ -116,7 +116,7 @@ const MagazinesContent: React.FC<{ magazines: MagazineDownloadCount[] }> = ({ ma
             <th className="px-6 py-4">{t('magazineNumberCol')}</th>
             <th className="px-6 py-4">{t('magazineName')}</th>
             <th className="px-6 py-4">{t('categoryC')}</th>
-            <th className="px-6 py-4">{t('issn')}</th>
+            <th className="px-6 py-4">{t('publisher')}</th>
             <th className="px-6 py-4">{t('downloadCount')}</th>
             <th className="px-6 py-4">{t('uniqueVisitorsCol')}</th>
           </tr>
@@ -144,7 +144,7 @@ const MagazinesContent: React.FC<{ magazines: MagazineDownloadCount[] }> = ({ ma
                 {mag.categoryC || '-'}
               </td>
               <td className="px-6 py-4 text-gray-600">
-                {mag.issn || '-'}
+                {mag.publisher || '-'}
               </td>
               <td className="px-6 py-4 font-bold text-[#C02025]">
                 {mag.count.toLocaleString('ar-EG')}
@@ -304,6 +304,81 @@ const DatabasesContent: React.FC<{ databases: DatabaseDownloadCount[] }> = ({ da
   );
 };
 
+// Publishers Tab Content
+const PublishersContent: React.FC<{ publishers: PublisherDownloadCount[] }> = ({ publishers }) => {
+  if (publishers.length === 0) {
+    return <p className="text-gray-500 text-center py-8">{t('noData')}</p>;
+  }
+
+  return (
+    <div className="space-y-8">
+      {publishers.map((publisher, publisherIndex) => (
+        <div key={publisherIndex} className="bg-gradient-to-br from-white to-gray-50 rounded-xl border-2 border-gray-200 overflow-hidden shadow-lg">
+          {/* Publisher Header */}
+          <div className="bg-gradient-to-r from-[#C02025] to-red-700 text-white px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-2xl font-bold mb-1">{publisher.publisher}</h3>
+                <p className="text-red-100 text-sm">
+                  {publisher.magazineCount} {t('magazine')} • {publisher.totalDownloads.toLocaleString('ar-EG')} {t('downloadCount')} • {publisher.uniqueVisitors.toLocaleString('ar-EG')} {t('uniqueVisitor')}
+                </p>
+              </div>
+              <div className="text-5xl">🏢</div>
+            </div>
+          </div>
+
+          {/* Magazines Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-right">
+              <thead className="text-xs font-bold text-gray-700 uppercase bg-gradient-to-l from-gray-100 to-gray-50">
+                <tr>
+                  <th className="px-6 py-4">{t('rank')}</th>
+                  <th className="px-6 py-4">{t('magazineNumber')}</th>
+                  <th className="px-6 py-4">{t('magazineName')}</th>
+                  <th className="px-6 py-4">{t('categoryC')}</th>
+                  <th className="px-6 py-4">{t('downloadCount')}</th>
+                  <th className="px-6 py-4">{t('uniqueVisitorsCol')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {publisher.magazines.map((mag, index) => (
+                  <tr key={index} className="bg-white border-b border-gray-100 hover:bg-gradient-to-l hover:from-red-50/30 hover:to-transparent transition-all duration-150">
+                    <td className="px-6 py-4 font-bold text-gray-900">
+                      <span className={`inline-flex items-center justify-center w-8 h-8 rounded-lg font-bold ${
+                        index === 0 ? 'bg-gradient-to-br from-amber-400 to-yellow-500 text-white' :
+                        index === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-400 text-white' :
+                        index === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-600 text-white' :
+                        'bg-gray-100 text-gray-600'
+                      }`}>
+                        {index + 1}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 font-bold text-gray-900">
+                      <span className="bg-red-100 text-[#C02025] px-3 py-1 rounded-lg">{mag.magazineNumber}</span>
+                    </td>
+                    <td className="px-6 py-4 text-gray-900 font-medium">
+                      {mag.vtigerName || mag.magazineTitle || t('notAvailable')}
+                    </td>
+                    <td className="px-6 py-4 text-gray-600">
+                      {mag.categoryC || '-'}
+                    </td>
+                    <td className="px-6 py-4 font-bold text-[#C02025]">
+                      {mag.count.toLocaleString('ar-EG')}
+                    </td>
+                    <td className="px-6 py-4 font-semibold text-emerald-600">
+                      {mag.uniqueVisitors.toLocaleString('ar-EG')}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 // Magazines by Category C Tab Content
 const MagazinesByCategoryCContent: React.FC<{ magazinesByCategoryC: CategoryCDownloadCount[] }> = ({ magazinesByCategoryC }) => {
   if (magazinesByCategoryC.length === 0) {
@@ -335,7 +410,7 @@ const MagazinesByCategoryCContent: React.FC<{ magazinesByCategoryC: CategoryCDow
                   <th className="px-6 py-4">{t('rank')}</th>
                   <th className="px-6 py-4">{t('magazineNumber')}</th>
                   <th className="px-6 py-4">{t('magazineName')}</th>
-                  <th className="px-6 py-4">ISSN</th>
+                  <th className="px-6 py-4">{t('publisher')}</th>
                   <th className="px-6 py-4">{t('downloadCount')}</th>
                   <th className="px-6 py-4">{t('uniqueVisitorsCol')}</th>
                 </tr>
@@ -360,7 +435,7 @@ const MagazinesByCategoryCContent: React.FC<{ magazinesByCategoryC: CategoryCDow
                       {mag.vtigerName || mag.magazineTitle || t('notAvailable')}
                     </td>
                     <td className="px-6 py-4 text-gray-600">
-                      {mag.issn || '-'}
+                      {mag.publisher || '-'}
                     </td>
                     <td className="px-6 py-4 font-bold text-[#C02025]">
                       {mag.count.toLocaleString('ar-EG')}

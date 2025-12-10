@@ -36,7 +36,7 @@ export async function testVtigerConnection(): Promise<boolean> {
 export async function getMagazineFromVtiger(magazineNumber: string): Promise<{
   magazineName?: string;
   categoryC?: string;
-  issn?: string;
+  publisher?: string;
 } | null> {
   try {
     const numericMagazineNumber = parseInt(magazineNumber);
@@ -46,7 +46,7 @@ export async function getMagazineFromVtiger(magazineNumber: string): Promise<{
       SELECT 
         a.accountname AS magazineName,
         cf.cf_939 AS categoryC,
-        cf.cf_709 AS issn
+        cf.cf_703 AS publisher
       FROM vtiger_account a
       LEFT JOIN vtiger_accountscf cf ON a.accountid = cf.accountid
       WHERE CAST(a.employees AS UNSIGNED) = ?
@@ -61,7 +61,7 @@ export async function getMagazineFromVtiger(magazineNumber: string): Promise<{
       return {
         magazineName: results[0].magazineName,
         categoryC: results[0].categoryC,
-        issn: results[0].issn,
+        publisher: results[0].publisher,
       };
     }
     
@@ -79,9 +79,9 @@ export async function getMagazineFromVtiger(magazineNumber: string): Promise<{
 export async function getMagazinesFromVtiger(magazineNumbers: string[]): Promise<Map<string, {
   magazineName?: string;
   categoryC?: string;
-  issn?: string;
+  publisher?: string;
 }>> {
-  const magazineMap = new Map<string, { magazineName?: string; categoryC?: string; issn?: string }>();
+  const magazineMap = new Map<string, { magazineName?: string; categoryC?: string; publisher?: string }>();
   
   console.log(`🔍 Fetching ${magazineNumbers.length} magazines from vtiger...`);
   console.log(`📋 Magazine numbers requested:`, magazineNumbers.slice(0, 10), magazineNumbers.length > 10 ? `... and ${magazineNumbers.length - 10} more` : '');
@@ -124,7 +124,7 @@ export async function getMagazinesFromVtiger(magazineNumbers: string[]): Promise
           a.employees AS magazineNumber,
           a.accountname AS magazineName,
           cf.cf_939 AS categoryC,
-          cf.cf_709 AS issn
+          cf.cf_703 AS publisher
         FROM vtiger_account a
         LEFT JOIN vtiger_accountscf cf ON a.accountid = cf.accountid
         WHERE CAST(a.employees AS UNSIGNED) IN (${placeholders})
@@ -140,7 +140,7 @@ export async function getMagazinesFromVtiger(magazineNumbers: string[]): Promise
           magazineMap.set(magNum, {
             magazineName: row.magazineName,
             categoryC: row.categoryC,
-            issn: row.issn,
+            publisher: row.publisher,
           });
         }
       }

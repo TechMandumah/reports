@@ -150,14 +150,14 @@ export default function DownloadsPage() {
           </div>
         )}
 
-        {/* Tabbed View - Magazines, Dissertations, Articles, Databases, Magazines by Category C */}
+        {/* Tabbed View - Magazines, Dissertations, Articles, Publishers, Magazines by Category C */}
         {stats && (
           <div className="mb-8">
             <DownloadsTabbedView
               magazines={stats.downloadsByMagazine}
               dissertations={stats.downloadsByDissertation}
               articles={stats.topArticles}
-              databases={stats.downloadsByDatabase}
+              publishers={stats.downloadsByPublisher}
               magazinesByCategoryC={stats.downloadsByCategoryC}
               loading={loading}
             />

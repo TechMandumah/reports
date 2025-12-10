@@ -77,6 +77,7 @@ export interface DownloadStats {
   downloadsByMagazine: MagazineDownloadCount[]; // Magazines (0000-5999)
   downloadsByDissertation: MagazineDownloadCount[]; // Dissertations (6000-9999)
   downloadsByDatabase: DatabaseDownloadCount[];
+  downloadsByPublisher: PublisherDownloadCount[]; // Magazines grouped by publisher
   downloadsByCategory: CategoryDownloadCount[];
   downloadsByCategoryC: CategoryCDownloadCount[]; // Magazines grouped by Category C
   topArticles: ArticleDownloadCount[];
@@ -96,7 +97,7 @@ export interface DateDownloadCount {
 export interface MagazineDownloadCount {
   magazineNumber: string;
   magazineTitle?: string;
-  issn?: string;
+  publisher?: string; // Publisher from vtiger (cf_703)
   count: number;
   uniqueVisitors: number;
   vtigerName?: string; // Magazine name from vtiger
@@ -109,6 +110,15 @@ export interface DatabaseDownloadCount {
   database: string;
   count: number;
   uniqueVisitors: number;
+}
+
+// Publisher-based download count
+export interface PublisherDownloadCount {
+  publisher: string;
+  magazineCount: number; // Number of magazines under this publisher
+  totalDownloads: number; // Total downloads across all magazines
+  uniqueVisitors: number;
+  magazines: MagazineDownloadCount[]; // Top magazines from this publisher
 }
 
 // Category-based download count

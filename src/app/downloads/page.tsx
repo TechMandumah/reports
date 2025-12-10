@@ -4,10 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { DownloadsFilters, DownloadStats } from '@/downloads_service/types/downloads';
 import { DownloadsOverview } from '@/downloads_service/components/DownloadsOverview';
 import { DownloadsFiltersForm } from '@/downloads_service/components/DownloadsFiltersForm';
-import { MagazineDownloadsTable } from '@/downloads_service/components/MagazineDownloadsTable';
-import { TopArticlesTable } from '@/downloads_service/components/TopArticlesTable';
-import { DownloadsByGroup } from '@/downloads_service/components/DownloadsByGroup';
-import { DownloadsChart } from '@/downloads_service/components/DownloadsChart';
+import { DownloadsTabbedView } from '@/downloads_service/components/DownloadsTabbedView';
 import { t } from '@/downloads_service/utils/localization';
 
 export default function DownloadsPage() {
@@ -145,33 +142,14 @@ export default function DownloadsPage() {
         {/* Overview Cards */}
         {stats && <DownloadsOverview stats={stats} loading={loading} />}
 
-        {/* Date Chart - Hidden */}
-        {/* {stats && stats.downloadsByDate.length > 0 && (
+        {/* Tabbed View - Magazines, Dissertations, Articles, Databases */}
+        {stats && (
           <div className="mb-8">
-            <DownloadsChart data={stats.downloadsByDate} loading={loading} />
-          </div>
-        )} */}
-
-        {/* Magazines Table */}
-        {stats && stats.downloadsByMagazine.length > 0 && (
-          <div className="mb-8">
-            <MagazineDownloadsTable magazines={stats.downloadsByMagazine} loading={loading} />
-          </div>
-        )}
-
-        {/* Top Articles Table */}
-        {stats && stats.topArticles.length > 0 && (
-          <div className="mb-8">
-            <TopArticlesTable articles={stats.topArticles} loading={loading} limit={20} />
-          </div>
-        )}
-
-        {/* Database and Category Groups */}
-        {stats && (stats.downloadsByDatabase.length > 0 || stats.downloadsByCategory.length > 0) && (
-          <div className="mb-8">
-            <DownloadsByGroup
+            <DownloadsTabbedView
+              magazines={stats.downloadsByMagazine}
+              dissertations={stats.downloadsByDissertation}
+              articles={stats.topArticles}
               databases={stats.downloadsByDatabase}
-              categories={stats.downloadsByCategory}
               loading={loading}
             />
           </div>

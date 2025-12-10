@@ -74,7 +74,8 @@ export interface DownloadStats {
   uniqueVisitors: number;
   uniqueSessions: number;
   downloadsByDate: DateDownloadCount[];
-  downloadsByMagazine: MagazineDownloadCount[];
+  downloadsByMagazine: MagazineDownloadCount[]; // Magazines (0000-5999)
+  downloadsByDissertation: MagazineDownloadCount[]; // Dissertations (6000-9999)
   downloadsByDatabase: DatabaseDownloadCount[];
   downloadsByCategory: CategoryDownloadCount[];
   topArticles: ArticleDownloadCount[];
@@ -97,6 +98,9 @@ export interface MagazineDownloadCount {
   issn?: string;
   count: number;
   uniqueVisitors: number;
+  vtigerName?: string; // Magazine name from vtiger
+  categoryC?: string; // Category C from vtiger (cf_939)
+  type?: 'magazine' | 'dissertation'; // Type based on number range
 }
 
 // Database-based download count

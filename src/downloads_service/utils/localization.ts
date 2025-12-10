@@ -80,6 +80,17 @@ export const translations = {
     selectDateRange: 'اختر نطاق التاريخ',
     selectDateRangeDescription: 'الرجاء اختيار تاريخ البداية والنهاية للبحث عن إحصائيات التحميلات',
     dateRangeRequired: 'يجب تحديد تاريخ البداية والنهاية',
+    
+    // Tabs
+    magazinesTab: 'المجلات',
+    dissertationsTab: 'الرسائل العلمية',
+    articlesTab: 'المقالات',
+    databasesTab: 'قواعد البيانات',
+    
+    // Additional fields
+    categoryC: 'التصنيف C',
+    dissertationNumber: 'رقم الرسالة',
+    dissertationName: 'اسم الرسالة',
   },
   en: {
     // Page titles and headers
@@ -152,11 +163,22 @@ export const translations = {
     errorLoadingStats: 'Error loading statistics',
     
     // Empty state
-    noDataAvailable: 'No Data Available',
+    noDataAvailable: 'No data available',
     useFiltersToSearch: 'Use the filters above to search for download statistics',
     selectDateRange: 'Select Date Range',
     selectDateRangeDescription: 'Please select start and end dates to search for download statistics',
-    dateRangeRequired: 'Start date and end date are required',
+    dateRangeRequired: 'Start and end dates are required',
+    
+    // Tabs
+    magazinesTab: 'Magazines',
+    dissertationsTab: 'Dissertations',
+    articlesTab: 'Articles',
+    databasesTab: 'Databases',
+    
+    // Additional fields
+    categoryC: 'Category C',
+    dissertationNumber: 'Dissertation Number',
+    dissertationName: 'Dissertation Name',
   },
 };
 
